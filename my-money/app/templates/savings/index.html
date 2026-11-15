@@ -1,0 +1,15 @@
+{% extends "shell_group.html" %}
+{% from "partials/macros.html" import stat, empty, pager %}
+{% from "savings/_rows.html" import rows %}
+{% block title %}Savings{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Savings</h1><p>Member contributions</p></div><a class="btn btn-primary" href="{{ url_for('savings.new') }}"><i data-lucide="plus"></i>Record contribution</a></div>
+<div class="grid g4 mb2">{{ stat('This month', money(month), 'calendar') }}{{ stat('This year', money(year), 'piggy-bank', 'green') }}{{ stat('Members contributed', contributed ~ ' / ' ~ total_members, 'users') }}{{ stat('Missed (expected vs actual)', money(missed), 'alert-triangle', 'amber') }}</div>
+<div class="card">
+<div class="card-head"><form class="filters" method="get" style="width:100%"><div class="search"><i data-lucide="search"></i><input type="search" name="q" value="{{ q }}" placeholder="Search member, receipt or reference"></div>
+<select name="member"><option value="">All members</option>{% for m in members %}<option value="{{ m.id }}" {{ 'selected' if member_id == m.id }}>{{ m.user.full_name }}</option>{% endfor %}</select>
+<select name="category"><option value="">All types</option>{% for k, v in categories.items() %}<option value="{{ k }}" {{ 'selected' if category == k }}>{{ v }}</option>{% endfor %}</select><button class="btn">Filter</button></form></div>
+{% if page.items %}<div class="table-wrap"><table class="table"><thead><tr><th>Date</th><th>Member</th><th>Type</th><th class="num">Amount</th><th>Method</th><th>Receipt</th><th></th></tr></thead><tbody>{{ rows(page.items, reversed_ids, categories) }}</tbody></table></div>{{ pager(page) }}
+{% else %}{{ empty('piggy-bank', 'No contributions found', 'Recorded contributions appear here.') }}{% endif %}
+</div>
+{% endblock %}

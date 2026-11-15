@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import csrf, group_mark %}
+{% block title %}Join {{ group.name }}{% endblock %}
+{% block body %}
+<div class="auth-wrap photo" style="--photo:url('{{ url_for('static', filename='img/world-coins.jpg') }}')"><div class="auth-card">
+<div class="auth-brand"><span class="logo">{{ group_mark(group, 'mini-logo') }}</span><h1>Join {{ group.name }}</h1><p class="muted">Your application will be reviewed by the group officials.</p></div>
+<form method="post">{{ csrf() }}
+{% if current_user.is_authenticated %}
+  {% if existing %}<div class="alert info">You have already joined or applied to this group.</div>{% else %}<p>Applying as <b>{{ current_user.full_name }}</b>.</p><button class="btn btn-primary btn-lg" style="width:100%">Apply to join</button>{% endif %}
+{% else %}
+  <div class="field"><label>Full name</label><input type="text" name="full_name" required></div>
+  <div class="field"><label>Phone number</label><input type="tel" name="phone" required></div>
+  <div class="field"><label>Email (optional)</label><input type="email" name="email"></div>
+  <div class="field"><label>Password</label><input type="password" name="password" required minlength="8"></div>
+  <div class="field"><label>Confirm password</label><input type="password" name="confirm_password" required></div>
+  <button class="btn btn-primary btn-lg" style="width:100%">Create account &amp; apply</button>
+  <p class="center small mt2">Already have an account? <a href="{{ url_for('auth.login', next=request.path) }}">Sign in</a></p>
+{% endif %}</form>
+<div class="auth-foot">Developed and Powered by Emtrixz Technology Company.</div></div></div>
+{% endblock %}

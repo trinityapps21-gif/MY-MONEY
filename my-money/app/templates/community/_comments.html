@@ -1,0 +1,2 @@
+{% for c in comments.items %}{% include "community/_comment.html" %}{% else %}{% if comments.page == 1 %}<div class="muted small no-comments">No comments yet. Start the conversation.</div>{% endif %}{% endfor %}
+{% if comments.has_next %}<button class="btn btn-sm btn-ghost" data-act="more-comments" data-next="{{ comments.next_num }}">View more comments</button>{% endif %}

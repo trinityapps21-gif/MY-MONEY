@@ -1,0 +1,7 @@
+{% extends "base.html" %}{% from "partials/macros.html" import group_mark, csrf %}
+{% block title %}My groups{% endblock %}
+{% block body %}<div class="auth-wrap"><div class="auth-card wide"><div class="flex between items-center mb2"><h2>Select a group</h2><form method="post" action="{{ url_for('auth.logout') }}">{{ csrf() }}<button class="btn btn-sm">Logout</button></form></div>
+{% for m in memberships %}<a class="card card-pad flex items-center gap2 mb2" style="text-decoration:none" href="{{ url_for('groups.dashboard', group_id=m.group_id) }}">{{ group_mark(m.group) }}<div class="grow"><b>{{ m.group.name }}</b><div class="muted small">{{ ROLE_LABELS.get(m.role, m.role) }}</div></div><i data-lucide="chevron-right"></i></a>{% endfor %}
+{% for m in pending %}<div class="card card-pad mb2 flex between"><span>{{ m.group.name }}</span><span class="pill amber">Awaiting approval</span></div>{% endfor %}
+{% if not memberships and not pending %}<p class="muted">You are not a member of any group yet. Ask a group administrator for an invitation link, or create your own group.</p>{% endif %}
+<a class="btn btn-primary" href="{{ url_for('groups.new') }}">Create a group</a></div></div>{% endblock %}

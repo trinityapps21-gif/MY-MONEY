@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import brand_mark %}
+{% block title %}Smart Savings & Lending{% endblock %}
+{% block body %}
+{% include "public/_nav.html" %}
+<section class="hero"><div class="in"><div>
+<h1>MY MONEY</h1><div class="tag">Smart Savings, Trusted Lending, Transparent Finance for every group.</div>
+<p class="desc">Run savings groups and lending with a secure ledger, clear reports, receipts and a community feed — all in one place.</p>
+<div class="flex gap1 wrap mt2"><a class="btn btn-lg btn-accent" href="{{ url_for('auth.register') }}">Register Your Group</a><a class="btn btn-lg" href="{{ url_for('auth.login') }}">Login</a></div></div>
+<div class="hero-photo"><img src="{{ url_for('static', filename='img/world-coins.jpg') }}" alt="World map over stacks of coins" width="736" height="1308" fetchpriority="high"><div class="hero-chip a"><i data-lucide="shield-check"></i>Secure ledger</div><div class="hero-chip b"><i data-lucide="trending-up"></i>Live reports</div></div></div></section>
+<div class="feature-strip"><div class="in">
+{% for i,t in [('shield-check','Secure & Private'),('users','Group Savings'),('hand-coins','Smart Lending'),('bar-chart-3','Clear Reports'),('messages-square','Community Feed')] %}<div class="fs-item"><i data-lucide="{{ i }}"></i>{{ t }}</div>{% endfor %}</div></div>
+<section class="section" id="features"><h2>Everything your group needs</h2><p class="lead">Built for savings groups, SACCOs and community lenders.</p>
+<div class="grid g3">{% for i,t,d in [('piggy-bank','Contributions','Record member savings with receipts and full history.'),('hand-coins','Loans','Flat or reducing-balance interest, approvals and repayment schedules.'),('book-open','Ledger','Append-only ledger that always reconciles with your dashboard.'),('megaphone','Announcements','Pin important notices for every member.'),('messages-square','Community','A social feed for posts, photos, comments and likes.'),('file-text','Reports','PDF, Excel and CSV exports for every report.')] %}
+<div class="card feat-card"><div class="ico-box"><i data-lucide="{{ i }}"></i></div><h3>{{ t }}</h3><p>{{ d }}</p></div>{% endfor %}</div></section>
+<section class="section" style="padding-bottom:20px"><h2>See your group's money clearly</h2><p class="lead">From savings to loans to reports, everything is tracked in one transparent place.</p>
+<div class="photo-grid">
+<div class="photo-card"><img src="{{ url_for('static', filename='img/world-coins.jpg') }}" alt="" loading="lazy"><div><h3>Group savings</h3><p>Record every contribution and watch your group's savings grow.</p></div></div>
+<div class="photo-card"><img src="{{ url_for('static', filename='img/analytics.jpg') }}" alt="" loading="lazy"><div><h3>Clear reports</h3><p>Inspect every shilling with PDF, Excel and CSV reports.</p></div></div>
+<div class="photo-card"><img src="{{ url_for('static', filename='img/growth.jpg') }}" alt="" loading="lazy"><div><h3>Smart lending</h3><p>Track loans, interest and repayments with confidence.</p></div></div></div></section>
+<section class="band photo-band"><div class="section"><h2>Ready to start?</h2><p class="lead">Create your group in minutes.</p><a class="btn btn-lg btn-accent" href="{{ url_for('auth.register') }}">Register Your Group</a></div></section>
+{% include "public/_foot.html" %}
+{% endblock %}

@@ -1,0 +1,10 @@
+{% extends "shell_group.html" %}
+{% from "partials/macros.html" import pager, empty %}
+{% block title %}Moderation log{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Moderation log</h1><p>Every moderation action is recorded.</p></div><a class="btn" href="{{ url_for('community.reports') }}">Reports</a></div>
+<div class="card"><div class="table-wrap"><table class="table"><thead><tr><th>When</th><th>Moderator</th><th>Action</th><th>Target</th><th>Reason</th></tr></thead><tbody>
+{% for l in page.items %}<tr><td class="nowrap">{{ l.created_at|ldt }}</td><td>{{ l.moderator.full_name }}</td><td><span class="pill">{{ l.action }}</span></td><td>{{ l.target_type }} #{{ l.target_id }}</td><td>{{ l.reason or '' }}</td></tr>
+{% else %}<tr><td colspan="5">{% call empty('shield-check', 'No moderation actions yet') %}{% endcall %}</td></tr>{% endfor %}</tbody></table></div></div>
+{{ pager(page) }}
+{% endblock %}

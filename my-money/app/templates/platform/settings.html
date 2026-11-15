@@ -1,0 +1,16 @@
+{% extends "shell_platform.html" %}
+{% from "partials/macros.html" import csrf, pill %}
+{% block title %}Platform settings{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Platform settings</h1></div>
+<div class="grid g2"><form class="card card-pad" method="post">{{ csrf() }}
+<div class="field"><label>Platform name</label><input type="text" name="platform_name" value="{{ get('platform_name', 'MY MONEY') }}" required></div>
+<div class="field"><label>Default currency</label><select name="default_currency">{% for c in currencies %}<option {{ 'selected' if get('default_currency', 'UGX') == c }}>{{ c }}</option>{% endfor %}</select></div>
+<div class="field"><label>Contact email</label><input type="email" name="contact_email" value="{{ get('contact_email', '') }}"></div>
+<div class="check"><input type="checkbox" id="m" name="maintenance_mode" value="1" {{ 'checked' if get('maintenance_mode', '0') == '1' }}><label for="m">Maintenance mode (blocks everyone except platform admins)</label></div>
+<div class="check"><input type="checkbox" id="a" name="allow_group_registration" value="1" {{ 'checked' if get('allow_group_registration', '1') == '1' }}><label for="a">Allow new group registration</label></div>
+<button class="btn btn-primary mt1">Save settings</button></form>
+<div class="card card-pad"><h2>Media storage</h2><p class="muted small">Provider status only. Secrets are never shown.</p>
+<div class="list-row"><div class="grow">Uploadcare (images)</div>{{ pill('Configured' if storage.uploadcare else 'Not configured', 'green' if storage.uploadcare else 'amber') }}</div>
+<div class="list-row"><div class="grow">ImageKit (documents)</div>{{ pill('Configured' if storage.imagekit else 'Not configured', 'green' if storage.imagekit else 'amber') }}</div></div></div>
+{% endblock %}

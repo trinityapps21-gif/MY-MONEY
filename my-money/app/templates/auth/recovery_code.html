@@ -1,0 +1,12 @@
+{% extends "base.html" %}{% from "partials/macros.html" import csrf %}
+{% block title %}Your recovery code{% endblock %}
+{% block body %}<div class="auth-wrap photo" style="--photo:url('{{ url_for('static', filename='img/growth.jpg') }}')"><div class="auth-card">{% include "auth/_brand.html" %}
+<h2 class="center">{{ 'Your new recovery code' if replacing else 'Save your recovery code' }}</h2>
+<p class="muted center mt1">If you ever forget your password, this code lets you reset it yourself. It is shown <b>only once</b>.</p>
+<div style="background:#F3F5F8;border:1px dashed #8A93A5;border-radius:10px;padding:18px;text-align:center;font:700 20px/1.3 ui-monospace,Menlo,Consolas,monospace;letter-spacing:.06em;color:#101C36;word-break:break-all;margin:16px 0" id="rc">{{ code }}</div>
+<div class="flex gap1 wrap" style="justify-content:center"><a class="btn btn-primary" href="{{ url_for('auth.recovery_code_download') }}"><i data-lucide="download"></i>Download (.txt)</a><button class="btn" type="button" data-copy="{{ code }}"><i data-lucide="copy"></i>Copy</button></div>
+<div class="alert warn mt2">Keep it private, like a password. Anyone with this code and your phone or email can reset your password. Each code works once.</div>
+<form method="post" action="{{ url_for('auth.recovery_code_confirm') }}">{{ csrf() }}
+<div class="check"><input type="checkbox" name="saved" id="sv" required><label for="sv">I have saved my recovery code</label></div>
+<button class="btn btn-primary btn-lg" style="width:100%" type="submit">Continue</button></form>
+{% include "auth/_foot.html" %}</div></div>{% endblock %}

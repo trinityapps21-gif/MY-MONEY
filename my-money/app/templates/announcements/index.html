@@ -1,0 +1,17 @@
+{% extends "shell_group.html" %}
+{% from "partials/macros.html" import pager, empty, action_form %}
+{% block title %}Announcements{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Group Feed</h1><p>Official announcements from your group leaders.</p></div>
+  {% if is_official %}<div class="flex gap1"><a class="btn" href="{{ url_for('announcements.history') }}">History</a><a class="btn" href="{{ url_for('announcements.index', drafts=0 if drafts else 1) }}">{{ 'Published' if drafts else 'Drafts / scheduled' }}</a><a class="btn btn-primary" href="{{ url_for('announcements.new') }}"><i data-lucide="plus"></i>New announcement</a></div>{% endif %}</div>
+<div class="tabs"><a href="{{ url_for('feed.index') }}"><i data-lucide="activity"></i>Financial Activity</a><a href="{{ url_for('community.index') }}"><i data-lucide="messages-square"></i>Community</a><a class="on" href="{{ url_for('announcements.index') }}"><i data-lucide="megaphone"></i>Announcements</a></div>
+{% for a in page.items %}
+<div class="card card-pad mb2"><div class="flex between gap2 wrap"><div class="grow"><h3>{% if a.is_pinned %}<i data-lucide="pin"></i> {% endif %}{{ a.title }}</h3><div class="muted small">{{ a.author.full_name }} &middot; {{ a.publish_date|ldt }}{% if not a.is_published %} &middot; <span class="pill amber">Not yet published</span>{% endif %}</div></div>
+  {% if is_official %}<div class="flex gap1 wrap"><a class="btn btn-sm" href="{{ url_for('announcements.edit', ann_id=a.id) }}">Edit</a>
+    <form method="post" action="{{ url_for('announcements.pin', ann_id=a.id) }}" style="display:inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="pin" value="{{ 0 if a.is_pinned else 1 }}"><button class="btn btn-sm">{{ 'Unpin' if a.is_pinned else 'Pin' }}</button></form>
+    {{ action_form(url_for('announcements.remove', ann_id=a.id), 'Remove', 'Remove this announcement? A record is kept in history.', danger=true, cls='btn btn-sm btn-danger') }}</div>{% endif %}</div>
+  <p class="mt1" style="white-space:pre-wrap">{{ a.content }}</p>
+  {% if a.attachment_file_id %}<a class="doc" href="{{ url_for('files.serve', file_id=a.attachment_file_id) }}" target="_blank" rel="noopener"><i data-lucide="paperclip"></i><span>{{ a.attachment.filename }}</span></a>{% endif %}</div>
+{% else %}<div class="card">{% call empty('megaphone', 'No announcements', 'Announcements from group leaders will appear here.') %}{% endcall %}</div>{% endfor %}
+{{ pager(page) }}
+{% endblock %}

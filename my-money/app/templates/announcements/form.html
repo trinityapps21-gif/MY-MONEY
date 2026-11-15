@@ -1,0 +1,15 @@
+{% extends "shell_group.html" %}
+{% from "partials/macros.html" import csrf %}
+{% block title %}{{ 'Edit' if a else 'New' }} announcement{% endblock %}
+{% block content %}
+<div class="page-head"><h1>{{ 'Edit' if a else 'New' }} announcement</h1></div>
+<form method="post" enctype="multipart/form-data" class="card card-pad" style="max-width:720px">{{ csrf() }}
+  <div class="field"><label>Title</label><input type="text" name="title" required maxlength="160" value="{{ request.form.get('title', a.title if a else '') }}"></div>
+  <div class="field"><label>Content</label><textarea name="content" rows="8" required>{{ request.form.get('content', a.content if a else '') }}</textarea></div>
+  <div class="form-grid"><div class="field"><label>Publish date (optional, future = scheduled)</label><input type="date" name="publish_date" value="{{ a.publish_date.strftime('%Y-%m-%d') if a else '' }}"></div>
+    <div class="field"><label>Status</label><select name="is_published"><option value="1" {{ 'selected' if not a or a.is_published }}>Published</option><option value="0" {{ 'selected' if a and not a.is_published }}>Draft</option></select></div></div>
+  <div class="check"><input type="checkbox" id="pin" name="is_pinned" value="1" {{ 'checked' if a and a.is_pinned }}><label for="pin">Pin to top</label></div>
+  <div class="field"><label>Attachment (image or document, max 5 MB)</label><input type="file" name="attachment">{% if a and a.attachment_file_id %}<div class="hint">Current: {{ a.attachment.filename }}</div><div class="check mt1"><input type="checkbox" id="rm" name="remove_attachment" value="1"><label for="rm">Remove current attachment</label></div>{% endif %}</div>
+  <div class="flex gap1"><button class="btn btn-primary">Save</button><a class="btn" href="{{ url_for('announcements.index') }}">Cancel</a></div>
+</form>
+{% endblock %}

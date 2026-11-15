@@ -1,0 +1,31 @@
+{% extends "shell_group.html" %}
+{% from "partials/macros.html" import avatar, empty %}
+{% block title %}Community{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Group Feed</h1><p>Community Social Feed - private to {{ current_group.name }}.</p></div>
+  <div class="flex gap1 wrap">{% if is_official %}<a class="btn" href="{{ url_for('community.reports') }}"><i data-lucide="flag"></i>Reports{% if open_reports %} <span class="badge-dot">{{ open_reports }}</span>{% endif %}</a><a class="btn" href="{{ url_for('community.moderation_log') }}"><i data-lucide="shield-check"></i>Moderation log</a>{% endif %}</div></div>
+<div class="tabs"><a href="{{ url_for('feed.index') }}"><i data-lucide="activity"></i>Financial Activity</a><a class="on" href="{{ url_for('community.index') }}"><i data-lucide="messages-square"></i>Community</a><a href="{{ url_for('announcements.index') }}"><i data-lucide="megaphone"></i>Announcements</a></div>
+<div id="community" data-base="{{ url_for('community.index').rstrip('/') }}" data-page="index" style="max-width:720px;margin:0 auto">
+  <form id="composer" class="card composer" data-name="{{ current_user.full_name }}" data-initials="{{ current_user.initials }}" autocomplete="off">
+    <div class="flex gap1">{{ avatar(current_user) }}<div class="grow"><textarea placeholder="Share an update with your group, {{ current_user.first_name }}..." maxlength="5000"></textarea></div></div>
+    <div class="previews"></div>
+    <div class="bar">
+      <label class="btn btn-sm" style="margin:0;cursor:pointer"><i data-lucide="paperclip"></i>Photo / file<input type="file" class="sr" multiple accept="image/*,.pdf,.doc,.docx"></label>
+      <select aria-label="Category">{% for c in categories %}<option>{{ c }}</option>{% endfor %}</select>
+      <button type="button" class="btn btn-sm btn-ghost" data-preview-post><i data-lucide="eye"></i>Preview</button>
+      <button type="submit" class="btn btn-primary btn-sm" style="margin-left:auto">Post</button>
+    </div>
+  </form>
+  <form class="filters mt2 mb2" method="get">
+    <div class="search"><i data-lucide="search"></i><input type="search" name="q" value="{{ q }}" placeholder="Search posts or members"></div>
+    <select name="category" onchange="this.form.submit()"><option value="">All categories</option>{% for c in categories %}<option {{ 'selected' if c == category }}>{{ c }}</option>{% endfor %}</select>
+    <button class="btn">Search</button>
+  </form>
+  <div id="posts">
+    {% include "community/_posts.html" %}
+    {% if not page.items %}<div id="posts-empty" class="card">{% call empty('messages-square', 'No posts yet', 'Be the first to share an update with your group.') %}{% endcall %}</div>{% endif %}
+  </div>
+  {% if page.has_next %}<div class="center mb2"><button id="load-more" class="btn" data-next="{{ page.next_num }}" data-query="{{ ('&q=' ~ q|urlencode if q) ~ ('&category=' ~ category|urlencode if category) }}">Load more</button></div>{% endif %}
+</div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/community.js') }}"></script>{% endblock %}

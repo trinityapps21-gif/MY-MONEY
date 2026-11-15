@@ -1,0 +1,2 @@
+{% if recent %}<div>{% for e in recent %}<div class="list-row"><div class="grow"><div class="act-title">{{ e.title }}</div>{% if e.description %}<div class="muted small">{{ e.description }}</div>{% endif %}<div class="faint xs">{{ e.created_at|ago }}</div></div>{% if e.amount %}<div class="act-amt">{{ money(e.amount) }}</div>{% endif %}</div>{% endfor %}</div>
+{% else %}<div class="empty"><p class="mb0">No activity yet.</p></div>{% endif %}

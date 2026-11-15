@@ -1,0 +1,16 @@
+{% extends "shell_platform.html" %}
+{% set use_charts = true %}
+{% from "partials/macros.html" import stat, chart_cfg, pill %}
+{% block title %}Platform dashboard{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Platform dashboard</h1><p>Aggregates only. Group records stay private to each group.</p></div></div>
+<div class="grid g4 mb2">
+{{ stat('Groups', s.total_groups, 'building-2', '', s.active_groups ~ ' active, ' ~ s.suspended_groups ~ ' suspended') }}
+{{ stat('Users', s.total_users, 'users') }}{{ stat('Active members', s.total_members, 'user-round-check') }}{{ stat('Loans issued', s.loans_issued, 'hand-coins') }}
+{{ stat('Total contributions', money(s.total_contributions), 'piggy-bank', 'green') }}{{ stat('Principal disbursed', money(s.principal_disbursed), 'banknote') }}
+{{ stat('Repayments received', money(s.total_repayments), 'receipt', 'green') }}{{ stat('Outstanding principal', money(s.outstanding_principal), 'alert-circle', 'amber') }}</div>
+<div class="split"><div class="card card-pad"><h2>Platform growth</h2><div class="chart-box mt1"><canvas data-chart="gc"></canvas></div></div>
+<div class="card"><div class="card-head"><h2>Recent groups</h2></div>{% for x in recent_groups %}<a class="list-row" href="{{ url_for('platform.group_detail', group_id=x.id) }}"><div class="grow"><div class="act-title">{{ x.name }}</div><div class="muted xs">{{ x.created_at|ago }}</div></div>{{ pill(x.status.title(), 'green' if x.status == 'ACTIVE' else 'red') }}</a>{% else %}<div class="empty">No groups yet.</div>{% endfor %}</div></div>
+<div class="card mt2"><div class="card-head"><h2>Recent activity</h2><a href="{{ url_for('platform.audit_logs') }}">View all</a></div>{% for a in activity %}<div class="list-row"><div class="grow"><b>{{ a.action }}</b> <span class="muted small">{{ a.user.full_name if a.user else 'system' }}</span></div><span class="faint xs">{{ a.created_at|ago }}</span></div>{% else %}<div class="empty">Nothing yet.</div>{% endfor %}</div>
+{{ chart_cfg('gc', {'type':'line','money':false,'labels':growth.labels,'datasets':[{'label':'Groups','data':growth.groups},{'label':'Users','data':growth.users}]}) }}
+{% endblock %}

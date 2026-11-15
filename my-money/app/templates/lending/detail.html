@@ -1,0 +1,28 @@
+{% extends "shell_group.html" %}
+{% from "partials/macros.html" import csrf, stat, loan_pill, action_form %}
+{% block title %}Loan {{ loan.reference }}{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>{{ loan.reference }} {{ loan_pill(eff) }}</h1><p>{{ loan.borrower.name }} &middot; created {{ loan.created_at|ldt('%d %b %Y') }} by {{ loan.creator.full_name }}</p></div>
+<div class="flex gap1 wrap">
+{% if loan.status == 'DRAFT' %}{{ action_form(url_for('lending.action', loan_id=loan.id), 'Submit for approval', 'Submit this loan for approval?', fields={'action':'submit'}, cls='btn btn-primary') }}{% endif %}
+{% if loan.status == 'PENDING_APPROVAL' %}
+  {% if can_self_approve and not my_decision %}{{ action_form(url_for('lending.action', loan_id=loan.id), 'Approve', 'Approve this loan?', fields={'action':'approve'}, cls='btn btn-primary') }}{% endif %}
+  {{ action_form(url_for('lending.action', loan_id=loan.id), 'Reject', 'Reject this loan?', reason='Reason for rejection', fields={'action':'reject'}, danger=true, cls='btn btn-danger') }}{% endif %}
+{% if loan.status == 'APPROVED' %}{{ action_form(url_for('lending.action', loan_id=loan.id), 'Disburse', 'Disburse ' ~ money(loan.principal) ~ ' to ' ~ loan.borrower.name ~ '?', fields={'action':'disburse'}, cls='btn btn-primary') }}{% endif %}
+{% if loan.disbursement_tx_id and loan.status in ('ACTIVE','PARTIALLY_REPAID','OVERDUE') %}<a class="btn btn-accent" href="{{ url_for('repayments.new', loan=loan.id, borrower=loan.borrower_id) }}">Record repayment</a>
+  {{ action_form(url_for('lending.action', loan_id=loan.id), 'Write off', 'Write off the remaining balance?', reason='Reason', fields={'action':'write_off'}, danger=true, cls='btn btn-danger') }}{% endif %}
+{% if loan.disbursement_tx_id and not loan.repayments|selectattr('status','equalto','POSTED')|list %}{{ action_form(url_for('lending.action', loan_id=loan.id), 'Reverse disbursement', 'Reverse the disbursement?', reason='Reason', fields={'action':'reverse_disbursement'}, danger=true, cls='btn btn-danger') }}{% endif %}
+</div></div>
+{% if loan.rejection_reason %}<div class="alert error">Rejected: {{ loan.rejection_reason }}</div>{% endif %}
+<div class="grid g4 mb2">{{ stat('Principal', money(loan.principal), 'hand-coins') }}{{ stat('Total interest', money(loan.total_interest), 'percent') }}{{ stat('Total repayable', money(loan.total_repayable), 'receipt') }}{{ stat('Outstanding', money(p_out + i_out), 'wallet', 'amber', 'Principal ' ~ money(p_out) ~ ' / Interest ' ~ money(i_out)) }}</div>
+<div class="split"><div>
+<div class="card mb2"><div class="card-head"><h2>Repayment schedule</h2></div><div class="table-wrap"><table class="table"><thead><tr><th>#</th><th>Due</th><th class="num">Principal</th><th class="num">Interest</th><th class="num">Paid</th><th class="num">Balance</th></tr></thead><tbody>
+{% for s in loan.schedule %}<tr><td>{{ s.number }}</td><td>{{ s.due_date|ld }}{% if s.balance > 0 and s.due_date < today and loan.disbursement_tx_id %} <span class="pill red">Overdue</span>{% endif %}</td><td class="num">{{ money(s.principal_due) }}</td><td class="num">{{ money(s.interest_due) }}</td><td class="num">{{ money(s.total_paid) }}</td><td class="num">{{ money(s.balance) }}</td></tr>{% endfor %}</tbody></table></div></div>
+<div class="card"><div class="card-head"><h2>Repayments</h2></div>{% if loan.repayments %}<div class="table-wrap"><table class="table"><thead><tr><th>Date</th><th class="num">Amount</th><th>Receipt</th><th>Status</th><th></th></tr></thead><tbody>
+{% for r in loan.repayments|sort(attribute='id', reverse=true) %}<tr class="{{ 'reversed' if r.status != 'POSTED' }}"><td>{{ r.payment_date|ld }}</td><td class="num">{{ money(r.amount) }}</td><td class="keep">{{ r.receipt_no }}</td><td class="keep">{{ r.status|title }}</td><td class="keep right nowrap">{% if r.status == 'POSTED' %}<a class="btn btn-sm btn-ghost" href="{{ url_for('reports.receipt', kind='repayment', obj_id=r.id) }}"><i data-lucide="file-down"></i></a>{{ action_form(url_for('repayments.reverse', repayment_id=r.id), 'Reverse', 'Reverse this repayment?', reason='Reason', danger=true, cls='btn btn-sm btn-danger') }}{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+{% else %}<div class="card-body muted">No repayments yet.</div>{% endif %}</div></div>
+<div><div class="card card-pad mb2"><h3 class="mb2">Terms (fixed at creation)</h3><dl class="kv" style="grid-template-columns:120px 1fr">
+<dt>Method</dt><dd>{{ methods.get(loan.method) }}</dd><dt>Rate</dt><dd>{{ loan.rate_bp|pct }}% {{ periods.get(loan.rate_period) }}</dd><dt>Duration</dt><dd>{{ loan.duration }} {{ units.get(loan.duration_unit) }}</dd><dt>Frequency</dt><dd>{{ freqs.get(loan.frequency) }}</dd><dt>Disbursement</dt><dd>{{ loan.disbursement_date|ld }}</dd><dt>First repayment</dt><dd>{{ loan.first_repayment_date|ld }}</dd>{% if next_due %}<dt>Next due</dt><dd>{{ next_due.due_date|ld }} ({{ money(next_due.balance) }})</dd>{% endif %}{% if loan.purpose %}<dt>Purpose</dt><dd>{{ loan.purpose }}</dd>{% endif %}</dl></div>
+<div class="card card-pad"><h3 class="mb2">Approvals ({{ loan.approvals|selectattr('decision','equalto','APPROVED')|list|length }} of {{ loan.approvals_required }})</h3>
+{% for a in loan.approvals %}<div class="small mb2"><b>{{ a.user.full_name }}</b> <span class="pill {{ 'green' if a.decision == 'APPROVED' else 'red' }}">{{ a.decision|title }}</span><div class="muted xs">{{ a.created_at|ldt }}{% if a.comment %} &middot; {{ a.comment }}{% endif %}</div></div>{% else %}<p class="muted small mb0">No decisions yet.</p>{% endfor %}</div></div></div>
+{% endblock %}

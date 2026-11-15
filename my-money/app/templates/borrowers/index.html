@@ -1,0 +1,10 @@
+{% extends "shell_group.html" %}
+{% from "partials/macros.html" import empty, pager %}
+{% block title %}Borrowers{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Borrowers</h1><p>People and businesses outside the group who receive loans</p></div><a class="btn btn-primary" href="{{ url_for('borrowers.new') }}"><i data-lucide="plus"></i>Register borrower</a></div>
+<div class="card"><div class="card-head"><form class="filters" method="get" style="width:100%"><div class="search"><i data-lucide="search"></i><input type="search" name="q" value="{{ q }}" placeholder="Search name, phone or location"></div><button class="btn">Search</button></form></div>
+{% if page.items %}<div class="table-wrap"><table class="table"><thead><tr><th>Name</th><th>Category</th><th>Phone</th><th>Location</th><th class="num">Loans</th></tr></thead><tbody>
+{% for b in page.items %}<tr><td><a href="{{ url_for('borrowers.detail', borrower_id=b.id) }}"><b>{{ b.name }}</b></a></td><td>{{ b.category }}</td><td>{{ b.phone or '' }}</td><td>{{ b.location or '' }}</td><td class="num">{{ counts.get(b.id, 0) }}</td></tr>{% endfor %}</tbody></table></div>{{ pager(page) }}
+{% else %}{{ empty('user-round-check', 'No borrowers yet', 'Register a borrower before creating a loan.') }}{% endif %}</div>
+{% endblock %}

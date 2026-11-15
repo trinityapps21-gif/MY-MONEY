@@ -1,0 +1,3 @@
+{% extends "base.html" %}
+{% block title %}Application sent{% endblock %}
+{% block body %}<div class="auth-wrap"><div class="auth-card center"><h1>Application sent</h1><p class="muted mt1">Thank you. The officials of <b>{{ group.name }}</b> will review your application and you will be notified once it is approved.</p><a class="btn btn-primary" href="{{ url_for('groups.select') }}">Continue</a><div class="auth-foot">Developed and Powered by Emtrixz Technology Company.</div></div></div>{% endblock %}

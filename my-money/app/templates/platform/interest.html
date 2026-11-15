@@ -1,0 +1,17 @@
+{% extends "shell_platform.html" %}
+{% from "partials/macros.html" import csrf %}
+{% block title %}Interest settings{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Interest settings</h1><p>Changes apply to NEW loans only. Existing loans keep their agreed terms.</p></div></div>
+<div class="split"><form class="card card-pad" method="post">{{ csrf() }}
+<div class="form-grid">
+<div class="field"><label>Default rate (%)</label><input type="number" step="0.01" name="default_rate" value="{{ s.default_rate_bp|pct }}" required></div>
+<div class="field"><label>Default period</label><select name="default_period">{% for p, l in (('WEEK','Per week'),('MONTH','Per month'),('YEAR','Per year')) %}<option value="{{ p }}" {{ 'selected' if s.default_period == p }}>{{ l }}</option>{% endfor %}</select></div>
+<div class="field"><label>Minimum rate (%)</label><input type="number" step="0.01" name="min_rate" value="{{ s.min_rate_bp|pct }}" required></div>
+<div class="field"><label>Maximum rate (%)</label><input type="number" step="0.01" name="max_rate" value="{{ s.max_rate_bp|pct }}" required></div></div>
+<div class="check"><input type="checkbox" id="f" name="flat_enabled" value="1" {{ 'checked' if s.flat_enabled }}><label for="f">Flat interest enabled</label></div>
+<div class="check"><input type="checkbox" id="r" name="reducing_enabled" value="1" {{ 'checked' if s.reducing_enabled }}><label for="r">Reducing-balance interest enabled</label></div>
+<div class="check"><input type="checkbox" id="c" name="allow_custom_rates" value="1" {{ 'checked' if s.allow_custom_rates }}><label for="c">Allow groups to set custom rates within the range</label></div>
+<button class="btn btn-primary mt1">Save policy</button></form>
+<div class="card"><div class="card-head"><h2>Change history</h2></div>{% for h, d in history %}<div class="list-row"><div class="grow"><b>{{ h.user.full_name if h.user else 'system' }}</b><div class="muted xs">{% if d.after %}default {{ d.after.default_bp|pct }}% ({{ d.after.min_bp|pct }}-{{ d.after.max_bp|pct }}%){% endif %}</div></div><span class="faint xs">{{ h.created_at|ago }}</span></div>{% else %}<div class="empty">No changes yet.</div>{% endfor %}</div></div>
+{% endblock %}

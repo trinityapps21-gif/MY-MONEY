@@ -1,0 +1,11 @@
+{% extends "shell_group.html" %}
+{% from "partials/macros.html" import avatar, empty, action_form %}
+{% block title %}Pending members{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Pending approvals</h1><p>People who joined through an invitation link</p></div><a class="btn" href="{{ url_for('members.index') }}">All members</a></div>
+<div class="card">{% if apps %}{% for a in apps %}
+<div class="list-row items-center">{{ avatar(a.user, 'lg') }}<div class="grow"><b>{{ a.user.full_name }}</b><div class="muted small">{{ a.user.phone }}{% if a.user.email %} &middot; {{ a.user.email }}{% endif %} &middot; applied {{ a.created_at|ago }}</div></div>
+{% set mem = current_group.memberships|selectattr('user_id', 'equalto', a.user_id)|first %}
+{% if mem %}{{ action_form(url_for('members.decide', member_id=mem.id), 'Approve', 'Approve this member?', fields={'action':'approve'}, cls='btn btn-sm btn-primary') }}{{ action_form(url_for('members.decide', member_id=mem.id), 'Reject', 'Reject this application?', fields={'action':'reject'}, danger=true, cls='btn btn-sm btn-danger') }}{% endif %}</div>
+{% endfor %}{% else %}{{ empty('user-check', 'No pending applications', 'New applications appear here for approval.') }}{% endif %}</div>
+{% endblock %}

@@ -1,0 +1,12 @@
+{% extends "shell_group.html" %}
+{% from "partials/macros.html" import csrf, loan_pill, empty %}
+{% block title %}{{ b.name }}{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>{{ b.name }}</h1><p>{{ b.category }} &middot; registered {{ b.registered_on|ld }}</p></div><a class="btn btn-primary" href="{{ url_for('lending.new', borrower=b.id) }}"><i data-lucide="plus"></i>New loan</a></div>
+<div class="split">
+<div class="card"><div class="card-head"><h2>Loans</h2></div>{% if loans %}<div class="table-wrap"><table class="table"><thead><tr><th>Reference</th><th class="num">Principal</th><th class="num">Outstanding</th><th>Status</th></tr></thead><tbody>
+{% for l in loans %}{% set o = outstanding(l) %}<tr><td><a href="{{ url_for('lending.detail', loan_id=l.id) }}">{{ l.reference }}</a></td><td class="num">{{ money(l.principal) }}</td><td class="num">{{ money(o[0] + o[1]) }}</td><td>{{ loan_pill(eff(l)) }}</td></tr>{% endfor %}</tbody></table></div>
+{% else %}{{ empty('hand-coins', 'No loans yet') }}{% endif %}</div>
+<div class="card card-pad"><h3 class="mb2">Edit details</h3><form method="post">{{ csrf() }}{% include "borrowers/_fields.html" %}<button class="btn btn-primary">Save changes</button></form></div>
+</div>
+{% endblock %}

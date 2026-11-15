@@ -1,0 +1,9 @@
+{% extends "shell_group.html" %}
+{% block title %}Post{% endblock %}
+{% block content %}
+<div class="page-head"><div><a href="{{ url_for('community.index') }}" class="small"><i data-lucide="arrow-left"></i> Back to community</a><h1 class="mt1">Post</h1></div></div>
+<div id="community" data-base="{{ url_for('community.index').rstrip('/') }}" data-page="detail" style="max-width:720px;margin:0 auto">
+  <div id="posts">{% include "community/_post.html" %}</div>
+</div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/community.js') }}"></script>{% endblock %}

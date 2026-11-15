@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import brand_mark, avatar, group_mark, csrf %}
+{% set ep = request.endpoint or '' %}
+{% set bpn = request.blueprint or '' %}
+{% macro nav_item(href, icon, label, on, count=0) %}
+<li><a href="{{ href }}" class="{{ 'on' if on }}" {% if on %}aria-current="page"{% endif %}><i data-lucide="{{ icon }}"></i><span>{{ label }}</span>{% if count %}<span class="count">{{ count }}</span>{% endif %}</a></li>
+{% endmacro %}
+{% block body %}
+<aside class="sidebar" id="sidebar" aria-label="Main navigation">
+  <div class="side-brand">
+    {{ group_mark(current_group, 'side-logo') }}
+    <div class="side-name">{{ current_group.name }}</div>
+    <div class="side-role">{{ membership.role_label }}</div>
+    {% if my_group_count > 1 %}<a class="side-switch" href="{{ url_for('groups.select', all=1) }}">Switch group</a>{% endif %}
+  </div>
+  <ul class="nav">
+    {% if is_official %}
+      {{ nav_item(url_for('groups.dashboard'), 'layout-dashboard', 'Dashboard', ep == 'groups.dashboard') }}
+      {{ nav_item(url_for('members.index'), 'users', 'Members', bpn == 'members' and ep != 'members.password_resets', pending_count_nav) }}
+      {{ nav_item(url_for('members.password_resets'), 'key-round', 'Password Resets', ep == 'members.password_resets', reset_count_nav) }}
+      {{ nav_item(url_for('savings.index'), 'piggy-bank', 'Savings', bpn == 'savings') }}
+      {{ nav_item(url_for('borrowers.index'), 'user-round-check', 'Borrowers', bpn == 'borrowers') }}
+      {{ nav_item(url_for('lending.index'), 'hand-coins', 'Loans', bpn == 'lending') }}
+      {{ nav_item(url_for('repayments.index'), 'receipt', 'Repayments', bpn == 'repayments') }}
+      <li class="sec">Group Feed</li>
+      {{ nav_item(url_for('feed.index'), 'activity', 'Financial Activity', bpn == 'feed') }}
+      {{ nav_item(url_for('community.index'), 'messages-square', 'Community', bpn == 'community') }}
+      {{ nav_item(url_for('announcements.index'), 'megaphone', 'Announcements', bpn == 'announcements') }}
+      <li class="sec">Finance</li>
+      {{ nav_item(url_for('reports.index'), 'bar-chart-3', 'Reports', ep in ('reports.index', 'reports.run')) }}
+      {{ nav_item(url_for('reports.transactions'), 'book-open', 'Transactions', ep.startswith('reports.transaction')) }}
+      {{ nav_item(url_for('groups.settings'), 'settings', 'Settings', ep.startswith('groups.settings')) }}
+    {% else %}
+      {{ nav_item(url_for('groups.dashboard'), 'layout-dashboard', 'Dashboard', ep == 'groups.dashboard') }}
+      {{ nav_item(url_for('savings.mine'), 'piggy-bank', 'My Contributions', ep == 'savings.mine') }}
+      {{ nav_item(url_for('members.index'), 'users', 'Members', bpn == 'members') }}
+      <li class="sec">Group Feed</li>
+      {{ nav_item(url_for('feed.index'), 'activity', 'Financial Activity', bpn == 'feed') }}
+      {{ nav_item(url_for('community.index'), 'messages-square', 'Community', bpn == 'community') }}
+      {{ nav_item(url_for('announcements.index'), 'megaphone', 'Announcements', bpn == 'announcements') }}
+      {{ nav_item(url_for('reports.run', key='member_statement'), 'file-text', 'My Statement', ep == 'reports.run') }}
+    {% endif %}
+    <li class="sec">Account</li>
+    {{ nav_item(url_for('notifications.index'), 'bell', 'Notifications', bpn == 'notifications', unread_count) }}
+    {{ nav_item(url_for('groups.profile'), 'user-round', 'Profile', ep == 'groups.profile') }}
+    <li><form method="post" action="{{ url_for('auth.logout') }}">{{ csrf() }}<button class="nav-btn" type="submit"><i data-lucide="log-out"></i><span>Logout</span></button></form></li>
+  </ul>
+  <div class="side-foot"><b style="color:#C9D3E8">MY MONEY</b><br>Developed and Powered by Emtrixz Technology Company.</div>
+</aside>
+<div class="scrim"></div>
+
+<div class="main">
+  <header class="topbar">
+    <button class="icon-btn" data-drawer aria-label="Open menu" style="display:none" id="hamb"><i data-lucide="menu"></i></button>
+    <div class="top-group">{{ group_mark(current_group) }}<span>{{ current_group.name }}</span></div>
+    <div class="top-actions">
+      <div class="menu-wrap">
+        <button class="icon-btn" data-menu="bell-menu" aria-label="Notifications"><i data-lucide="bell"></i><span id="bell-count" class="bell-count {{ 'hide' if not unread_count }}">{{ unread_count if unread_count < 100 else '99+' }}</span></button>
+        <div class="menu" id="bell-menu" data-url="{{ url_for('notifications.recent') }}" data-onopen="loadBell">
+          <div class="menu-head"><span>Notifications</span><button class="btn btn-sm btn-ghost" data-read-all="{{ url_for('notifications.read_all') }}">Mark all read</button></div>
+          <div class="nlist"></div>
+          <a href="{{ url_for('notifications.index') }}" style="justify-content:center;color:var(--accent)">View all</a>
+        </div>
+      </div>
+      <div class="menu-wrap">
+        <button class="user-btn" data-menu="user-menu" aria-label="Account menu">{{ avatar(current_user, 'sm') }}<span class="top-name">{{ current_user.full_name }}</span><i data-lucide="chevron-down"></i></button>
+        <div class="menu" id="user-menu" style="width:220px">
+          <div class="menu-head" style="display:block"><b>{{ current_user.full_name }}</b><div class="muted small" style="font-weight:400">{{ membership.role_label }}</div></div>
+          <a href="{{ url_for('groups.profile') }}"><i data-lucide="user-round"></i>Profile</a>
+          {% if my_group_count > 1 %}<a href="{{ url_for('groups.select', all=1) }}"><i data-lucide="repeat"></i>Switch group</a>{% endif %}
+          <a href="{{ url_for('groups.new') }}"><i data-lucide="plus-circle"></i>Create another group</a>
+          <form method="post" action="{{ url_for('auth.logout') }}">{{ csrf() }}<button class="mi" type="submit"><i data-lucide="log-out"></i>Logout</button></form>
+        </div>
+      </div>
+    </div>
+  </header>
+  <main class="content" id="main">{% block content %}{% endblock %}</main>
+  <footer class="app-foot">MY MONEY &middot; Developed and Powered by Emtrixz Technology Company.</footer>
+</div>
+
+<nav class="bottom-nav" aria-label="Quick navigation">
+  <a href="{{ url_for('groups.dashboard') }}" class="{{ 'on' if ep == 'groups.dashboard' }}"><i data-lucide="home"></i>Home</a>
+  {% if is_official %}<a href="{{ url_for('members.index') }}" class="{{ 'on' if bpn == 'members' }}"><i data-lucide="users"></i>Members</a>
+  {% else %}<a href="{{ url_for('savings.mine') }}" class="{{ 'on' if ep == 'savings.mine' }}"><i data-lucide="piggy-bank"></i>Savings</a>{% endif %}
+  <a href="{{ url_for('community.index') }}" class="{{ 'on' if bpn in ('community', 'feed') }}"><i data-lucide="messages-square"></i>Feed</a>
+  <button type="button" data-drawer><i data-lucide="menu"></i>More</button>
+</nav>
+<style>@media (max-width: 991px) { #hamb { display: grid !important; } }</style>
+{% endblock %}

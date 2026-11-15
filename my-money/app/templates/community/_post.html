@@ -1,0 +1,27 @@
+{% from "partials/macros.html" import avatar %}
+{% set mine = post.author_user_id == current_user.id %}
+<article class="card post {{ 'pinned' if post.is_pinned }}" id="post-{{ post.id }}" data-id="{{ post.id }}" data-category="{{ post.category }}">
+  {% if post.is_pinned %}<div class="pin-tag"><i data-lucide="pin"></i>Pinned</div>{% endif %}
+  <div class="post-head">{{ avatar(post.author, 'lg') }}
+    <div><div class="who">{{ post.author.full_name }}</div><div class="when">{{ post.created_at|ago }} &middot; <span class="cat-tag">{{ post.category }}</span>{% if post.updated_at and (post.updated_at - post.created_at).total_seconds() > 60 %} &middot; edited{% endif %}</div></div>
+    <div class="post-menu menu-wrap"><button class="icon-btn" data-menu="pm-{{ post.id }}" aria-label="Post options"><i data-lucide="more-horizontal"></i></button>
+      <div class="menu" id="pm-{{ post.id }}">
+        {% if mine and not post.shared_post_id %}<button class="mi" data-act="edit-post"><i data-lucide="pencil"></i>Edit</button>{% endif %}
+        {% if mine %}<button class="mi" data-act="delete-post"><i data-lucide="trash-2"></i>Delete</button>{% endif %}
+        {% if is_official %}<button class="mi" data-act="pin" data-pin="{{ 0 if post.is_pinned else 1 }}"><i data-lucide="pin"></i>{{ 'Unpin' if post.is_pinned else 'Pin to top' }}</button>
+          {% if not mine %}<button class="mi" data-act="delete-post" data-mod="1"><i data-lucide="shield-x"></i>Remove (moderate)</button>{% endif %}{% endif %}
+        {% if not mine %}<button class="mi" data-act="report" data-kind="post"><i data-lucide="flag"></i>Report</button>{% endif %}
+      </div></div>
+  </div>
+  {% if post.content %}<div class="post-body">{{ post.content }}</div>{% endif %}
+  {% if post.original %}<div class="shared"><div class="post-head">{{ avatar(post.original.author, 'sm') }}<div><div class="who">{{ post.original.author.full_name }}</div><div class="when">{{ post.original.created_at|ago }}</div></div></div><div class="post-body">{{ post.original.content }}</div>
+    {% set oimgs = post.original.attachments|selectattr('is_image')|list %}{% if oimgs %}<div class="media n{{ [oimgs|length, 6]|min }}">{% for a in oimgs %}<a href="{{ url_for('files.serve', file_id=a.file_id) }}" target="_blank" rel="noopener"><img src="{{ url_for('files.serve', file_id=a.file_id) }}" alt="{{ a.file_name }}" loading="lazy"></a>{% endfor %}</div>{% endif %}</div>
+  {% elif post.shared_post_id %}<div class="shared removed-note">The original post is no longer available.</div>{% endif %}
+  {% set imgs = post.attachments|selectattr('is_image')|list %}{% set docs = post.attachments|rejectattr('is_image')|list %}
+  {% if imgs %}<div class="media n{{ [imgs|length, 6]|min }}">{% for a in imgs %}<a href="{{ url_for('files.serve', file_id=a.file_id) }}" target="_blank" rel="noopener"><img src="{{ url_for('files.serve', file_id=a.file_id) }}" alt="{{ a.file_name }}" loading="lazy"></a>{% endfor %}</div>{% endif %}
+  {% if docs %}<div class="docs">{% for a in docs %}<a class="doc" href="{{ url_for('files.serve', file_id=a.file_id, download=1) }}"><i data-lucide="file-text"></i><span>{{ a.file_name }}</span><small>{{ (a.file_size / 1024)|round|int }} KB</small></a>{% endfor %}</div>{% endif %}
+  <div class="counts"><span data-like-wrap class="{{ 'hide' if not post.like_count }}"><button data-act="likers"><i data-lucide="thumbs-up"></i> <span data-like-count>{{ post.like_count }}</span></button></span>
+    <span style="margin-left:auto"><span data-comment-count>{{ post.comment_count }}</span> comments{% if post.share_count %} &middot; {{ post.share_count }} shares{% endif %}</span></div>
+  <div class="actions-row"><button class="act {{ 'liked' if post.liked_by_me }}" data-act="like"><i data-lucide="thumbs-up"></i>Like</button><button class="act" data-act="toggle-comments"><i data-lucide="message-circle"></i>Comment</button><button class="act" data-act="share"><i data-lucide="share-2"></i>Share</button></div>
+  <div class="comments hide"><form class="comment-form comment-top"><input type="text" placeholder="Write a comment..." maxlength="2000"><button class="btn btn-primary btn-sm">Send</button></form><div class="comment-list mt1"></div></div>
+</article>

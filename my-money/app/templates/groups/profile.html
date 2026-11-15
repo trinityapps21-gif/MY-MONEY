@@ -1,0 +1,15 @@
+{% extends ("shell_platform.html" if current_user.is_platform_admin else ("shell_group.html" if current_group else "shell_user.html")) %}
+{% from "partials/macros.html" import csrf, avatar %}
+{% block title %}Profile{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Profile</h1></div>
+<div class="grid g2"><div class="card card-pad"><div class="flex items-center gap2 mb2">{{ avatar(current_user, 'xl') }}
+<div><form method="post" action="{{ url_for('files.upload_avatar') }}" enctype="multipart/form-data" class="flex gap1">{{ csrf() }}<input type="file" name="avatar" accept="image/png,image/jpeg,image/webp" required style="width:auto"><button class="btn btn-sm btn-primary">Upload</button></form>
+{% if current_user.avatar_file_id %}<form method="post" action="{{ url_for('files.remove_avatar') }}" class="mt1">{{ csrf() }}<button class="btn btn-sm btn-danger">Remove photo</button></form>{% endif %}</div></div>
+<form method="post">{{ csrf() }}<div class="field"><label>Full name</label><input type="text" name="full_name" value="{{ current_user.full_name }}" required></div><div class="field"><label>Phone</label><input type="tel" name="phone" value="{{ current_user.phone }}" required></div><div class="field"><label>Email</label><input type="email" name="email" value="{{ current_user.email or '' }}"></div><button class="btn btn-primary">Save</button></form></div>
+<div class="card card-pad"><h2 class="mb2">Change password</h2><form method="post" action="{{ url_for('auth.change_password') }}">{{ csrf() }}<div class="field"><label>Current password</label><input type="password" name="current_password" required></div><div class="field"><label>New password</label><input type="password" name="password" required minlength="8"></div><div class="field"><label>Confirm</label><input type="password" name="confirm_password" required></div><button class="btn btn-primary">Update password</button></form>
+<h3 class="mt3 mb2">Recovery code</h3>
+<p class="muted small">{% if current_user.recovery_code_created_at %}Active since {{ current_user.recovery_code_created_at|ld }}. Use it at <a href="{{ url_for('auth.recover') }}">Reset with recovery code</a> if you forget your password. Generating a new code replaces the old one.{% else %}No recovery code yet.{% endif %}</p>
+<form method="post" action="{{ url_for('auth.new_recovery_code_request') }}" class="input-group">{{ csrf() }}<input type="password" name="current_password" placeholder="Current password" required><button class="btn">Get new code</button></form>
+<h3 class="mt3 mb2">My groups</h3>{% for m in memberships %}<div class="list-row"><div class="grow">{{ m.group.name }}</div><span class="pill">{{ ROLE_LABELS.get(m.role, m.role) }}</span></div>{% endfor %}</div></div>
+{% endblock %}

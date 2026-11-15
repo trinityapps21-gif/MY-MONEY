@@ -1,0 +1,13 @@
+{% extends "shell_group.html" %}
+{% block title %}{{ report.title }}{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>{{ report.title }}</h1><p>{{ current_group.name }} &middot; {{ report.period }}</p></div>
+<div class="flex gap1 no-print">{% for f, l in (('pdf','PDF'),('xlsx','Excel'),('csv','CSV')) %}<a class="btn btn-sm" href="{{ url_with(format=f) }}"><i data-lucide="download"></i>{{ l }}</a>{% endfor %}<button class="btn btn-sm" onclick="window.print()"><i data-lucide="printer"></i>Print</button></div></div>
+{% macro cell(v, kind) %}{% if v is none or v == '' %}-{% elif kind == 'money' %}{{ money(v) }}{% elif kind == 'date' %}{{ v|ld }}{% elif kind == 'pct' %}{{ v }}%{% else %}{{ v }}{% endif %}{% endmacro %}
+{% if report.summary %}<div class="grid g3 mb2">{% for label, val, kind in report.summary %}<div class="stat"><div class="grow"><div class="lbl">{{ label }}</div><div class="val">{{ cell(val, kind) }}</div></div></div>{% endfor %}</div>{% endif %}
+<div class="card"><div class="table-wrap"><table class="table"><thead><tr>{% for h, kind in report.columns %}<th class="{{ 'num' if kind in ('money','int','pct') }}">{{ h }}</th>{% endfor %}</tr></thead><tbody>
+{% for row in report.rows %}<tr>{% for v in row %}{% set kind = report.columns[loop.index0][1] %}<td class="{{ 'num' if kind in ('money','int','pct') }}">{{ cell(v, kind) }}</td>{% endfor %}</tr>
+{% else %}<tr><td colspan="{{ report.columns|length }}"><div class="empty">No records for this period.</div></td></tr>{% endfor %}
+</tbody></table></div></div>
+{% for n in report.notes %}<p class="muted small mt1">{{ n }}</p>{% endfor %}
+{% endblock %}

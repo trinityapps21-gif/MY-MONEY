@@ -1,0 +1,20 @@
+{% extends "shell_group.html" %}
+{% from "partials/macros.html" import csrf, empty %}
+{% block title %}Invitations{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Invitation links</h1><p>Anyone who joins through a link still needs your approval.</p></div></div>
+<div class="split">
+<div class="card">{% if items %}<div class="table-wrap"><table class="table"><thead><tr><th>Label</th><th>Link</th><th>Uses</th><th>Status</th><th></th></tr></thead><tbody>
+{% for i in items %}<tr><td>{{ i.label or 'Invitation' }}<div class="xs faint">{{ i.created_at|ldt }}</div></td>
+<td>{% if i.state == 'ACTIVE' %}<div class="input-group"><input type="text" readonly value="{{ join_url(i) }}" style="min-width:220px"><button class="btn btn-sm" type="button" data-copy="{{ join_url(i) }}">Copy</button></div>{% else %}<span class="faint">&mdash;</span>{% endif %}</td>
+<td>{{ i.use_count }}{% if i.max_uses %} / {{ i.max_uses }}{% endif %}</td>
+<td><span class="pill {{ 'green' if i.state == 'ACTIVE' else 'red' }}">{{ i.state|title }}</span>{% if i.expires_at %}<div class="xs faint">until {{ i.expires_at|ldt('%d %b %Y') }}</div>{% endif %}</td>
+<td>{% if i.state == 'ACTIVE' %}<form method="post" action="{{ url_for('members.revoke', inv_id=i.id) }}" data-confirm="Revoke this invitation link?" data-confirm-label="Revoke" data-danger="1">{{ csrf() }}<button class="btn btn-sm btn-danger">Revoke</button></form>{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+{% else %}{{ empty('link', 'No invitation links yet', 'Create one to start inviting members.') }}{% endif %}</div>
+<div class="card card-pad"><h3 class="mb2">New invitation</h3><form method="post">{{ csrf() }}
+<div class="field"><label>Label (optional)</label><input type="text" name="label" maxlength="80" placeholder="e.g. January intake"></div>
+<div class="field"><label>Expires after (days)</label><input type="number" name="expires_days" min="1" max="365" value="30"></div>
+<div class="field"><label>Maximum uses (optional)</label><input type="number" name="max_uses" min="1"></div>
+<button class="btn btn-primary" type="submit">Generate link</button></form></div>
+</div>
+{% endblock %}

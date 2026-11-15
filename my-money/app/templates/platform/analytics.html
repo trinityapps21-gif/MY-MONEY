@@ -1,0 +1,12 @@
+{% extends "shell_platform.html" %}
+{% set use_charts = true %}
+{% from "partials/macros.html" import stat, chart_cfg %}
+{% block title %}Analytics{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Platform analytics</h1></div>
+<div class="grid g4 mb2">{{ stat('Groups', s.total_groups, 'building-2') }}{{ stat('Users', s.total_users, 'users') }}{{ stat('Principal disbursed', money(s.principal_disbursed), 'banknote') }}{{ stat('Outstanding principal', money(s.outstanding_principal), 'alert-circle', 'amber') }}</div>
+<div class="grid g2"><div class="card card-pad"><h2>Growth (12 months)</h2><div class="chart-box mt1"><canvas data-chart="gc"></canvas></div></div>
+<div class="card card-pad"><h2>Largest groups by members</h2><div class="chart-box mt1"><canvas data-chart="tc"></canvas></div></div></div>
+{{ chart_cfg('gc', {'type':'line','money':false,'labels':growth.labels,'datasets':[{'label':'Groups','data':growth.groups},{'label':'Users','data':growth.users}]}) }}
+{{ chart_cfg('tc', {'type':'bar','money':false,'legend':false,'labels':top|map(attribute=0)|list,'datasets':[{'label':'Members','data':top|map(attribute=1)|list}]}) }}
+{% endblock %}

@@ -1,0 +1,20 @@
+{% extends "shell_group.html" %}
+{% from "partials/macros.html" import pager, empty, csrf %}
+{% block title %}Community reports{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Reported content</h1><p>Review reports from group members.</p></div><a class="btn" href="{{ url_for('community.moderation_log') }}">Moderation log</a></div>
+<div class="tabs">{% for s, l in (('OPEN','Open'),('ACTIONED','Actioned'),('DISMISSED','Dismissed'),('ALL','All')) %}<a class="{{ 'on' if status == s }}" href="{{ url_for('community.reports', status=s) }}">{{ l }}</a>{% endfor %}</div>
+<div class="card">
+{% for row in rows %}{% set rep = row.report %}
+  <div class="list-row"><div class="grow">
+    <div><span class="pill {{ 'amber' if rep.status == 'OPEN' else ('green' if rep.status == 'ACTIONED' else '') }}">{{ rep.status|title }}</span> <b>{{ row.kind|title }}</b> reported for <b>{{ rep.reason }}</b> by {{ rep.reporter.full_name }} <span class="muted small">{{ rep.created_at|ldt }}</span></div>
+    {% if rep.description %}<div class="small muted">"{{ rep.description }}"</div>{% endif %}
+    {% if row.obj %}<div class="shared mt1"><div class="post-body">{{ row.text }}</div>{% if row.post_id %}<a class="small" href="{{ url_for('community.detail', post_id=row.post_id) }}">Open post</a>{% endif %}</div>{% else %}<div class="removed-note mt1">Content already removed.</div>{% endif %}
+    {% if rep.status == 'OPEN' %}<div class="flex gap1 mt1">
+      <form method="post" action="{{ url_for('community.review_report', report_id=rep.id) }}">{{ csrf() }}<input type="hidden" name="action" value="dismiss"><button class="btn btn-sm">Dismiss</button></form>
+      <form method="post" action="{{ url_for('community.review_report', report_id=rep.id) }}" data-confirm="Remove this content? The author will be notified." data-confirm-label="Remove" data-danger="1" data-reason="Reason (shown to the author)">{{ csrf() }}<input type="hidden" name="action" value="remove"><button class="btn btn-sm btn-danger">Remove content</button></form></div>{% endif %}
+  </div></div>
+{% else %}{% call empty('flag', 'No reports', 'Nothing to review here.') %}{% endcall %}{% endfor %}
+</div>
+{{ pager(page) }}
+{% endblock %}

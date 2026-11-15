@@ -1,0 +1,9 @@
+{% from "partials/macros.html" import avatar %}
+{% set mine = c.author_user_id == current_user.id %}
+<div id="comment-{{ c.id }}" data-comment="{{ c.id }}" data-item>
+  <div class="comment">{{ avatar(c.author, 'sm') }}<div class="grow"><div class="bubble"><div class="who">{{ c.author.full_name }}</div><div class="txt">{{ c.comment_text }}</div></div>
+    <div class="c-meta"><span>{{ c.created_at|ago }}</span><button data-act="reply" data-user="{{ c.author_user_id }}" data-who="{{ c.author.first_name }}">Reply</button>
+      {% if mine %}<button data-act="edit-c" data-kind="comment" data-id="{{ c.id }}">Edit</button><button data-act="delete-c" data-kind="comment" data-id="{{ c.id }}">Delete</button>
+      {% else %}<button data-act="report" data-kind="comment" data-id="{{ c.id }}">Report</button>{% if is_official %}<button data-act="delete-c" data-kind="comment" data-id="{{ c.id }}" data-mod="1">Remove</button>{% endif %}{% endif %}</div></div></div>
+  <div class="replies">{% for r in c.replies if not r.deleted_at %}{% include "community/_reply.html" %}{% endfor %}</div>
+</div>

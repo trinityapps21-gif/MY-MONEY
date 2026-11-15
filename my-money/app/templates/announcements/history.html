@@ -1,0 +1,9 @@
+{% extends "shell_group.html" %}
+{% from "partials/macros.html" import empty %}
+{% block title %}Announcement history{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Announcement history</h1><a class="btn" href="{{ url_for('announcements.index') }}">Back</a></div>
+<div class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Title</th><th>Created</th><th>Status</th><th>Removed</th></tr></thead><tbody>
+{% for a in items %}<tr><td>{{ a.title }}</td><td class="nowrap">{{ a.created_at|ldt }}</td><td><span class="pill {{ 'green' if a.status == 'ACTIVE' else 'red' }}">{{ a.status|title }}</span></td><td>{{ a.removed_at|ldt if a.removed_at else '' }}</td></tr>
+{% else %}<tr><td colspan="4">{% call empty('megaphone', 'No announcements yet') %}{% endcall %}</td></tr>{% endfor %}</tbody></table></div></div>
+{% endblock %}

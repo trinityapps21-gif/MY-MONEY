@@ -1,0 +1,24 @@
+{% extends "shell_group.html" %}
+{% from "partials/macros.html" import avatar, member_pill, empty, pager, action_form %}
+{% block title %}Members{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Members</h1><p>People in {{ current_group.name }}</p></div>
+{% if is_official %}<div class="flex gap1">{% if pending_count %}<a class="btn" href="{{ url_for('members.pending') }}">Pending <span class="badge-dot">{{ pending_count }}</span></a>{% endif %}<a class="btn btn-primary" href="{{ url_for('members.invitations') }}"><i data-lucide="link"></i>Invite members</a></div>{% endif %}</div>
+<div class="card">
+  <div class="card-head"><form class="filters" method="get" style="width:100%"><div class="search"><i data-lucide="search"></i><input type="search" name="q" value="{{ q }}" placeholder="Search name or phone"></div>
+    <select name="status" onchange="this.form.submit()">{% for k, v in [('ACTIVE','Approved'),('PENDING','Pending'),('SUSPENDED','Suspended'),('REJECTED','Rejected')] %}<option value="{{ k }}" {{ 'selected' if status == k }}>{{ v }}</option>{% endfor %}</select><button class="btn">Filter</button></form></div>
+  {% if pagination.items %}
+  <div class="table-wrap"><table class="table"><thead><tr><th>Member</th><th>Phone</th><th>Role</th><th>Status</th><th class="num">Savings</th>{% if is_official %}<th></th>{% endif %}</tr></thead><tbody>
+  {% for m in pagination.items %}<tr>
+    <td><div class="flex items-center gap1">{{ avatar(m.user) }}<b>{% if is_official %}<a href="{{ url_for('savings.member_statement', member_id=m.id) }}">{{ m.user.full_name }}</a>{% else %}{{ m.user.full_name }}{% endif %}</b></div></td>
+    <td>{{ m.user.phone }}</td><td>{{ m.role_label }}</td><td>{{ member_pill(m.status) }}</td><td class="num">{{ money(shares.get(m.id, 0)) }}</td>
+    {% if is_official %}<td class="right nowrap">
+      {% if m.status == 'PENDING' %}{{ action_form(url_for('members.decide', member_id=m.id), 'Approve', 'Approve this member?', fields={'action':'approve'}, cls='btn btn-sm btn-primary') }}{{ action_form(url_for('members.decide', member_id=m.id), 'Reject', 'Reject this application?', fields={'action':'reject'}, danger=true, cls='btn btn-sm btn-danger') }}
+      {% elif m.status == 'ACTIVE' and m.user_id != current_group.owner_id %}
+        <form method="post" action="{{ url_for('members.set_role', member_id=m.id) }}" style="display:inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><select name="role" onchange="this.form.submit()" style="width:auto;height:30px;font-size:12.5px"><option value="MEMBER" {{ 'selected' if m.role == 'MEMBER' }}>Member</option><option value="TREASURER" {{ 'selected' if m.role == 'TREASURER' }}>Treasurer</option><option value="VICE_CHAIR" {{ 'selected' if m.role == 'VICE_CHAIR' }}>Vice Chairperson</option></select></form>
+        {{ action_form(url_for('members.decide', member_id=m.id), 'Suspend', 'Suspend this member?', fields={'action':'suspend'}, danger=true, cls='btn btn-sm btn-danger') }}
+      {% elif m.status == 'SUSPENDED' %}{{ action_form(url_for('members.decide', member_id=m.id), 'Reactivate', 'Reactivate this member?', fields={'action':'reactivate'}) }}{% endif %}
+    </td>{% endif %}</tr>{% endfor %}</tbody></table></div>{{ pager(pagination) }}
+  {% else %}{{ empty('users', 'No members found', 'Try a different search or filter.') }}{% endif %}
+</div>
+{% endblock %}

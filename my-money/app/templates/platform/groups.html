@@ -1,0 +1,12 @@
+{% extends "shell_platform.html" %}
+{% from "partials/macros.html" import pager, pill, action_form %}
+{% block title %}Groups{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Groups</h1></div>
+<form class="filters card card-pad mb2" method="get"><div class="search"><i data-lucide="search"></i><input type="search" name="q" value="{{ q }}" placeholder="Name or location"></div>
+<select name="status"><option value="">All</option><option value="ACTIVE" {{ 'selected' if status == 'ACTIVE' }}>Active</option><option value="SUSPENDED" {{ 'selected' if status == 'SUSPENDED' }}>Suspended</option></select><button class="btn btn-primary">Filter</button></form>
+<div class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Group</th><th>Location</th><th>Currency</th><th class="num">Members</th><th>Status</th><th>Created</th><th></th></tr></thead><tbody>
+{% for x in page.items %}<tr><td><a href="{{ url_for('platform.group_detail', group_id=x.id) }}"><b>{{ x.name }}</b></a></td><td>{{ x.location or '-' }}</td><td>{{ x.currency }}</td><td class="num">{{ counts.get(x.id, 0) }}</td><td>{{ pill(x.status.title(), 'green' if x.status == 'ACTIVE' else 'red') }}</td><td>{{ x.created_at|ld }}</td>
+<td>{% if x.status == 'ACTIVE' %}{{ action_form(url_for('platform.group_status', group_id=x.id), 'Suspend', 'Suspend ' ~ x.name ~ '? Its members lose access until reactivated.', '', 'btn btn-sm btn-danger', danger=true, fields={'action':'suspend'}) }}{% else %}{{ action_form(url_for('platform.group_status', group_id=x.id), 'Reactivate', 'Reactivate ' ~ x.name ~ '?', '', 'btn btn-sm', fields={'action':'activate'}) }}{% endif %}</td></tr>
+{% else %}<tr><td colspan="7"><div class="empty">No groups found.</div></td></tr>{% endfor %}</tbody></table></div>{{ pager(page) }}</div>
+{% endblock %}

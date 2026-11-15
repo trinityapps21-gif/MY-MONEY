@@ -1,0 +1,6 @@
+{% extends "base.html" %}{% from "partials/macros.html" import csrf %}
+{% block title %}Create group{% endblock %}
+{% block body %}<div class="auth-wrap"><div class="auth-card wide"><h2 class="mb2">Create a group</h2>
+<form method="post" enctype="multipart/form-data">{{ csrf() }}{% include "groups/_group_fields.html" %}
+<div class="field"><label>Group logo (optional)</label><input type="file" name="logo" accept="image/png,image/jpeg,image/webp"></div>
+<button class="btn btn-primary" type="submit">Create group</button> <a class="btn" href="{{ url_for('groups.select', all=1) }}">Cancel</a></form></div></div>{% endblock %}

@@ -1,0 +1,12 @@
+<div class="form-grid">
+<div class="field full"><label>Group name</label><input type="text" name="group_name" required minlength="3" value="{{ group.name if group }}"></div>
+<div class="field full"><label>Description</label><textarea name="description" maxlength="1000">{{ group.description or '' if group }}</textarea></div>
+<div class="field"><label>Location</label><input type="text" name="location" value="{{ group.location or '' if group }}"></div>
+<div class="field"><label>Registration number</label><input type="text" name="registration_number" value="{{ group.registration_number or '' if group }}"></div>
+<div class="field"><label>Group phone</label><input type="tel" name="group_phone" value="{{ group.phone or '' if group }}"></div>
+<div class="field"><label>Group email</label><input type="email" name="group_email" value="{{ group.email or '' if group }}"></div>
+<div class="field"><label>Currency</label><select name="currency">{% for c in currencies %}<option value="{{ c }}" {{ 'selected' if group and group.currency == c or (not group and c == 'UGX') }}>{{ c }}</option>{% endfor %}</select></div>
+<div class="field"><label>Timezone</label><select name="timezone">{% for t in timezones %}<option value="{{ t }}" {{ 'selected' if group and group.timezone == t or (not group and t == 'Africa/Kampala') }}>{{ t }}</option>{% endfor %}</select></div>
+<div class="field"><label>Contribution frequency</label><select name="contribution_frequency">{% for v in ['WEEKLY','MONTHLY','CUSTOM'] %}<option value="{{ v }}" {{ 'selected' if group and group.contribution_frequency == v or (not group and v=='MONTHLY') }}>{{ v|title }}</option>{% endfor %}</select></div>
+<div class="field"><label>Default contribution</label><input type="number" step="any" min="0" name="default_contribution" value="{{ ((group.default_contribution / (10 ** group.currency_decimals)) if group else 0) }}"></div>
+</div>

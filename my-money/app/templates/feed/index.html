@@ -1,0 +1,29 @@
+{% extends "shell_group.html" %}
+{% from "partials/macros.html" import stat, chart_cfg, empty %}
+{% set use_charts = true %}
+{% block title %}Group Feed{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Group Feed</h1><p>Financial transparency for {{ current_group.name }}.</p></div></div>
+<div class="tabs"><a class="on" href="{{ url_for('feed.index') }}"><i data-lucide="activity"></i>Financial Activity</a><a href="{{ url_for('community.index') }}"><i data-lucide="messages-square"></i>Community</a><a href="{{ url_for('announcements.index') }}"><i data-lucide="megaphone"></i>Announcements</a></div>
+<div class="grid g4 mb2">
+  {{ stat('Total Savings', money(s.total_savings), 'piggy-bank') }}
+  {{ stat('Total Loans Issued', money(s.principal_lent), 'hand-coins', 'amber') }}
+  {{ stat('Total Repayments', money(s.total_repayments), 'receipt', 'green') }}
+  {{ stat('Active Members', s.active_members, 'users') }}
+</div>
+{% if pinned %}<div class="card card-pad mb2"><h3 class="mb2"><i data-lucide="pin"></i> Pinned announcements</h3>{% for a in pinned %}<div class="list-row"><div class="grow"><div class="act-title">{{ a.title }}</div><div class="muted small">{{ a.content[:160] }}</div></div></div>{% endfor %}</div>{% endif %}
+<div class="split">
+  <div>
+    <div class="card mb2"><div class="card-head"><h2>Recent activity</h2></div>
+      <div id="timeline">{% include "feed/_activity.html" %}{% if not page.items %}{% call empty('activity', 'No activity yet', 'Contributions, loans and repayments will appear here.') %}{% endcall %}{% endif %}</div>
+      {% if page.has_next %}<div class="center card-pad"><button class="btn" id="more-activity" data-next="2">Load more</button></div>{% endif %}</div>
+    <div class="card card-pad"><h2 class="mb2">Savings growth</h2><div class="chart-box"><canvas data-chart="c-growth"></canvas></div></div>
+    {{ chart_cfg('c-growth', {'currency':current_group.currency,'decimals':current_group.currency_decimals,'type':'line','labels':charts.labels,'datasets':[{'label':'Cumulative savings','data':charts.cumulative_savings,'color':'#1F5FD6'}]}) }}
+  </div>
+  <div class="card"><div class="card-head"><h2>Top contributors</h2></div>
+    {% for r in board[:10] %}<div class="list-row"><b style="width:22px">{{ r.rank }}</b><div class="grow">{{ r.name }}</div><div class="act-amt">{{ money(r.total) }}</div></div>{% else %}{% call empty('trophy', 'No contributions yet') %}{% endcall %}{% endfor %}</div>
+</div>
+{% endblock %}
+{% block scripts %}<script>
+(function(){var b=document.getElementById('more-activity');if(!b)return;b.addEventListener('click',async function(){b.classList.add('loading');try{var r=await MM.get("{{ url_for('feed.activity') }}?page="+b.dataset.next);var t=await r.text();document.getElementById('timeline').insertAdjacentHTML('beforeend',t);MM.icons();var n=document.createElement('div');n.innerHTML=t;if(n.querySelectorAll('.list-row').length<10){b.remove();}else{b.dataset.next=(+b.dataset.next)+1;}}catch(e){MM.toast('Could not load more.','error');}finally{b.classList.remove('loading');}});})();
+</script>{% endblock %}

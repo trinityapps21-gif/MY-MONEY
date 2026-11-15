@@ -1,0 +1,6 @@
+{% from "partials/macros.html" import avatar %}
+{% set mine = r.author_user_id == current_user.id %}
+<div class="comment" id="reply-{{ r.id }}" data-item>{{ avatar(r.author, 'sm') }}<div class="grow"><div class="bubble"><div class="who">{{ r.author.full_name }}</div><div class="txt">{{ r.reply_text }}</div></div>
+  <div class="c-meta"><span>{{ r.created_at|ago }}</span><button data-act="reply" data-user="{{ r.author_user_id }}" data-who="{{ r.author.first_name }}">Reply</button>
+    {% if mine %}<button data-act="edit-c" data-kind="reply" data-id="{{ r.id }}">Edit</button><button data-act="delete-c" data-kind="reply" data-id="{{ r.id }}">Delete</button>
+    {% else %}<button data-act="report" data-kind="reply" data-id="{{ r.id }}">Report</button>{% if is_official %}<button data-act="delete-c" data-kind="reply" data-id="{{ r.id }}" data-mod="1">Remove</button>{% endif %}{% endif %}</div></div></div>

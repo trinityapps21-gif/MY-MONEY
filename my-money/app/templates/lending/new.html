@@ -1,0 +1,44 @@
+{% extends "shell_group.html" %}
+{% from "partials/macros.html" import csrf %}
+{% block title %}New loan{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>New loan</h1><p>Available cash: {{ money(cash) }}</p></div><a class="btn" href="{{ url_for('lending.index') }}">Back</a></div>
+<div class="split">
+<div class="card card-pad"><form method="post" id="loan-form">{{ csrf() }}
+<div class="form-grid">
+<div class="field full"><label>Borrower</label><select name="borrower_id" required><option value="">Select borrower</option>{% for b in borrowers %}<option value="{{ b.id }}" {{ 'selected' if preselect == b.id }}>{{ b.name }}</option>{% endfor %}</select>{% if not borrowers %}<div class="hint">Register a <a href="{{ url_for('borrowers.new') }}">borrower</a> first.</div>{% endif %}</div>
+<div class="field"><label>Principal ({{ current_group.currency }})</label><input type="text" inputmode="decimal" name="principal" required></div>
+<div class="field"><label>Interest method</label><select name="method">{% if s.flat_enabled %}<option value="FLAT">Flat interest</option>{% endif %}{% if s.reducing_enabled %}<option value="REDUCING">Reducing balance</option>{% endif %}</select></div>
+{% if s.allow_custom_rates %}<div class="field"><label>Interest rate (%)</label><input type="text" inputmode="decimal" name="rate" value="{{ s.default_rate_bp|pct }}" required><div class="hint">Allowed {{ s.min_rate_bp|pct }}% - {{ s.max_rate_bp|pct }}%</div></div>
+<div class="field"><label>Rate period</label><select name="rate_period">{% for k, v in periods.items() %}<option value="{{ k }}" {{ 'selected' if k == s.default_period }}>{{ v }}</option>{% endfor %}</select></div>
+{% else %}<div class="field full"><div class="alert info">Platform rate: {{ s.default_rate_bp|pct }}% {{ periods[s.default_period] }}.</div></div>{% endif %}
+<div class="field"><label>Duration</label><input type="number" name="duration" min="1" value="3" required></div>
+<div class="field"><label>Duration unit</label><select name="duration_unit">{% for k, v in units.items() %}<option value="{{ k }}">{{ v|title }}</option>{% endfor %}</select></div>
+<div class="field"><label>Repayment frequency</label><select name="frequency">{% for k, v in freqs.items() %}<option value="{{ k }}">{{ v }}</option>{% endfor %}</select></div>
+<div class="field"><label>Disbursement date</label><input type="date" name="disbursement_date" value="{{ today.isoformat() }}" required></div>
+<div class="field"><label>First repayment date</label><input type="date" name="first_repayment_date" required></div>
+<div class="field full"><label>Purpose</label><input type="text" name="purpose" maxlength="300"></div>
+<div class="field full"><label>Notes</label><textarea name="notes"></textarea></div></div>
+<div class="flex gap1 wrap"><button class="btn btn-primary" type="submit">Submit for approval</button><button class="btn" type="submit" name="draft" value="1">Save as draft</button></div></form></div>
+<div class="card"><div class="card-head"><h2>Repayment schedule</h2></div><div id="preview" class="card-body muted small">Fill in the loan terms to preview the full schedule.</div></div>
+</div>
+{% endblock %}
+{% block scripts %}<script>
+(function () {
+  const form = document.getElementById("loan-form"), box = document.getElementById("preview");
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  let timer;
+  async function run() {
+    const fd = new FormData(form);
+    if (!fd.get("principal") || !fd.get("first_repayment_date") || !fd.get("duration")) return;
+    try {
+      const d = await MM.post("{{ url_for('lending.preview') }}", fd);
+      box.innerHTML = '<div class="table-wrap"><table class="table"><thead><tr><th>#</th><th>Due</th><th class="num">Principal</th><th class="num">Interest</th><th class="num">Total</th></tr></thead><tbody>' +
+        d.rows.map((r) => "<tr><td>" + r.n + "</td><td>" + esc(r.due) + '</td><td class="num">' + esc(r.principal) + '</td><td class="num">' + esc(r.interest) + '</td><td class="num">' + esc(r.total) + "</td></tr>").join("") +
+        '</tbody></table></div><dl class="kv mt2"><dt>Total interest</dt><dd>' + esc(d.totals.interest) + "</dd><dt>Total repayable</dt><dd>" + esc(d.totals.total) + "</dd><dt>Instalments</dt><dd>" + d.totals.count + "</dd></dl>";
+    } catch (e) { box.innerHTML = '<div class="alert error mb0">' + esc(e.message) + "</div>"; }
+  }
+  form.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(run, 400); });
+  form.addEventListener("change", () => { clearTimeout(timer); timer = setTimeout(run, 200); });
+})();
+</script>{% endblock %}

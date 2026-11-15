@@ -1,0 +1,9 @@
+{% extends "shell_platform.html" if current_user.is_platform_admin else ("shell_group.html" if current_group else "shell_user.html") %}
+{% from "partials/macros.html" import pager, empty, csrf %}
+{% block title %}Notifications{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Notifications</h1><div class="flex gap1"><a class="btn btn-sm" href="{{ url_for('notifications.index', unread=0 if unread_only else 1) }}">{{ 'Show all' if unread_only else 'Unread only' }}</a>
+<form method="post" action="{{ url_for('notifications.read_all') }}">{{ csrf() }}<button class="btn btn-sm">Mark all read</button></form></div></div>
+<div class="card">{% for n in page.items %}<a class="list-row" href="{{ url_for('notifications.open_', nid=n.id) }}" style="{{ 'background:#F2F7FF' if not n.is_read }};text-decoration:none;color:inherit"><i data-lucide="bell"></i><div class="grow"><div class="act-title">{{ n.title }}</div><div class="muted small">{{ n.body or '' }}</div></div><span class="faint xs nowrap">{{ n.created_at|ago }}</span></a>
+{% else %}{% call empty('bell', 'No notifications') %}{% endcall %}{% endfor %}{{ pager(page) }}</div>
+{% endblock %}

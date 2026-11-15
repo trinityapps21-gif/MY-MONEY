@@ -1,0 +1,24 @@
+{% extends "shell_group.html" %}{% from "partials/macros.html" import stat, chart_cfg %}
+{% set use_charts = true %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Dashboard</h1><p>{{ current_group.name }}</p></div>
+<form class="filters" method="get"><select name="range" onchange="this.form.submit()">{% for k,l in [('today','Today'),('week','This week'),('month','This month'),('year','This year'),('all','All time')] %}<option value="{{ k }}" {{ 'selected' if range_key == k }}>{{ l }}</option>{% endfor %}</select></form></div>
+{% if pending %}<div class="alert warn">{{ pending }} membership request(s) awaiting approval. <a href="{{ url_for('members.pending') }}">Review</a></div>{% endif %}
+<div class="grid g4">
+{{ stat('Total Savings', money(s.total_savings), 'piggy-bank') }}
+{{ stat('Available Cash', money(s.available_cash), 'wallet', 'green') }}
+{{ stat('Principal Outstanding', money(s.principal_outstanding), 'hand-coins', 'amber') }}
+{{ stat('Interest Earned', money(s.interest_earned), 'percent') }}
+{{ stat('Active Members', s.active_members, 'users') }}
+{{ stat('Active Loans', s.active_loans, 'file-text') }}
+{{ stat('Overdue Loans', s.overdue_loans, 'alert-triangle', 'red') }}
+{{ stat('Total Repayments', money(s.total_repayments), 'receipt', 'green') }}
+</div>
+<div class="grid g2 mt2">
+<div class="card card-pad"><h2 class="mb2">Savings growth</h2><div class="chart-box"><canvas data-chart="c-sav"></canvas></div></div>
+<div class="card card-pad"><h2 class="mb2">Loans &amp; repayments</h2><div class="chart-box"><canvas data-chart="c-loans"></canvas></div></div></div>
+{{ chart_cfg('c-sav', {'currency':current_group.currency,'decimals':current_group.currency_decimals,'type':'line','labels':charts.labels,'datasets':[{'label':'Cumulative savings','data':charts.cumulative_savings,'color':'#1F5FD6'}]}) }}
+{{ chart_cfg('c-loans', {'currency':current_group.currency,'decimals':current_group.currency_decimals,'type':'bar','labels':charts.labels,'datasets':[{'label':'Disbursed','data':charts.disbursements,'color':'#142F66'},{'label':'Repayments','data':charts.repayments,'color':'#6FA0E0'}]}) }}
+<div class="card mt2"><div class="card-head"><h2>Recent activity</h2><a href="{{ url_for('feed.index') }}">View feed</a></div>{% include "groups/_feed_list.html" %}</div>
+{% endblock %}

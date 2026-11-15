@@ -1,0 +1,9 @@
+{% from "partials/macros.html" import action_form %}
+{% macro rows(items, reversed_ids, labels, show_member=True, can_reverse=True) %}
+{% for c in items %}{% set rv = c.tx_id in reversed_ids %}
+<tr class="{{ 'reversed' if rv }}"><td>{{ c.contribution_date|ld }}</td>
+{% if show_member %}<td><a href="{{ url_for('savings.member_statement', member_id=c.member_id) }}">{{ c.member.user.full_name }}</a></td>{% endif %}
+<td>{{ labels.get(c.category, c.category) }}</td><td class="num">{{ money(c.amount) }}</td><td>{{ c.payment_method or '' }}</td><td class="keep">{{ c.receipt_no }}</td>
+<td class="keep right nowrap">{% if rv %}<span class="pill">Reversed</span>{% else %}<a class="btn btn-sm btn-ghost" href="{{ url_for('reports.receipt', kind='contribution', obj_id=c.id) }}" title="Receipt"><i data-lucide="file-down"></i></a>{% if can_reverse %}{{ action_form(url_for('savings.reverse', contribution_id=c.id), 'Reverse', 'Reverse this contribution?', reason='Reason for reversal', danger=true, cls='btn btn-sm btn-danger') }}{% endif %}{% endif %}</td></tr>
+{% endfor %}
+{% endmacro %}

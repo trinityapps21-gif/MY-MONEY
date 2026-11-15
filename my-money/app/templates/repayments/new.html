@@ -1,0 +1,36 @@
+{% extends "shell_group.html" %}
+{% from "partials/macros.html" import csrf %}
+{% block title %}Record repayment{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Record repayment</h1><a class="btn" href="{{ url_for('repayments.index') }}">Back</a></div>
+<div class="card card-pad" style="max-width:720px"><form method="post">{{ csrf() }}<input type="hidden" name="idempotency_key" value="{{ idem }}">
+<div class="form-grid">
+<div class="field"><label>Borrower</label><select id="borrower" required><option value="">Select borrower</option>{% for b in borrowers %}<option value="{{ b.id }}" {{ 'selected' if pre_borrower == b.id }}>{{ b.name }}</option>{% endfor %}</select></div>
+<div class="field"><label>Loan</label><select name="loan_id" id="loan" required><option value="">Select borrower first</option></select></div>
+<div class="field full"><div id="loan-info" class="alert info hide"></div></div>
+<div class="field"><label>Amount ({{ current_group.currency }})</label><input type="text" inputmode="decimal" name="amount" required></div>
+<div class="field"><label>Payment date</label><input type="date" name="payment_date" value="{{ today.isoformat() }}" required></div>
+<div class="field"><label>Payment method</label><select name="payment_method">{% for m in methods %}<option>{{ m }}</option>{% endfor %}</select></div>
+<div class="field"><label>Payment reference</label><input type="text" name="payment_reference" maxlength="80"></div>
+<div class="field full"><label>Notes</label><input type="text" name="notes" maxlength="300"></div></div>
+<button class="btn btn-primary" type="submit">Save repayment</button></form></div>
+{% endblock %}
+{% block scripts %}<script>
+(function () {
+  const b = document.getElementById("borrower"), l = document.getElementById("loan"), info = document.getElementById("loan-info");
+  const pre = {{ (pre_loan or 0)|tojson }};
+  let data = [];
+  function show() { const x = data.find((d) => String(d.id) === l.value); info.classList.toggle("hide", !x);
+    if (x) info.textContent = "Outstanding " + x.outstanding_text + (x.next_due ? " - next due " + x.next_due + " (" + x.next_amount + ")" : ""); }
+  async function load() {
+    l.innerHTML = '<option value="">Select loan</option>'; data = []; show();
+    if (!b.value) return;
+    const res = await MM.get("{{ url_for('repayments.loans_for_borrower') }}?borrower=" + encodeURIComponent(b.value));
+    data = (await res.json()).loans;
+    data.forEach((d) => { const o = document.createElement("option"); o.value = d.id; o.textContent = d.reference + " - " + d.outstanding_text; l.appendChild(o); });
+    if (data.length === 1) l.value = data[0].id; else if (pre) l.value = pre;
+    show();
+  }
+  b.addEventListener("change", load); l.addEventListener("change", show); if (b.value) load();
+})();
+</script>{% endblock %}

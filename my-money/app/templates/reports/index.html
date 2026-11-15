@@ -1,0 +1,18 @@
+{% extends "shell_group.html" %}
+{% block title %}Reports{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Reports</h1><p>View on screen, or export as PDF, Excel or CSV.</p></div></div>
+<div class="grid g3">
+{% for key, title in titles.items() %}
+<form class="card card-pad" method="get" action="{{ url_for('reports.run', key=key) }}">
+  <h3>{{ title }}</h3><p class="muted small">{{ helps[key] }}</p>
+  {% if key == 'member_statement' %}<div class="field"><label>Member</label><select name="member" required>{% for id, name in members %}<option value="{{ id }}">{{ name }}</option>{% endfor %}</select></div>
+  {% elif key == 'monthly' %}<div class="field"><label>Month</label><input type="month" name="month" value="{{ today.strftime('%Y-%m') }}"></div>
+  {% elif key == 'annual' %}<div class="field"><label>Year</label><input type="number" name="year" value="{{ today.year }}"></div>
+  {% elif key not in ('member_contributions','outstanding_loans','overdue_loans','statement') %}
+  <div class="form-grid"><div class="field"><label>From</label><input type="date" name="start" value="{{ year_start }}"></div><div class="field"><label>To</label><input type="date" name="end" value="{{ today }}"></div></div>{% endif %}
+  <div class="flex gap1 wrap"><button class="btn btn-primary btn-sm" name="format" value="html">View</button><button class="btn btn-sm" name="format" value="pdf">PDF</button><button class="btn btn-sm" name="format" value="xlsx">Excel</button><button class="btn btn-sm" name="format" value="csv">CSV</button></div>
+</form>
+{% endfor %}
+</div>
+{% endblock %}

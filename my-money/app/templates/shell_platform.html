@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import brand_mark, avatar, csrf %}
+{% set ep = request.endpoint or '' %}
+{% macro nav_item(href, icon, label, on) %}
+<li><a href="{{ href }}" class="{{ 'on' if on }}" {% if on %}aria-current="page"{% endif %}><i data-lucide="{{ icon }}"></i><span>{{ label }}</span></a></li>
+{% endmacro %}
+{% block body %}
+<aside class="sidebar" id="sidebar" aria-label="Platform navigation">
+  <div class="side-brand">
+    <div class="side-logo">{{ brand_mark() }}</div>
+    <div class="side-name">Platform Admin</div>
+    <div class="side-role">{{ platform_name }}</div>
+  </div>
+  <ul class="nav">
+    {{ nav_item(url_for('platform.dashboard'), 'layout-dashboard', 'Dashboard', ep == 'platform.dashboard') }}
+    {{ nav_item(url_for('platform.groups'), 'building-2', 'Groups', ep in ('platform.groups', 'platform.group_detail')) }}
+    {{ nav_item(url_for('platform.users'), 'users', 'Users', ep == 'platform.users') }}
+    {{ nav_item(url_for('platform.interest'), 'percent', 'Interest Settings', ep == 'platform.interest') }}
+    {{ nav_item(url_for('platform.platform_analytics'), 'bar-chart-3', 'Analytics', ep == 'platform.platform_analytics') }}
+    {{ nav_item(url_for('platform.settings'), 'settings', 'Platform Settings', ep == 'platform.settings') }}
+    {{ nav_item(url_for('platform.audit_logs'), 'scroll-text', 'Audit Logs', ep == 'platform.audit_logs') }}
+    <li><form method="post" action="{{ url_for('auth.logout') }}">{{ csrf() }}<button class="nav-btn" type="submit"><i data-lucide="log-out"></i><span>Logout</span></button></form></li>
+  </ul>
+  <div class="side-foot"><b style="color:#C9D3E8">MY MONEY</b><br>Developed and Powered by Emtrixz Technology Company.</div>
+</aside>
+<div class="scrim"></div>
+<div class="main">
+  <header class="topbar">
+    <button class="icon-btn" data-drawer aria-label="Open menu" style="display:none" id="hamb"><i data-lucide="menu"></i></button>
+    <div class="top-group"><span class="mini-logo">{{ brand_mark('#101C36', '#1F5FD6') }}</span><span>Platform Administration</span></div>
+    <div class="top-actions">
+      <div class="menu-wrap">
+        <button class="user-btn" data-menu="user-menu">{{ avatar(current_user, 'sm') }}<span class="top-name">{{ current_user.full_name }}</span><i data-lucide="chevron-down"></i></button>
+        <div class="menu" id="user-menu" style="width:200px"><form method="post" action="{{ url_for('auth.logout') }}">{{ csrf() }}<button class="mi" type="submit"><i data-lucide="log-out"></i>Logout</button></form></div>
+      </div>
+    </div>
+  </header>
+  <main class="content" id="main">{% block content %}{% endblock %}</main>
+  <footer class="app-foot">MY MONEY &middot; Developed and Powered by Emtrixz Technology Company.</footer>
+</div>
+<nav class="bottom-nav"><a href="{{ url_for('platform.dashboard') }}" class="{{ 'on' if ep == 'platform.dashboard' }}"><i data-lucide="home"></i>Home</a><a href="{{ url_for('platform.groups') }}"><i data-lucide="building-2"></i>Groups</a><a href="{{ url_for('platform.users') }}"><i data-lucide="users"></i>Users</a><button type="button" data-drawer><i data-lucide="menu"></i>More</button></nav>
+<style>@media (max-width: 991px) { #hamb { display: grid !important; } }</style>
+{% endblock %}

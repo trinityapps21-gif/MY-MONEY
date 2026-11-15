@@ -1,0 +1,19 @@
+{% extends "shell_group.html" %}{% from "partials/macros.html" import stat, chart_cfg %}
+{% set use_charts = true %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Welcome, {{ current_user.first_name }}</h1><p>{{ current_group.name }}</p></div></div>
+<div class="grid g4">
+{{ stat('My Savings', money(total_mine), 'piggy-bank') }}
+{{ stat('My Rank', ('#' ~ my_rank) if my_rank else '-', 'trophy') }}
+{{ stat('Group Members', members_count, 'users') }}
+{{ stat('Group Savings', money(s.total_savings), 'wallet', 'green') }}
+</div>
+<div class="grid g2 mt2">
+<div class="card card-pad"><h2 class="mb2">Group savings growth</h2><div class="chart-box"><canvas data-chart="c-sav"></canvas></div></div>
+<div class="card"><div class="card-head"><h2>My recent contributions</h2><a href="{{ url_for('savings.mine') }}">All</a></div>
+{% for c in contributions %}<div class="list-row"><div class="grow">{{ c.contribution_date|ld }}</div><b>{{ money(c.amount) }}</b></div>{% else %}<div class="empty"><p class="mb0">No contributions yet.</p></div>{% endfor %}</div></div>
+{{ chart_cfg('c-sav', {'currency':current_group.currency,'decimals':current_group.currency_decimals,'type':'line','labels':charts.labels,'datasets':[{'label':'Cumulative savings','data':charts.cumulative_savings,'color':'#1F5FD6'}]}) }}
+{% if announcements %}<div class="card mt2"><div class="card-head"><h2>Announcements</h2></div>{% for a in announcements %}<div class="list-row"><div class="grow"><div class="act-title">{{ a.title }}</div><div class="muted small">{{ a.message|truncate(140) if a.message else '' }}</div></div></div>{% endfor %}</div>{% endif %}
+<div class="card mt2"><div class="card-head"><h2>Recent activity</h2></div>{% include "groups/_feed_list.html" %}</div>
+{% endblock %}

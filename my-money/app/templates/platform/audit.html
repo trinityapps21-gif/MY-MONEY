@@ -1,0 +1,10 @@
+{% extends "shell_platform.html" %}
+{% from "partials/macros.html" import pager %}
+{% block title %}Audit logs{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Audit logs</h1></div>
+<form class="filters card card-pad mb2" method="get"><input type="search" name="action" value="{{ action }}" placeholder="Action contains..."><input type="number" name="group" value="{{ group_id or '' }}" placeholder="Group ID"><button class="btn btn-primary">Filter</button></form>
+<div class="card"><div class="table-wrap"><table class="table"><thead><tr><th>When</th><th>Action</th><th>User</th><th>Group</th><th>Entity</th><th>Details</th></tr></thead><tbody>
+{% for a in page.items %}<tr><td class="nowrap">{{ a.created_at.strftime('%d %b %Y %H:%M') }}</td><td>{{ a.action }}</td><td>{{ a.user.full_name if a.user else '-' }}</td><td>{{ a.group.name if a.group else '-' }}</td><td>{{ a.entity_type or '' }} {{ a.entity_id or '' }}</td><td class="small muted" style="max-width:320px;word-break:break-all">{{ (a.details or '')[:160] }}</td></tr>
+{% else %}<tr><td colspan="6"><div class="empty">No entries.</div></td></tr>{% endfor %}</tbody></table></div>{{ pager(page) }}</div>
+{% endblock %}

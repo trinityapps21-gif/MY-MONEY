@@ -1,0 +1,16 @@
+{% extends "shell_group.html" %}
+{% from "partials/macros.html" import csrf %}
+{% block title %}Record contribution{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Record contribution</h1><a class="btn" href="{{ url_for('savings.index') }}">Back</a></div>
+<div class="card card-pad" style="max-width:720px"><form method="post">{{ csrf() }}<input type="hidden" name="idempotency_key" value="{{ idem }}">
+<div class="form-grid">
+<div class="field full"><label>Member</label><select name="member_id" required><option value="">Select member</option>{% for m in members %}<option value="{{ m.id }}" {{ 'selected' if preselect == m.id }}>{{ m.user.full_name }}</option>{% endfor %}</select></div>
+<div class="field"><label>Amount ({{ current_group.currency }})</label><input type="text" inputmode="decimal" name="amount" required value="{{ money_plain(current_group.default_contribution) if current_group.default_contribution else '' }}"></div>
+<div class="field"><label>Type</label><select name="category">{% for k, v in categories.items() %}<option value="{{ k }}" {{ 'selected' if k == current_group.contribution_frequency }}>{{ v }}</option>{% endfor %}</select></div>
+<div class="field"><label>Date</label><input type="date" name="contribution_date" value="{{ today.isoformat() }}" required></div>
+<div class="field"><label>Payment method</label><select name="payment_method">{% for m in methods %}<option>{{ m }}</option>{% endfor %}</select></div>
+<div class="field"><label>Payment reference</label><input type="text" name="payment_reference" maxlength="80"></div>
+<div class="field"><label>Notes</label><input type="text" name="notes" maxlength="300"></div></div>
+<button class="btn btn-primary" type="submit">Save contribution</button></form></div>
+{% endblock %}

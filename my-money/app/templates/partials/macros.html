@@ -1,0 +1,61 @@
+{% macro csrf() %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endmacro %}
+
+{% macro brand_mark(color='#fff', accent='#6FA0E0') %}<img class="brand-img" src="{{ url_for('static', filename='img/logo.png') }}" alt="MY MONEY" width="96" height="96">{% endmacro %}
+
+{% macro avatar(user, size='') %}
+{%- set u = avatar_url(user) -%}
+<span class="avatar {{ size }}">{% if u %}<img src="{{ u }}" alt="" loading="lazy">{% else %}{{ user.initials }}{% endif %}</span>
+{% endmacro %}
+
+{% macro group_mark(group, cls='mini-logo') %}
+{%- set u = group_logo_url(group) -%}
+<span class="{{ cls }}">{% if u %}<img src="{{ u }}" alt="{{ group.name }} logo">{% else %}{{ brand_mark('#101C36', '#1F5FD6') }}{% endif %}</span>
+{% endmacro %}
+
+{% macro stat(label, value, icon='', tone='', sub='') %}
+<div class="stat {{ tone }}">
+  {% if icon %}<div class="ico-box"><i data-lucide="{{ icon }}"></i></div>{% endif %}
+  <div class="grow"><div class="lbl">{{ label }}</div><div class="val">{{ value }}</div>{% if sub %}<div class="sub">{{ sub }}</div>{% endif %}</div>
+</div>
+{% endmacro %}
+
+{% macro pill(text, tone='') %}<span class="pill {{ tone }}">{{ text }}</span>{% endmacro %}
+
+{% macro loan_pill(status) -%}
+{%- set tones = {'ACTIVE':'green','PARTIALLY_REPAID':'blue','FULLY_REPAID':'green','OVERDUE':'red','PENDING_APPROVAL':'amber','APPROVED':'amber','DRAFT':'','REJECTED':'red','WRITTEN_OFF':''} -%}
+<span class="pill {{ tones.get(status, '') }}">{{ STATUS_LABELS.get(status, status) }}</span>
+{%- endmacro %}
+
+{% macro member_pill(status) -%}
+{%- set m = {'ACTIVE':('Approved','green'),'PENDING':('Pending','amber'),'REJECTED':('Rejected','red'),'SUSPENDED':('Suspended','red')} -%}
+{%- set v = m.get(status, (status, '')) -%}
+<span class="pill {{ v[1] }}">{{ v[0] }}</span>
+{%- endmacro %}
+
+{% macro empty(icon, title, text='') %}
+<div class="empty"><i data-lucide="{{ icon }}" class="ico-big"></i><h3>{{ title }}</h3>{% if text %}<p class="mb0">{{ text }}</p>{% endif %}{{ caller() if caller else '' }}</div>
+{% endmacro %}
+
+{% macro pager(p) %}
+{% if p.pages > 1 %}
+<nav class="pagination" aria-label="Pagination">
+  {% if p.has_prev %}<a href="{{ page_url(p.prev_num) }}" aria-label="Previous">&larr;</a>{% else %}<span class="dis">&larr;</span>{% endif %}
+  {% for n in p.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
+    {% if n %}{% if n == p.page %}<span class="cur">{{ n }}</span>{% else %}<a href="{{ page_url(n) }}">{{ n }}</a>{% endif %}{% else %}<span class="dis">&hellip;</span>{% endif %}
+  {% endfor %}
+  {% if p.has_next %}<a href="{{ page_url(p.next_num) }}" aria-label="Next">&rarr;</a>{% else %}<span class="dis">&rarr;</span>{% endif %}
+</nav>
+{% endif %}
+{% endmacro %}
+
+{# Form that asks for confirmation (and optionally a reason) before submitting #}
+{% macro action_form(url, label, confirm, icon='', cls='btn btn-sm', reason='', title='', danger=false, fields={}) %}
+<form method="post" action="{{ url }}" style="display:inline" data-confirm="{{ confirm }}" {% if title %}data-title="{{ title }}"{% endif %} data-confirm-label="{{ label }}" {% if reason %}data-reason="{{ reason }}"{% endif %} {% if danger %}data-danger="1"{% endif %}>
+  {{ csrf() }}{% for k, v in fields.items() %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+  <button class="{{ cls }}" type="submit">{% if icon %}<i data-lucide="{{ icon }}"></i>{% endif %}{{ label }}</button>
+</form>
+{% endmacro %}
+
+{% macro chart_cfg(id, cfg) %}<script type="application/json" id="{{ id }}">{{ cfg|tojson }}</script>{% endmacro %}
+
+{% macro tx_form_hidden() %}{% endmacro %}

@@ -1,0 +1,18 @@
+{% extends "shell_group.html" %}
+{% from "partials/macros.html" import csrf %}
+{% block title %}Record transaction{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Record transaction</h1></div>
+<form class="card card-pad" method="post" style="max-width:640px" data-once>{{ csrf() }}
+<div class="form-grid">
+<div class="field"><label>Type</label><select name="tx_type" id="txt"><option value="EXPENSE" {{ 'selected' if preselect == 'EXPENSE' }}>Expense (money out)</option><option value="PENALTY" {{ 'selected' if preselect == 'PENALTY' }}>Penalty (money in)</option><option value="ADJUSTMENT" {{ 'selected' if preselect == 'ADJUSTMENT' }}>Adjustment</option></select></div>
+<div class="field"><label>Amount ({{ current_group.currency }})</label><input type="number" name="amount" step="any" min="0" required></div>
+<div class="field"><label>Date</label><input type="date" name="tx_date" value="{{ today }}" required></div>
+<div class="field"><label>Direction (adjustments only)</label><select name="direction"><option value="IN">Money in</option><option value="OUT">Money out</option></select></div>
+<div class="field"><label>Category (expenses)</label><input type="text" name="category" maxlength="60" placeholder="General"></div>
+<div class="field"><label>Member (penalties, optional)</label><select name="member_id"><option value="">-</option>{% for m in members %}<option value="{{ m.id }}">{{ m.user.full_name }}</option>{% endfor %}</select></div>
+<div class="field"><label>Payment method</label><input type="text" name="payment_method" maxlength="40"></div>
+<div class="field"><label>Payment reference</label><input type="text" name="payment_reference" maxlength="80"></div>
+<div class="field full"><label>Description</label><textarea name="description" required maxlength="300"></textarea></div></div>
+<button class="btn btn-primary" type="submit">Save transaction</button> <a class="btn" href="{{ url_for('reports.transactions') }}">Cancel</a></form>
+{% endblock %}

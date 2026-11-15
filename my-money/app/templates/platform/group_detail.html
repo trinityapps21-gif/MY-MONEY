@@ -1,0 +1,11 @@
+{% extends "shell_platform.html" %}
+{% from "partials/macros.html" import stat, pill, action_form, group_mark %}
+{% block title %}{{ grp.name }}{% endblock %}
+{% block content %}
+<div class="page-head"><div class="flex gap2 items-center">{{ group_mark(grp, 'side-logo') }}<div><h1>{{ grp.name }}</h1><p>{{ grp.location or '' }} {{ pill(grp.status.title(), 'green' if grp.status == 'ACTIVE' else 'red') }}</p></div></div>
+{% if grp.status == 'ACTIVE' %}{{ action_form(url_for('platform.group_status', group_id=grp.id), 'Suspend group', 'Suspend this group?', 'ban', 'btn btn-danger', danger=true, fields={'action':'suspend'}) }}{% else %}{{ action_form(url_for('platform.group_status', group_id=grp.id), 'Reactivate group', 'Reactivate this group?', 'check', 'btn btn-primary', fields={'action':'activate'}) }}{% endif %}</div>
+<div class="grid g4 mb2">{{ stat('Active members', members, 'users', '', pending ~ ' pending') }}{{ stat('Loans disbursed', loans, 'hand-coins') }}{{ stat('Total savings', grp.currency ~ ' ' ~ (t.total_savings / (10 ** grp.currency_decimals))|round(grp.currency_decimals), 'piggy-bank', 'green') }}{{ stat('Cash balance', grp.currency ~ ' ' ~ (t.cash / (10 ** grp.currency_decimals))|round(grp.currency_decimals), 'wallet') }}</div>
+<div class="grid g2"><div class="card card-pad"><h2>Officials</h2>{% for m in officials %}<div class="list-row"><div class="grow">{{ m.user.full_name }}</div>{{ pill(ROLE_LABELS.get(m.role, m.role)) }}</div>{% endfor %}</div>
+<div class="card card-pad"><h2>Details</h2><dl class="kv mt1"><dt>Currency</dt><dd>{{ grp.currency }}</dd><dt>Frequency</dt><dd>{{ grp.contribution_frequency.title() }}</dd><dt>Timezone</dt><dd>{{ grp.timezone }}</dd><dt>Created</dt><dd>{{ grp.created_at|ld }}</dd></dl></div></div>
+<div class="card mt2"><div class="card-head"><h2>Recent activity</h2></div>{% for a in activity %}<div class="list-row"><div class="grow"><b>{{ a.action }}</b> <span class="muted small">{{ a.user.full_name if a.user else 'system' }}</span></div><span class="faint xs">{{ a.created_at|ago }}</span></div>{% else %}<div class="empty">No activity.</div>{% endfor %}</div>
+{% endblock %}

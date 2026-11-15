@@ -1,0 +1,139 @@
+from datetime import timedelta
+
+from flask import Blueprint, abort, flash, g, redirect, render_template, request, url_for
+from flask_login import current_user
+from sqlalchemy import func
+
+from app.extensions import db
+from app.models import Contribution, GroupMember, Transaction, User
+from app.services import analytics, ledger, savings as savings_svc
+from app.services.audit import audit
+from app.services.forms import form_amount, form_choice, form_date, form_text, new_idem_key
+from app.services.savings import CATEGORY_LABELS, PAYMENT_METHODS, DuplicateError
+from app.services.tenant import get_scoped_or_404, scoped, tenant_route
+from app.services.timeutil import local_today, resolve_range
+
+bp = Blueprint("savings", __name__, url_prefix="/g/<int:group_id>/savings")
+
+
+def _reversed_ids(tx_ids):
+    if not tx_ids:
+        return set()
+    rows = db.session.query(Transaction.reverses_id).filter(
+        Transaction.group_id == g.group.id, Transaction.reverses_id.in_(tx_ids)).all()
+    return {r[0] for r in rows}
+
+
+@bp.route("/")
+@tenant_route(official=True)
+def index(group_id=None):
+    group, today = g.group, local_today(g.group.timezone)
+    start, end, key = resolve_range(request.args, group.timezone)
+    q = Contribution.query.join(GroupMember, GroupMember.id == Contribution.member_id) \
+        .join(User, User.id == GroupMember.user_id).filter(Contribution.group_id == group.id)
+    if start:
+        q = q.filter(Contribution.contribution_date >= start)
+    if end:
+        q = q.filter(Contribution.contribution_date <= end)
+    member_id = request.args.get("member", type=int)
+    if member_id:
+        q = q.filter(Contribution.member_id == member_id)
+    cat = request.args.get("category")
+    if cat in CATEGORY_LABELS:
+        q = q.filter(Contribution.category == cat)
+    term = (request.args.get("q") or "").strip()
+    if term:
+        like = f"%{term}%"
+        q = q.filter(User.full_name.ilike(like) | Contribution.payment_reference.ilike(like)
+                     | Contribution.receipt_no.ilike(like))
+    page = q.order_by(Contribution.contribution_date.desc(), Contribution.id.desc()) \
+        .paginate(page=request.args.get("page", 1, type=int), per_page=15, error_out=False)
+    month_start = today.replace(day=1)
+    month = ledger.totals(group.id, month_start, today)["total_savings"]
+    year = ledger.totals(group.id, today.replace(month=1, day=1), today)["total_savings"]
+    contributed, total_members = analytics.members_contributed(group, month_start, today)
+    charts = analytics.dashboard_charts(group, today)
+    members = GroupMember.query.join(User, User.id == GroupMember.user_id).filter(GroupMember.group_id == group.id, GroupMember.status == "ACTIVE") \
+        .order_by(User.full_name).all()
+    recent = Contribution.query.filter_by(group_id=group.id) \
+        .order_by(Contribution.created_at.desc(), Contribution.id.desc()).limit(5).all()
+    expected = sum(savings_svc.expected_for_member(group, m, today) for m in members)
+    actual_all = ledger.totals(group.id)["total_savings"]
+    return render_template(
+        "savings/index.html", page=page, month=month, year=year, contributed=contributed,
+        total_members=total_members, charts=charts, members=members, recent=recent, range_key=key,
+        start=start, end=end, q=term, member_id=member_id, category=cat, reversed_ids=_reversed_ids([c.tx_id for c in page.items]),
+        categories=CATEGORY_LABELS, methods=PAYMENT_METHODS, idem=new_idem_key(), today=today,
+        expected=expected, actual_all=actual_all, missed=max(0, expected - actual_all))
+
+
+@bp.route("/new", methods=["GET", "POST"])
+@tenant_route(official=True)
+def new(group_id=None):
+    members = GroupMember.query.join(User, User.id == GroupMember.user_id).filter(GroupMember.group_id == g.group.id, GroupMember.status == "ACTIVE") \
+        .order_by(User.full_name).all()
+    if request.method == "POST":
+        try:
+            member = GroupMember.query.filter_by(id=request.form.get("member_id", type=int), group_id=g.group.id,
+                                                 status="ACTIVE").first()
+            if member is None:
+                raise ValueError("Select an active member.")
+            c = savings_svc.record_contribution(
+                g.group, current_user, member, form_amount(), form_choice("category", CATEGORY_LABELS, "category"),
+                form_date("contribution_date"), form_text("payment_method", 40), form_text("payment_reference", 80),
+                form_text("notes"), request.form.get("idempotency_key") or None)
+            audit("contribution.recorded", "contribution", c.id, {"amount": c.amount}, group_id=g.group.id)
+            db.session.commit()
+            flash(f"Contribution recorded. Receipt {c.receipt_no}.", "success")
+            return redirect(url_for("savings.index"))
+        except DuplicateError as e:
+            db.session.rollback()
+            flash(str(e), "info")
+            return redirect(url_for("savings.index"))
+        except ValueError as e:
+            db.session.rollback()
+            flash(str(e), "error")
+    return render_template("savings/new.html", members=members, categories=CATEGORY_LABELS, methods=PAYMENT_METHODS,
+                           idem=new_idem_key(), today=local_today(g.group.timezone),
+                           preselect=request.args.get("member", type=int))
+
+
+@bp.route("/<int:contribution_id>/reverse", methods=["POST"])
+@tenant_route(official=True)
+def reverse(contribution_id, group_id=None):
+    c = get_scoped_or_404(Contribution, contribution_id)
+    try:
+        savings_svc.reverse_contribution(g.group, c, current_user, request.form.get("reason") or "",
+                                         local_today(g.group.timezone))
+        audit("contribution.reversed", "contribution", c.id, {"reason": request.form.get("reason")},
+              group_id=g.group.id)
+        db.session.commit()
+        flash("Contribution reversed. A reversal entry was added to the ledger.", "success")
+    except ledger.LedgerError as e:
+        db.session.rollback()
+        flash(str(e), "error")
+    return redirect(request.referrer or url_for("savings.index"))
+
+
+@bp.route("/me")
+@tenant_route()
+def mine(group_id=None):
+    q = Contribution.query.filter_by(group_id=g.group.id, member_id=g.membership.id)
+    page = q.order_by(Contribution.contribution_date.desc(), Contribution.id.desc()) \
+        .paginate(page=request.args.get("page", 1, type=int), per_page=15, error_out=False)
+    today = local_today(g.group.timezone)
+    return render_template("savings/mine.html", page=page, total=ledger.member_savings(g.group.id, g.membership.id),
+                           reversed_ids=_reversed_ids([c.tx_id for c in page.items]),
+                           expected=savings_svc.expected_for_member(g.group, g.membership, today))
+
+
+@bp.route("/member/<int:member_id>")
+@tenant_route(official=True)
+def member_statement(member_id, group_id=None):
+    m = get_scoped_or_404(GroupMember, member_id)
+    q = Contribution.query.filter_by(group_id=g.group.id, member_id=m.id) \
+        .order_by(Contribution.contribution_date.desc(), Contribution.id.desc())
+    page = q.paginate(page=request.args.get("page", 1, type=int), per_page=20, error_out=False)
+    return render_template("savings/member.html", m=m, page=page, total=ledger.member_savings(g.group.id, m.id),
+                           reversed_ids=_reversed_ids([c.tx_id for c in page.items]),
+                           expected=savings_svc.expected_for_member(g.group, m, local_today(g.group.timezone)))

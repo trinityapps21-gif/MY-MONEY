@@ -1,0 +1,5 @@
+{% for e in page.items %}
+<div class="list-row"><div class="ico-box" style="width:34px;height:34px;border-radius:8px;background:var(--blue-bg);color:var(--accent);display:grid;place-items:center;flex:none"><i data-lucide="{{ {'CONTRIBUTION':'piggy-bank','LOAN':'hand-coins','REPAYMENT':'receipt','ANNOUNCEMENT':'megaphone','MEMBER':'user-plus','MILESTONE':'trophy'}.get(e.event_type, 'activity') }}"></i></div>
+  <div class="grow"><div class="act-title">{{ e.title }}</div>{% if e.description %}<div class="muted small">{{ e.description }}</div>{% endif %}<div class="faint xs">{{ e.created_at|ago }}</div></div>
+  {% if e.amount %}<div class="act-amt">{{ money(e.amount) }}</div>{% endif %}</div>
+{% endfor %}
