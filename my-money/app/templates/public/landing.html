@@ -1,23 +1,45 @@
 {% extends "base.html" %}
 {% from "partials/macros.html" import brand_mark %}
 {% block title %}Smart Savings & Lending{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/public.css') }}">{% endblock %}
 {% block body %}
 {% include "public/_nav.html" %}
 <section class="hero"><div class="in"><div>
 <h1>MY MONEY</h1><div class="tag">Smart Savings, Trusted Lending, Transparent Finance for every group.</div>
 <p class="desc">Run savings groups and lending with a secure ledger, clear reports, receipts and a community feed — all in one place.</p>
-<div class="flex gap1 wrap mt2"><a class="btn btn-lg btn-accent" href="{{ url_for('auth.register') }}">Register Your Group</a><a class="btn btn-lg" href="{{ url_for('auth.login') }}">Login</a></div></div>
+<div class="flex gap1 wrap mt2"><a class="btn btn-lg btn-accent" href="{{ url_for('auth.register') }}"><i data-lucide="users"></i>Register Your Group</a><a class="btn btn-lg" href="{{ url_for('auth.login') }}"><i data-lucide="log-in"></i>Login</a><a class="btn btn-lg btn-wa" href="https://wa.me/256703520925?text=Hello%20MY%20MONEY%2C%20I%20would%20like%20to%20know%20more." target="_blank" rel="noopener">{% include "public/_wa_icon.html" %}WhatsApp us</a></div></div>
 <div class="hero-photo"><img src="{{ url_for('static', filename='img/world-coins.jpg') }}" alt="World map over stacks of coins" width="736" height="1308" fetchpriority="high"><div class="hero-chip a"><i data-lucide="shield-check"></i>Secure ledger</div><div class="hero-chip b"><i data-lucide="trending-up"></i>Live reports</div></div></div></section>
 <div class="feature-strip"><div class="in">
 {% for i,t in [('shield-check','Secure & Private'),('users','Group Savings'),('hand-coins','Smart Lending'),('bar-chart-3','Clear Reports'),('messages-square','Community Feed')] %}<div class="fs-item"><i data-lucide="{{ i }}"></i>{{ t }}</div>{% endfor %}</div></div>
+
 <section class="section" id="features"><h2>Everything your group needs</h2><p class="lead">Built for savings groups, SACCOs and community lenders.</p>
-<div class="grid g3">{% for i,t,d in [('piggy-bank','Contributions','Record member savings with receipts and full history.'),('hand-coins','Loans','Flat or reducing-balance interest, approvals and repayment schedules.'),('book-open','Ledger','Append-only ledger that always reconciles with your dashboard.'),('megaphone','Announcements','Pin important notices for every member.'),('messages-square','Community','A social feed for posts, photos, comments and likes.'),('file-text','Reports','PDF, Excel and CSV exports for every report.')] %}
-<div class="card feat-card"><div class="ico-box"><i data-lucide="{{ i }}"></i></div><h3>{{ t }}</h3><p>{{ d }}</p></div>{% endfor %}</div></section>
+<div class="grid g3">{% for tone,i,t,d in [
+ ('blue','piggy-bank','Contributions','Record member savings with receipts and full history.'),
+ ('green','hand-coins','Loans','Flat or reducing-balance interest, approvals and repayment schedules.'),
+ ('navy','book-open-check','Ledger','Append-only ledger that always reconciles with your dashboard.'),
+ ('amber','megaphone','Announcements','Pin important notices for every member.'),
+ ('violet','messages-square','Community','A social feed for posts, photos, comments and likes.'),
+ ('rose','file-text','Reports','PDF, Excel and CSV exports for every report.'),
+ ('teal','users-round','Members & Roles','Administrator, treasurer, vice chair and member roles with the right access for each.'),
+ ('blue','receipt','Receipts','Every contribution and repayment gets a clear, shareable receipt.'),
+ ('green','shield-check','Private & Secure','Each group is fully isolated, and sensitive actions are logged in an audit trail.')] %}
+<div class="card feat-card pro"><div class="tile {{ tone }}"><i data-lucide="{{ i }}"></i></div><h3>{{ t }}</h3><p>{{ d }}</p></div>{% endfor %}</div></section>
+
+<div class="bg-soft"><section class="section">
+<h2>Up and running in minutes</h2><p class="lead">No spreadsheets, no notebooks, no confusion.</p>
+<div class="steps">
+<div class="step"><div class="num">1</div><h3>Register your group</h3><p>Set your group's name, currency and logo.</p></div>
+<div class="step"><div class="num">2</div><h3>Invite members</h3><p>Share a link and approve who joins.</p></div>
+<div class="step"><div class="num">3</div><h3>Save and lend</h3><p>Record contributions, loans and repayments.</p></div>
+<div class="step"><div class="num">4</div><h3>Share reports</h3><p>Export and share clear, accurate reports.</p></div>
+</div></section></div>
+
 <section class="section" style="padding-bottom:20px"><h2>See your group's money clearly</h2><p class="lead">From savings to loans to reports, everything is tracked in one transparent place.</p>
 <div class="photo-grid">
 <div class="photo-card"><img src="{{ url_for('static', filename='img/world-coins.jpg') }}" alt="" loading="lazy"><div><h3>Group savings</h3><p>Record every contribution and watch your group's savings grow.</p></div></div>
 <div class="photo-card"><img src="{{ url_for('static', filename='img/analytics.jpg') }}" alt="" loading="lazy"><div><h3>Clear reports</h3><p>Inspect every shilling with PDF, Excel and CSV reports.</p></div></div>
 <div class="photo-card"><img src="{{ url_for('static', filename='img/growth.jpg') }}" alt="" loading="lazy"><div><h3>Smart lending</h3><p>Track loans, interest and repayments with confidence.</p></div></div></div></section>
-<section class="band photo-band"><div class="section"><h2>Ready to start?</h2><p class="lead">Create your group in minutes.</p><a class="btn btn-lg btn-accent" href="{{ url_for('auth.register') }}">Register Your Group</a></div></section>
+
+<section class="band photo-band"><div class="section"><h2>Ready to start?</h2><p class="lead">Create your group in minutes.</p><div class="flex gap1 wrap"><a class="btn btn-lg btn-accent" href="{{ url_for('auth.register') }}"><i data-lucide="users"></i>Register Your Group</a><a class="btn btn-lg btn-wa" href="https://wa.me/256703520925?text=Hello%20MY%20MONEY%2C%20I%20would%20like%20to%20know%20more." target="_blank" rel="noopener">{% include "public/_wa_icon.html" %}Chat on WhatsApp</a><a class="btn btn-lg btn-outline-light" href="tel:+256703520925"><i data-lucide="phone"></i>0703 520 925</a></div></div></section>
 {% include "public/_foot.html" %}
 {% endblock %}
