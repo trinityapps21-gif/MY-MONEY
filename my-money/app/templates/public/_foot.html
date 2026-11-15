@@ -1,1 +1,29 @@
-<footer class="pub-foot"><div class="in"><b>MY MONEY</b><span>Developed and Powered by Emtrixz Technology Company.</span></div></footer>
+{% set wa_number = "256703520925" %}
+<footer class="pub-foot pro">
+  <div class="pf-main">
+    <div>
+      <div class="pf-brand"><i data-lucide="landmark"></i>MY MONEY</div>
+      <p>Smart savings, trusted lending and transparent finance for savings groups, SACCOs and community lenders.</p>
+    </div>
+    <div>
+      <h4>Explore</h4>
+      <a href="{{ url_for('main.index') }}#features"><i data-lucide="layout-grid"></i>Features</a>
+      <a href="{{ url_for('main.about') }}"><i data-lucide="info"></i>About us</a>
+      <a href="{{ url_for('main.contact') }}"><i data-lucide="life-buoy"></i>Help &amp; contact</a>
+    </div>
+    <div>
+      <h4>Get started</h4>
+      <a href="{{ url_for('auth.register') }}"><i data-lucide="users"></i>Register your group</a>
+      <a href="{{ url_for('auth.login') }}"><i data-lucide="log-in"></i>Login</a>
+      <a href="{{ url_for('auth.recover') }}"><i data-lucide="key-round"></i>Recover account</a>
+    </div>
+    <div>
+      <h4>Talk to us</h4>
+      <a href="tel:+256703520925"><i data-lucide="phone"></i>0703 520 925</a>
+      <a href="https://wa.me/{{ wa_number }}" target="_blank" rel="noopener">{% include "public/_wa_icon.html" %}WhatsApp us</a>
+      {% if contact_email %}<a href="mailto:{{ contact_email }}"><i data-lucide="mail"></i>{{ contact_email }}</a>{% endif %}
+    </div>
+  </div>
+  <div class="pf-bottom"><div class="in"><span>&copy; MY MONEY. All rights reserved.</span><span>Developed and Powered by Emtrixz Technology Company.</span></div></div>
+</footer>
+<a class="wa-float" href="https://wa.me/{{ wa_number }}?text=Hello%20MY%20MONEY%2C%20I%20need%20help." target="_blank" rel="noopener" aria-label="Chat with us on WhatsApp">{% include "public/_wa_icon.html" %}</a>
