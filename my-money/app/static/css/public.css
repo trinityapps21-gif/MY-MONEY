@@ -18,18 +18,16 @@
 .btn-outline-light { background: transparent; border-color: rgba(255,255,255,.45); color: #fff; }
 .btn-outline-light:hover { background: rgba(255,255,255,.12); color: #fff; }
 
-/* Icon tiles */
-.tile { width: 52px; height: 52px; border-radius: 14px; display: grid; place-items: center; margin-bottom: 14px; flex: none; }
-.tile svg { width: 26px; height: 26px; stroke-width: 1.9; }
-.tile.blue { background: linear-gradient(135deg, #E6EEFB, #D3E1FA); color: #1F5FD6; }
-.tile.green { background: linear-gradient(135deg, #E3F4EA, #CBEBD8); color: #16834A; }
-.tile.amber { background: linear-gradient(135deg, #FCF1DB, #F8E3B8); color: #B97A0C; }
-.tile.violet { background: linear-gradient(135deg, #EFE8FB, #DFD2F7); color: #6B3FC4; }
-.tile.rose { background: linear-gradient(135deg, #FBE7E9, #F6CFD3); color: #C2303B; }
-.tile.teal { background: linear-gradient(135deg, #DDF3F3, #BFE8E8); color: #0E7C86; }
-.tile.navy { background: linear-gradient(135deg, #DCE3F1, #C4CFE6); color: #101C36; }
-.tile.wa { background: linear-gradient(135deg, #D9F8E5, #B8F0CF); color: #128C7E; }
-.tile.wa .wa-svg { width: 28px; height: 28px; }
+/* Icon tiles - monochrome, executive style: black thin-line icon on a quiet neutral square */
+.tile { width: 52px; height: 52px; border-radius: 12px; display: grid; place-items: center; margin-bottom: 14px; flex: none;
+  background: #F4F5F7; border: 1px solid #E4E8EF; color: #0B0F1A; }
+.tile svg { width: 24px; height: 24px; stroke-width: 1.5; stroke: #0B0F1A; }
+.tile.blue, .tile.green, .tile.amber, .tile.violet, .tile.rose, .tile.teal, .tile.navy, .tile.wa { background: #F4F5F7; color: #0B0F1A; }
+.tile .wa-svg, .feat-card.pro:hover .tile .wa-svg { stroke: none; }
+.tile.wa .wa-svg { width: 26px; height: 26px; color: #0B0F1A; }
+.feat-card.pro:hover .tile, .role:hover .tile { background: #0B0F1A; border-color: #0B0F1A; }
+.feat-card.pro:hover .tile svg, .role:hover .tile svg { stroke: #fff; }
+.feat-card.pro:hover .tile .wa-svg { color: #fff; }
 .feat-card.pro { padding: 24px; transition: transform .15s ease, box-shadow .15s ease; }
 .feat-card.pro:hover { transform: translateY(-3px); box-shadow: 0 10px 26px rgba(16,28,54,.10); }
 .feat-card.pro h3 { font-size: 16px; }
@@ -50,12 +48,12 @@
 /* Role cards */
 .role { display: flex; gap: 14px; background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; }
 .role h3 { font-size: 15px; margin-bottom: 4px; } .role p { color: var(--muted); font-size: 13.5px; margin: 0; }
-.role .tile { margin: 0; width: 44px; height: 44px; border-radius: 12px; } .role .tile svg { width: 22px; height: 22px; }
+.role .tile { margin: 0; width: 44px; height: 44px; border-radius: 10px; } .role .tile svg { width: 21px; height: 21px; }
 
 /* Value list */
 .checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
 .checks li { display: flex; gap: 12px; align-items: flex-start; }
-.checks li > svg { flex: none; width: 20px; height: 20px; color: var(--green); margin-top: 2px; }
+.checks li > svg { flex: none; width: 20px; height: 20px; color: #0B0F1A; stroke-width: 1.6; margin-top: 2px; }
 .checks b { display: block; color: var(--navy); } .checks span { color: var(--muted); font-size: 13.5px; }
 
 /* Stats */
