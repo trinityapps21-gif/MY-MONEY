@@ -1,3 +1,72 @@
 {% extends "base.html" %}
 {% block title %}Contact{% endblock %}
-{% block body %}{% include "public/_nav.html" %}<section class="section"><h2>Contact</h2><p class="lead">{% if contact_email %}Email us at <a href="mailto:{{ contact_email }}">{{ contact_email }}</a>.{% else %}Contact your platform administrator.{% endif %}</p></section>{% include "public/_foot.html" %}{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/public.css') }}">{% endblock %}
+{% block body %}
+{% include "public/_nav.html" %}
+
+<header class="page-hero"><div class="in">
+  <span class="eyebrow"><i data-lucide="life-buoy" style="width:14px;height:14px"></i>Help &amp; contact</span>
+  <h1>We're here to help</h1>
+  <p>Questions about registering a group, joining one, or using MY MONEY? Reach us by call or WhatsApp and we'll get you sorted.</p>
+</div></header>
+
+<section class="section tight">
+  <div class="grid g3">
+    <div class="contact-card featured">
+      <div class="tile wa">{% include "public/_wa_icon.html" %}</div>
+      <span class="pill">Fastest way</span>
+      <h3>WhatsApp</h3>
+      <p>Send us a message any time. Photos and screenshots are welcome.</p>
+      <div class="big">0703 520 925</div>
+      <a class="btn btn-wa btn-lg" href="https://wa.me/256703520925?text=Hello%20MY%20MONEY%2C%20I%20need%20help." target="_blank" rel="noopener">{% include "public/_wa_icon.html" %}Start chat</a>
+    </div>
+    <div class="contact-card">
+      <div class="tile blue"><i data-lucide="phone-call"></i></div>
+      <h3>Call us</h3>
+      <p>Prefer to talk? Give us a call and we'll walk you through it.</p>
+      <div class="big">0703 520 925</div>
+      <a class="btn btn-primary btn-lg" href="tel:+256703520925"><i data-lucide="phone"></i>Call now</a>
+    </div>
+    <div class="contact-card">
+      <div class="tile violet"><i data-lucide="mail"></i></div>
+      <h3>Email</h3>
+      {% if contact_email %}
+      <p>Write to us for anything that needs detail or attachments.</p>
+      <div class="big" style="font-size:16px">{{ contact_email }}</div>
+      <a class="btn btn-lg" href="mailto:{{ contact_email }}"><i data-lucide="send"></i>Send email</a>
+      {% else %}
+      <p>For anything about your own group, contact your group administrator. For the platform, use WhatsApp or call.</p>
+      <a class="btn btn-lg" href="{{ url_for('auth.login') }}"><i data-lucide="log-in"></i>Login</a>
+      {% endif %}
+    </div>
+  </div>
+</section>
+
+<div class="bg-soft"><section class="section">
+  <div class="section-head"><h2>Who should I contact?</h2><p>The quickest answer often comes from the right person.</p></div>
+  <div class="grid g3">
+    <div class="card feat-card pro"><div class="tile green"><i data-lucide="users-round"></i></div><h3>I'm a group member</h3><p>For savings, loans or membership questions, ask your group's administrator, treasurer or vice chairperson first.</p></div>
+    <div class="card feat-card pro"><div class="tile amber"><i data-lucide="building-2"></i></div><h3>I want to register a group</h3><p>Start on the <a href="{{ url_for('auth.register') }}">registration page</a>. If you get stuck, message us on WhatsApp.</p></div>
+    <div class="card feat-card pro"><div class="tile rose"><i data-lucide="key-round"></i></div><h3>I can't sign in</h3><p>Use your recovery code at <a href="{{ url_for('auth.recover') }}">Recover account</a>, or request a reset from <a href="{{ url_for('auth.forgot') }}">Forgot password</a>.</p></div>
+  </div>
+</section></div>
+
+<section class="section">
+  <div class="section-head"><h2>Frequently asked questions</h2></div>
+  <div class="faq">
+    <details><summary>How do I join an existing group?</summary><p>Ask a group official for the invitation link. Open it, fill in your details and apply. Once an official approves you, you're in.</p></details>
+    <details><summary>I forgot my password. What now?</summary><p>If you saved your recovery code, use it on the Recover account page to set a new password straight away. Otherwise request a reset: a group official confirms it's you and sends a link that works for 24 hours, once.</p></details>
+    <details><summary>I lost my recovery code.</summary><p>Sign in, open your Profile and generate a new one (you'll need your current password). A new code is also issued at each sign-in.</p></details>
+    <details><summary>Can other groups see my group's information?</summary><p>No. Every group's members, savings and loans are completely isolated from every other group.</p></details>
+    <details><summary>I made a mistake in a record. Can it be fixed?</summary><p>Yes. Records are never silently changed. An official corrects it with a reversal entry, so the history stays complete and trustworthy.</p></details>
+    <details><summary>Can I export reports?</summary><p>Yes. Reports can be downloaded as PDF, Excel or CSV.</p></details>
+  </div>
+</section>
+
+<section class="wa-band"><div class="section">
+  <div><h2>Still need help?</h2><p>Message us on WhatsApp or call 0703 520 925 and we'll answer as soon as we can.</p></div>
+  <a class="btn btn-lg" href="https://wa.me/256703520925?text=Hello%20MY%20MONEY%2C%20I%20need%20help." target="_blank" rel="noopener">{% include "public/_wa_icon.html" %}Chat on WhatsApp</a>
+</div></section>
+
+{% include "public/_foot.html" %}
+{% endblock %}
