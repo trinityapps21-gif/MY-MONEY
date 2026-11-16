@@ -1,0 +1,20 @@
+/* MY MONEY - install banner (PWA). Black line icons only; the app logo is the only colour. */
+.pwa-banner { position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 70; margin: 0 auto; max-width: 520px;
+  display: none; align-items: center; gap: 12px; padding: 12px 14px; background: #fff; border: 1px solid #E4E8EF; border-radius: 16px;
+  box-shadow: 0 18px 44px rgba(16, 28, 54, .22); animation: pwa-in .3s ease-out; }
+.pwa-banner.show { display: flex; }
+body:has(.bottom-nav) .pwa-banner { bottom: calc(72px + env(safe-area-inset-bottom)); }
+.pwa-banner img { width: 46px; height: 46px; border-radius: 11px; flex: none; }
+.pwa-banner .pwa-text { min-width: 0; flex: 1; }
+.pwa-banner b { display: block; font-size: 14px; color: #101C36; }
+.pwa-banner span { display: block; font-size: 12.5px; color: #5B6781; line-height: 1.4; }
+.pwa-banner .pwa-actions { display: flex; flex-direction: column; gap: 6px; flex: none; }
+.pwa-banner button { height: 36px; padding: 0 14px; border-radius: 8px; font: 700 13px var(--font, system-ui); cursor: pointer; border: 1px solid #E4E8EF; background: #fff; color: #101C36; }
+.pwa-banner button.go { background: #142F66; border-color: #142F66; color: #fff; }
+.pwa-banner .share-glyph { display: inline-block; width: 15px; height: 15px; vertical-align: -3px; stroke: #0B0F1A; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.pwa-banner.ios .pwa-actions { align-self: flex-start; }
+[data-install][hidden] { display: none !important; }
+@keyframes pwa-in { from { transform: translateY(14px); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .pwa-banner { animation: none; } }
+@media (display-mode: standalone) { .pwa-banner, [data-install] { display: none !important; } }
+@media print { .pwa-banner { display: none !important; } }

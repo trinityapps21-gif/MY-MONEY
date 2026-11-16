@@ -1,0 +1,27 @@
+{
+  "id": "/",
+  "name": "MY MONEY",
+  "short_name": "MY MONEY",
+  "description": "Smart savings, trusted lending and transparent finance for savings groups, SACCOs and community lenders.",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "background_color": "#011842",
+  "theme_color": "#101C36",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["finance", "business", "productivity"],
+  "icons": [
+    { "src": "/static/img/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/static/img/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/static/img/icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/static/img/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "My groups", "short_name": "Groups", "url": "/groups",
+      "icons": [{ "src": "/static/img/icon-192.png", "sizes": "192x192", "type": "image/png" }] },
+    { "name": "Login", "short_name": "Login", "url": "/login",
+      "icons": [{ "src": "/static/img/icon-192.png", "sizes": "192x192", "type": "image/png" }] }
+  ]
+}

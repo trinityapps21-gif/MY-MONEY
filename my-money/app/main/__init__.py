@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, render_template
+from flask import Blueprint, current_app, jsonify, render_template, send_from_directory
 from sqlalchemy import text
 
 from app.extensions import db
@@ -30,3 +30,12 @@ def health():
         return jsonify(status="ok"), 200
     except Exception:
         return jsonify(status="database_unavailable"), 503
+
+
+@bp.route("/sw.js")
+def service_worker():
+    """PWA service worker. Must be served from the site root so it can control the whole app."""
+    resp = send_from_directory(current_app.static_folder, "sw.js", mimetype="application/javascript")
+    resp.headers["Cache-Control"] = "no-cache"
+    resp.headers["Service-Worker-Allowed"] = "/"
+    return resp
