@@ -1,0 +1,25 @@
+{% extends "shell_group.html" %}{% from "partials/macros.html" import csrf, empty %}
+{% block title %}Import data{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Import existing records</h1><p>Bring your group's current work onto MY MONEY from Excel, CSV or PDF, without retyping</p></div></div>
+<div class="alert info"><b>How it works.</b> 1) Download a template and fill it in (or use your own Excel with the same column names). 2) Upload it. 3) Check the preview: nothing is saved yet. 4) Confirm. Any import can be undone afterwards.</div>
+<div class="alert warn"><b>Scanned paper (CamScanner PDFs):</b> a PDF that is a photo of paper cannot be read automatically. It is saved here as a reference document so it stays with your records. PDFs with real selectable tables <i>are</i> read. For scanned work, type the figures into the template.</div>
+<div class="card card-pad mb2"><h2 class="mb2">Upload a file</h2>
+<form method="post" action="{{ url_for('imports.upload') }}" enctype="multipart/form-data" class="form-grid">{{ csrf() }}
+<div class="field"><label>What is in the file?</label><select name="kind" required>{% for k, s in specs.items() %}<option value="{{ k }}">{{ s.label }}</option>{% endfor %}</select></div>
+<div class="field"><label>File (.xlsx, .csv or .pdf, max 5 MB, 2000 rows)</label><input type="file" name="file" accept=".xlsx,.csv,.pdf" required></div>
+<div class="field full"><button class="btn btn-primary" type="submit"><i data-lucide="upload"></i>Upload and preview</button></div></form></div>
+<h2 class="mb2">Templates and the right order</h2>
+<div class="grid g2 mb2">{% for k, s in specs.items() %}
+<div class="card card-pad"><h3>{{ loop.index }}. {{ s.label }}</h3><p class="muted small">{{ s.help }}</p>
+<div class="small muted mb1">Columns: {% for c in s.columns %}<code>{{ c[0] }}</code>{{ '*' if c[1] }}{{ ', ' if not loop.last }}{% endfor %} <span class="faint">(* required)</span></div>
+<a class="btn btn-sm" href="{{ url_for('imports.template', kind=k, fmt='xlsx') }}"><i data-lucide="file-spreadsheet"></i>Excel template</a>
+<a class="btn btn-sm" href="{{ url_for('imports.template', kind=k, fmt='csv') }}"><i data-lucide="file-text"></i>CSV template</a></div>{% endfor %}</div>
+<div class="card"><div class="card-head"><h2>Import history</h2></div>
+<div class="table-wrap"><table class="table"><thead><tr><th>#</th><th>Type</th><th>File</th><th>Rows</th><th>Status</th><th>By</th><th>When</th><th></th></tr></thead><tbody>
+{% for b in batches %}<tr><td>{{ b.id }}</td><td>{{ specs[b.kind].label }}</td><td>{{ b.filename }}{% if b.source_file_id %} <a href="{{ url_for('files.serve', file_id=b.source_file_id, download=1) }}" title="Original file"><i data-lucide="paperclip"></i></a>{% endif %}</td>
+<td>{% if b.status == 'CANCELLED' and not b.total_rows %}reference only{% else %}{{ b.applied_rows if b.status in ('APPLIED','UNDONE') else b.ok_rows }} / {{ b.total_rows }}{% endif %}</td>
+<td><span class="pill {{ {'APPLIED':'green','PREVIEW':'amber','UNDONE':'red','CANCELLED':''}[b.status] }}">{{ b.status|title }}</span></td><td>{{ b.creator.full_name }}</td><td>{{ b.created_at|ldt }}</td>
+<td>{% if b.total_rows %}<a class="btn btn-sm" href="{{ url_for('imports.batch', batch_id=b.id) }}">Open</a>{% endif %}</td></tr>
+{% else %}<tr><td colspan="8">{{ empty('upload', 'No imports yet', 'Your uploads will be listed here.') }}</td></tr>{% endfor %}</tbody></table></div></div>
+{% endblock %}
