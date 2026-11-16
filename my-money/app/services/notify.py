@@ -5,6 +5,9 @@ from app.models import GroupMember, Notification, OFFICIAL_ROLES
 def notify(user_ids, group_id, kind, title, body=None, link=None, dedupe_key=None):
     """Create in-app notifications. With a dedupe_key, a user is never notified
     twice for the same event. Channel fields are reserved for SMS/WhatsApp."""
+    from app.services import importctx
+    if importctx.active():
+        return 0
     created = 0
     for uid in set(user_ids):
         if dedupe_key and Notification.query.filter_by(user_id=uid, dedupe_key=dedupe_key).first():
