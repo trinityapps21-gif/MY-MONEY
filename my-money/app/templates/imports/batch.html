@@ -1,0 +1,26 @@
+{% extends "shell_group.html" %}{% from "partials/macros.html" import csrf, action_form %}
+{% block title %}Import #{{ b.id }}{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>{{ spec.label }} import #{{ b.id }}</h1><p>{{ b.filename }} &middot; {{ b.created_at|ldt }} &middot; <span class="pill {{ {'APPLIED':'green','PREVIEW':'amber','UNDONE':'red','CANCELLED':''}[b.status] }}">{{ b.status|title }}</span></p></div><a class="btn" href="{{ url_for('imports.index') }}">All imports</a></div>
+<div class="grid g4 mb2">
+<div class="stat"><div class="grow"><div class="lbl">Rows in file</div><div class="val">{{ b.total_rows }}</div></div></div>
+<div class="stat green"><div class="grow"><div class="lbl">{{ 'Imported' if b.status in ('APPLIED','UNDONE') else 'Ready to import' }}</div><div class="val">{{ b.applied_rows if b.status in ('APPLIED','UNDONE') else b.ok_rows }}</div></div></div>
+<div class="stat red"><div class="grow"><div class="lbl">With problems</div><div class="val">{{ b.error_rows }}</div></div></div>
+</div>
+{% if not b.source_file_id %}<div class="alert warn">The original file was not archived (file storage is not configured). The import itself still works.</div>{% endif %}
+{% if b.status == 'PREVIEW' %}
+<div class="alert info"><b>Preview only: nothing has been saved yet.</b> Rows with problems are skipped; fix them in your file and upload again, or confirm to import the {{ b.ok_rows }} good row(s).</div>
+<div class="flex gap1 wrap mb2">
+{% if b.ok_rows %}{{ action_form(url_for('imports.apply', batch_id=b.id), 'Confirm and import ' ~ b.ok_rows ~ ' row(s)', 'Import ' ~ b.ok_rows ~ ' row(s) into the group? You can undo the import afterwards.', cls='btn btn-primary', icon='check') }}{% endif %}
+{{ action_form(url_for('imports.cancel', batch_id=b.id), 'Cancel', 'Cancel this import? Nothing will be saved.', cls='btn') }}
+{% if b.error_rows %}<a class="btn" href="{{ url_for('imports.errors_csv', batch_id=b.id) }}"><i data-lucide="download"></i>Problems (.csv)</a>{% endif %}</div>
+{% elif b.status == 'APPLIED' %}
+<div class="alert success">{{ next_hint|safe }}</div>
+<div class="flex gap1 wrap mb2">{{ action_form(url_for('imports.undo', batch_id=b.id), 'Undo this import', 'Undo the whole import? Entries are reversed in the ledger and stay visible in the audit trail.', cls='btn btn-danger', icon='undo-2', danger=true) }}
+{% if b.error_rows %}<a class="btn" href="{{ url_for('imports.errors_csv', batch_id=b.id) }}"><i data-lucide="download"></i>Rows not imported (.csv)</a>{% endif %}</div>
+{% endif %}
+<div class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Row</th>{% for c in cols %}<th>{{ c }}</th>{% endfor %}<th>Check</th></tr></thead><tbody>
+{% for r in rows %}<tr><td>{{ r.n }}</td>{% for c in r.cells %}<td>{{ c }}</td>{% endfor %}
+<td>{% if r.errors %}<span class="pill red">Problem</span> {% for e in r.errors %}<div class="small" style="color:#B42318">{{ e }}</div>{% endfor %}{% else %}<span class="pill green">OK</span>{% for w in r.warnings %}<div class="small muted">{{ w }}</div>{% endfor %}{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+{% if hidden %}<div class="muted small" style="padding:12px">{{ hidden }} more row(s) not shown. All rows are processed.</div>{% endif %}</div>
+{% endblock %}
