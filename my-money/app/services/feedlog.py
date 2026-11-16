@@ -8,6 +8,9 @@ MILESTONES_MAJOR_UNITS = [1_000_000, 5_000_000, 10_000_000, 25_000_000, 50_000_0
 
 
 def emit(group_id, event_type, title, description=None, amount=None, actor_id=None, ref_type=None, ref_id=None):
+    from app.services import importctx
+    if importctx.active():  # imported history must not flood the feed
+        return None
     row = GroupFeed(group_id=group_id, event_type=event_type, title=title[:160],
                     description=(description or "")[:300] or None, amount=amount, actor_id=actor_id,
                     ref_type=ref_type, ref_id=ref_id)
