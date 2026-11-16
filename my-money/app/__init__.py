@@ -66,6 +66,7 @@ def register_blueprints(app):
     from app.feed import bp as feed_bp
     from app.files import bp as files_bp
     from app.groups import bp as groups_bp
+    from app.imports import bp as imports_bp
     from app.lending import bp as lending_bp
     from app.main import bp as main_bp
     from app.members import bp as members_bp
@@ -76,7 +77,7 @@ def register_blueprints(app):
     from app.savings import bp as savings_bp
 
     for bp in (main_bp, auth_bp, groups_bp, members_bp, savings_bp, borrowers_bp, lending_bp, repayments_bp,
-               feed_bp, community_bp, announcements_bp, reports_bp, notifications_bp, files_bp, platform_bp):
+               feed_bp, community_bp, announcements_bp, reports_bp, notifications_bp, files_bp, platform_bp, imports_bp):
         app.register_blueprint(bp)
 
 
@@ -280,37 +281,6 @@ def register_cli(app):
             raise click.ClickException("A platform administrator already exists.")
         u = User(full_name=name.strip(), phone=normalize_phone(phone), email=email.strip().lower(),
                  password_hash=generate_password_hash(password), is_platform_admin=True)
-        db.session.add(u)
-        db.session.flush()
-        audit("platform.admin_created", "user", u.id, user_id=u.id)
-        db.session.commit()
-        click.echo("Platform administrator created.")
-
-    @app.cli.command("bootstrap-platform-admin")
-    def bootstrap_admin():
-        """Non-interactive, idempotent admin creation from environment variables."""
-        import os
-        from app.auth import validate_password, normalize_phone
-        from app.models import User
-        from app.services.audit import audit
-        from werkzeug.security import generate_password_hash
-
-        seed_defaults()
-        if User.query.filter_by(is_platform_admin=True).first():
-            click.echo("Platform administrator already exists; nothing to do.")
-            return
-        email = (os.environ.get("PLATFORM_ADMIN_EMAIL") or "").strip().lower()
-        password = os.environ.get("PLATFORM_ADMIN_PASSWORD") or ""
-        if not email or not password:
-            click.echo("PLATFORM_ADMIN_EMAIL / PLATFORM_ADMIN_PASSWORD not set; skipping.")
-            return
-        err = validate_password(password)
-        if err:
-            raise click.ClickException(err)
-        u = User(full_name=os.environ.get("PLATFORM_ADMIN_NAME", "Platform Admin"),
-                 phone=normalize_phone(os.environ.get("PLATFORM_ADMIN_PHONE", "0700000000")),
-                 email=email, password_hash=generate_password_hash(password),
-                 is_platform_admin=True)
         db.session.add(u)
         db.session.flush()
         audit("platform.admin_created", "user", u.id, user_id=u.id)
