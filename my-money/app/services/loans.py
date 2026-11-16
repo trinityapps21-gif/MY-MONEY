@@ -17,7 +17,7 @@ from app.extensions import db
 from app.models import utcnow
 from app.models import (Borrower, InterestSettings, Loan, LoanApproval, LoanRepayment, LoanRepaymentSchedule,
                         RepaymentAllocation, Transaction)
-from app.services import feedlog, interest, ledger, notify
+from app.services import feedlog, importctx, interest, ledger, notify
 from app.services.savings import DuplicateError
 
 ACTIVE_STATES = ("ACTIVE", "PARTIALLY_REPAID", "OVERDUE")
@@ -141,7 +141,7 @@ def disburse(group, loan, user, disbursed_on):
     if loan.disbursement_tx_id:
         raise LoanError("This loan has already been disbursed.")
     cash = ledger.cash_balance(group.id)
-    if loan.principal > cash:
+    if loan.principal > cash and not importctx.active():  # historical loans predate imported savings
         raise LoanError("Insufficient available cash to disburse this loan.")
     tx = ledger.post(group.id, "LOAN_DISBURSEMENT", loan.principal, "OUT", disbursed_on, user.id,
                      description=f"Loan disbursement {loan.reference}", borrower_id=loan.borrower_id,
@@ -237,7 +237,7 @@ def record_repayment(group, loan, user, amount, paid_on, payment_method=None, pa
             raise DuplicateError("This repayment was already recorded.", existing)
     if payment_reference and LoanRepayment.query.filter_by(group_id=group.id, payment_reference=payment_reference).first():
         raise DuplicateError("A repayment with this reference number already exists.")
-    recent = LoanRepayment.query.filter(
+    recent = None if importctx.active() else LoanRepayment.query.filter(
         LoanRepayment.loan_id == loan.id, LoanRepayment.amount == amount, LoanRepayment.payment_date == paid_on,
         LoanRepayment.status == "POSTED",
         LoanRepayment.created_at >= utcnow() - timedelta(minutes=2),
