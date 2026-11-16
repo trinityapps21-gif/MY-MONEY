@@ -34,6 +34,14 @@ See `.env.example`. Key ones: `SECRET_KEY`, `TURSO_DATABASE_URL`, `TURSO_AUTH_TO
 - Files are served only via `/files/<id>` after a group-membership check. Images are proxied; documents redirect to short-lived signed ImageKit URLs (private files). Only group logos are publicly viewable.
 - Account setup: Uploadcare project -> copy public and secret keys. ImageKit -> copy private key, public key and URL endpoint. Set them in Render.
 
+## Importing existing records
+Group officials open **Import Data**, download an Excel/CSV template (or use their own sheet, common column names such as `Name`, `Mobile`, `Amount Paid`, `Date Paid` are understood), upload it, review a **preview** (nothing is saved), then confirm. Order: members -> contributions (use category `OPENING` for a savings balance as of today) -> loans (original terms) -> repayments.
+- Rows are posted through the same services as manual entry, so the ledger, duplicate protection and the interest engine behave identically. Imports send **no notifications** and add **no feed posts**; historical loans are allowed even if imported savings do not cover them.
+- Every batch can be **undone** (ledger reversal rows; nothing is deleted). Undo loans only after undoing their repayments. Members who already have records are kept.
+- Dates are read day-first (31/12/2025). Limits: 5 MB, 2000 rows per file.
+- **PDF:** PDFs with real, selectable tables are read (pdfplumber). **Scanned PDFs (photos of paper, e.g. CamScanner) cannot be read automatically**: they are kept privately as a reference document (ImageKit, officials only) and the figures must be typed into a template. No OCR is included because it is not reliable enough for money.
+- Imported members have a random password; they sign in by tapping **Forgot password** and an official approves it (Password Resets).
+
 ## Password recovery
 - **Forgot password:** the member files a request. A group administrator, treasurer or vice chair of their group sees it under *Password Resets*, confirms it is really that person, then sends a reset link (valid 24 hours, one use, emailed too if SMTP and an email exist). Links only work for admin-approved requests. Officials cannot approve their own request.
 - **Recovery code:** on first sign-in every account must save a one-time recovery code (shown once, downloadable as .txt). Only a hash is stored. It can be used at `/recover` to reset the password without an administrator; it is single use and a new one is issued at the next sign-in. A new code can be generated from *Profile* (needs the current password).
