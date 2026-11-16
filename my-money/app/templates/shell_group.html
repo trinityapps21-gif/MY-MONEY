@@ -29,6 +29,7 @@
       <li class="sec">Finance</li>
       {{ nav_item(url_for('reports.index'), 'bar-chart-3', 'Reports', ep in ('reports.index', 'reports.run')) }}
       {{ nav_item(url_for('reports.transactions'), 'book-open', 'Transactions', ep.startswith('reports.transaction')) }}
+      {{ nav_item(url_for('imports.index'), 'upload', 'Import Data', bpn == 'imports') }}
       {{ nav_item(url_for('groups.settings'), 'settings', 'Settings', ep.startswith('groups.settings')) }}
     {% else %}
       {{ nav_item(url_for('groups.dashboard'), 'layout-dashboard', 'Dashboard', ep == 'groups.dashboard') }}
