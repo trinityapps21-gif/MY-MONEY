@@ -76,6 +76,46 @@ class PasswordResetRequest(db.Model):
     )
 
 
+class ImportBatch(db.Model):
+    """One uploaded file of existing records (CSV / Excel / PDF). Rows are validated
+    into a preview first; nothing touches the ledger until an official confirms."""
+    __tablename__ = "import_batches"
+    id = db.Column(db.Integer, primary_key=True)
+    group_id = db.Column(db.Integer, db.ForeignKey("groups.id"), nullable=False, index=True)
+    kind = db.Column(db.String(20), nullable=False)  # members / contributions / loans / repayments
+    filename = db.Column(db.String(200), nullable=False)
+    source_file_id = db.Column(db.Integer, db.ForeignKey("stored_files.id"))
+    status = db.Column(db.String(12), nullable=False, default="PREVIEW")  # PREVIEW/APPLIED/UNDONE/CANCELLED
+    total_rows = db.Column(db.Integer, nullable=False, default=0)
+    ok_rows = db.Column(db.Integer, nullable=False, default=0)
+    error_rows = db.Column(db.Integer, nullable=False, default=0)
+    applied_rows = db.Column(db.Integer, nullable=False, default=0)
+    rows_json = db.Column(db.Text)
+    created_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=utcnow)
+    applied_at = db.Column(db.DateTime)
+    undone_at = db.Column(db.DateTime)
+    undone_by = db.Column(db.Integer, db.ForeignKey("users.id"))
+
+    creator = db.relationship("User", foreign_keys=[created_by])
+    source_file = db.relationship("StoredFile", foreign_keys=[source_file_id])
+
+    __table_args__ = (
+        CheckConstraint("status IN ('PREVIEW','APPLIED','UNDONE','CANCELLED')", name="ck_import_status"),
+        CheckConstraint("kind IN ('members','contributions','loans','repayments')", name="ck_import_kind"),
+    )
+
+
+class ImportItem(db.Model):
+    """Records created by an import, so the whole batch can be undone."""
+    __tablename__ = "import_items"
+    id = db.Column(db.Integer, primary_key=True)
+    batch_id = db.Column(db.Integer, db.ForeignKey("import_batches.id"), nullable=False, index=True)
+    entity_type = db.Column(db.String(20), nullable=False)  # member / contribution / loan / repayment / borrower
+    entity_id = db.Column(db.Integer, nullable=False)
+    detail = db.Column(db.String(100))
+
+
 class GroupRole(db.Model):
     __tablename__ = "group_roles"
     code = db.Column(db.String(20), primary_key=True)
