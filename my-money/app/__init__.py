@@ -286,3 +286,34 @@ def register_cli(app):
         audit("platform.admin_created", "user", u.id, user_id=u.id)
         db.session.commit()
         click.echo("Platform administrator created.")
+
+    @app.cli.command("bootstrap-platform-admin")
+    def bootstrap_admin():
+        """Non-interactive, idempotent admin creation from environment variables."""
+        import os
+        from app.auth import validate_password, normalize_phone
+        from app.models import User
+        from app.services.audit import audit
+        from werkzeug.security import generate_password_hash
+
+        seed_defaults()
+        if User.query.filter_by(is_platform_admin=True).first():
+            click.echo("Platform administrator already exists; nothing to do.")
+            return
+        email = (os.environ.get("PLATFORM_ADMIN_EMAIL") or "").strip().lower()
+        password = os.environ.get("PLATFORM_ADMIN_PASSWORD") or ""
+        if not email or not password:
+            click.echo("PLATFORM_ADMIN_EMAIL / PLATFORM_ADMIN_PASSWORD not set; skipping.")
+            return
+        err = validate_password(password)
+        if err:
+            raise click.ClickException(err)
+        u = User(full_name=os.environ.get("PLATFORM_ADMIN_NAME", "Platform Admin"),
+                 phone=normalize_phone(os.environ.get("PLATFORM_ADMIN_PHONE", "0700000000")),
+                 email=email, password_hash=generate_password_hash(password),
+                 is_platform_admin=True)
+        db.session.add(u)
+        db.session.flush()
+        audit("platform.admin_created", "user", u.id, user_id=u.id)
+        db.session.commit()
+        click.echo("Platform administrator created.")
