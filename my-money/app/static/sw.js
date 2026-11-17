@@ -2,7 +2,7 @@
    Privacy first: pages (HTML), group data, uploaded files and every POST always go straight to the network and are NEVER stored.
    Only the app's own CSS/JS/images and the icon/font libraries are cached, so the app opens fast and shows a friendly page offline.
    Bump VERSION whenever this file changes. */
-const VERSION = "mm-v1";
+const VERSION = "mm-v2";
 const STATIC_CACHE = "mm-static-" + VERSION;
 const OFFLINE_URL = "/static/offline.html";
 const PRECACHE = [
@@ -41,7 +41,7 @@ async function networkFirst(request) {
   const cache = await caches.open(STATIC_CACHE);
   try {
     const fresh = await fetch(request);
-    if (fresh && fresh.ok) cache.put(request, fresh.clone());
+    if (fresh && fresh.status === 200) cache.put(request, fresh.clone());
     return fresh;
   } catch (err) {
     const hit = await cache.match(request);
@@ -55,13 +55,15 @@ async function cacheFirst(request) {
   const hit = await cache.match(request);
   if (hit) return hit;
   const fresh = await fetch(request);
-  if (fresh && (fresh.ok || fresh.type === "opaque")) cache.put(request, fresh.clone());
+  if (fresh && (fresh.status === 200 || fresh.type === "opaque")) cache.put(request, fresh.clone());
   return fresh;
 }
 
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET") return;                       // never touch forms or API writes
+  // Video/audio use Range requests (needed by Safari/iPhone). Let the browser fetch them directly, never cache them.
+  if (req.headers.has("range") || req.destination === "video" || req.destination === "audio") return;
   const url = new URL(req.url);
 
   // Page navigations: always live; if the phone is offline show the offline page.
