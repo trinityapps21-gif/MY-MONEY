@@ -6,7 +6,17 @@
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <meta name="theme-color" content="#101C36">
   <title>{% block title %}{{ platform_name }}{% endblock %} - {{ platform_name }}</title>
-  <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon.png') }}">
+  <meta name="description" content="{% block meta_description %}MY MONEY is a secure savings and lending platform for savings groups, SACCOs and community lenders. Record contributions, manage loans and share clear reports.{% endblock %}">
+  <link rel="canonical" href="{{ site_url }}{{ request.path }}">
+  <link rel="icon" href="{{ site_url }}/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="96x96" href="{{ url_for('static', filename='img/favicon.png') }}">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="{{ platform_name }}">
+  <meta property="og:title" content="{% block og_title %}{{ platform_name }} - Smart savings and lending for groups{% endblock %}">
+  <meta property="og:description" content="Smart savings, trusted lending and transparent finance for every group.">
+  <meta property="og:url" content="{{ site_url }}{{ request.path }}">
+  <meta property="og:image" content="{{ site_url }}{{ url_for('static', filename='img/icon-512.png') }}">
+  <meta name="twitter:card" content="summary">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}">
   <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
   <meta name="application-name" content="{{ platform_name }}">
