@@ -3,6 +3,7 @@
 {% block title %}Smart Savings & Lending{% endblock %}
 {% block meta_description %}MY MONEY helps savings groups, SACCOs and community lenders run contributions, loans and reports in one secure place. Register your group free.{% endblock %}
 {% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/public.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/promo-video.css') }}">
 <script type="application/ld+json">{{ {
   "@context": "https://schema.org",
   "@graph": [
@@ -51,5 +52,25 @@
 <div class="photo-card"><img src="{{ url_for('static', filename='img/growth.jpg') }}" alt="" loading="lazy"><div><h3>Smart lending</h3><p>Track loans, interest and repayments with confidence.</p></div></div></div></section>
 
 <section class="band photo-band"><div class="section"><h2>Ready to start?</h2><p class="lead">Create your group in minutes.</p><div class="flex gap1 wrap"><a class="btn btn-lg btn-accent" href="{{ url_for('auth.register') }}"><i data-lucide="users"></i>Register Your Group</a><a class="btn btn-lg btn-wa" href="https://wa.me/256703520925?text=Hello%20MY%20MONEY%2C%20I%20would%20like%20to%20know%20more." target="_blank" rel="noopener">{% include "public/_wa_icon.html" %}Chat on WhatsApp</a><a class="btn btn-lg btn-outline-light" href="tel:+256703520925"><i data-lucide="phone"></i>0703 520 925</a></div></div></section>
+<aside class="vid-mini" id="promoVideo" aria-label="MY MONEY video advert" hidden>
+  <video id="pvMini" muted loop playsinline preload="metadata" poster="{{ url_for('static', filename='img/video-poster.jpg') }}" aria-hidden="true" tabindex="-1">
+    <source src="{{ url_for('static', filename='video/my-money-advert.mp4') }}" type="video/mp4">
+  </video>
+  <button type="button" class="pv-watch" data-pv="expand" aria-label="Watch the MY MONEY video with sound"></button>
+  <div class="pv-top">
+    <button type="button" class="pv-btn" data-pv="expand" aria-label="Watch full screen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></button>
+    <button type="button" class="pv-btn" data-pv="close" aria-label="Close video"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+  <button type="button" class="pv-sound" data-pv="sound" aria-pressed="false" aria-label="Turn sound on">
+    <svg class="off" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5L6 9H3v6h3l5 4V5z"/><path d="M22 9l-6 6M16 9l6 6"/></svg>
+    <svg class="on" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5L6 9H3v6h3l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+    <span>Tap for sound</span>
+  </button>
+</aside>
+<dialog class="pv-dialog" id="pvDialog" aria-label="MY MONEY video advert">
+  <video id="pvFull" controls playsinline preload="none" poster="{{ url_for('static', filename='img/video-poster.jpg') }}"><source src="{{ url_for('static', filename='video/my-money-advert.mp4') }}" type="video/mp4"></video>
+  <button type="button" class="pv-btn pv-close" data-pv-close aria-label="Close video"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+</dialog>
+<script src="{{ url_for('static', filename='js/promo-video.js') }}" defer></script>
 {% include "public/_foot.html" %}
 {% endblock %}
