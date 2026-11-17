@@ -1,0 +1,36 @@
+/* MY MONEY - landing page video advert: floating mini player (bottom-left) + full-screen viewer. */
+.vid-mini { position: fixed; left: 18px; bottom: 18px; z-index: 55; width: clamp(140px, 17vh, 176px); aspect-ratio: 9 / 16; border-radius: 18px; overflow: hidden;
+  background: #0B0F1A; border: 2px solid #fff; box-shadow: 0 18px 44px rgba(16, 28, 54, .38); animation: pv-in .5s ease-out both; }
+.vid-mini[hidden] { display: none; }
+.vid-mini video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.vid-mini::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 28%; background: linear-gradient(to top, rgba(0,0,0,.45), transparent); pointer-events: none; }
+.pv-watch { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; padding: 0; background: transparent; cursor: pointer; z-index: 1; }
+.pv-watch:focus-visible { outline: 3px solid #fff; outline-offset: -5px; }
+.pv-top { position: absolute; top: 8px; right: 8px; display: flex; gap: 6px; z-index: 3; }
+.pv-btn { width: 32px; height: 32px; border-radius: 50%; border: 0; background: #fff; color: #0B0F1A; display: grid; place-items: center; cursor: pointer; padding: 0; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
+.pv-btn:hover { background: #F4F5F7; }
+.pv-btn svg, .pv-sound svg { width: 16px; height: 16px; fill: none; stroke: #0B0F1A; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.pv-sound { position: absolute; left: 8px; bottom: 8px; z-index: 3; height: 34px; padding: 0 12px 0 10px; border: 0; border-radius: 999px; background: #fff; color: #0B0F1A;
+  display: inline-flex; align-items: center; gap: 7px; font: 700 12px/1 var(--font, Inter, system-ui, sans-serif); cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,.28); }
+.pv-sound .on { display: none; } .pv-sound[aria-pressed="true"] .on { display: block; } .pv-sound[aria-pressed="true"] .off { display: none; }
+.pv-btn:focus-visible, .pv-sound:focus-visible { outline: 2px solid #0B0F1A; outline-offset: 2px; }
+body:has(.pwa-banner.show) .vid-mini { bottom: 118px; }
+
+/* full-screen viewer */
+dialog.pv-dialog { position: fixed; inset: 0; margin: auto; width: fit-content; max-width: 94vw; height: fit-content; max-height: 94dvh; padding: 0; border: 0; border-radius: 16px;
+  overflow: hidden; background: #000; box-shadow: 0 30px 80px rgba(0,0,0,.55); animation: none; }
+dialog.pv-dialog::backdrop { background: rgba(8, 12, 24, .78); backdrop-filter: blur(3px); }
+dialog.pv-dialog video { display: block; height: min(88dvh, 800px); width: auto; max-width: 94vw; aspect-ratio: 9 / 16; object-fit: contain; background: #000; }
+.pv-close { position: absolute; top: 10px; right: 10px; z-index: 2; width: 38px; height: 38px; }
+
+@keyframes pv-in { from { transform: translateY(18px) scale(.96); opacity: 0; } }
+@media (max-width: 640px) {
+  .vid-mini { left: 12px; bottom: calc(14px + env(safe-area-inset-bottom)); width: 116px; border-radius: 14px; }
+  .pv-btn { width: 28px; height: 28px; } .pv-btn svg { width: 14px; height: 14px; }
+  .pv-top { top: 6px; right: 6px; gap: 5px; }
+  .pv-sound { left: 6px; bottom: 6px; height: 32px; width: 32px; padding: 0; justify-content: center; } .pv-sound span { display: none; }
+  body:has(.pwa-banner.show) .vid-mini { bottom: calc(126px + env(safe-area-inset-bottom)); }
+}
+@media (max-height: 480px) and (orientation: landscape) { .vid-mini { display: none; } }
+@media (prefers-reduced-motion: reduce) { .vid-mini { animation: none; } }
+@media print { .vid-mini, .pv-dialog { display: none !important; } }
