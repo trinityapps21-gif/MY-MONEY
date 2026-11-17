@@ -1,7 +1,17 @@
 {% extends "base.html" %}
 {% from "partials/macros.html" import brand_mark %}
 {% block title %}Smart Savings & Lending{% endblock %}
-{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/public.css') }}">{% endblock %}
+{% block meta_description %}MY MONEY helps savings groups, SACCOs and community lenders run contributions, loans and reports in one secure place. Register your group free.{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/public.css') }}">
+<script type="application/ld+json">{{ {
+  "@context": "https://schema.org",
+  "@graph": [
+    {"@type": "WebSite", "@id": site_url ~ "/#website", "url": site_url ~ "/", "name": platform_name, "alternateName": ["MY MONEY for Groups", "MyMoney"], "inLanguage": "en"},
+    {"@type": "Organization", "@id": site_url ~ "/#organization", "name": platform_name, "url": site_url ~ "/",
+     "logo": {"@type": "ImageObject", "url": site_url ~ url_for('static', filename='img/icon-512.png'), "width": 512, "height": 512},
+     "contactPoint": {"@type": "ContactPoint", "telephone": "+256703520925", "contactType": "customer support", "availableLanguage": "English"}}
+  ]
+} | tojson }}</script>{% endblock %}
 {% block body %}
 {% include "public/_nav.html" %}
 <section class="hero"><div class="in"><div>
