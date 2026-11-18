@@ -1,0 +1,28 @@
+{% extends "shell_group.html" %}
+{% from "partials/macros.html" import csrf %}
+{% block title %}{{ 'Edit' if p else 'New' }} loan product{% endblock %}
+{% macro charge(pre, label, type_, value) %}
+<div class="field"><label>{{ label }}</label><select name="{{ pre }}_type">{% for k, v in charges.items() %}<option value="{{ k }}" {{ 'selected' if type_ == k }}>{{ v }}</option>{% endfor %}</select></div>
+<div class="field"><label>{{ label }} value ({{ current_group.currency }} or %)</label><input type="text" inputmode="decimal" name="{{ pre }}_value" value="{% if type_ == 'PERCENT' %}{{ value|pct }}{% elif type_ == 'FLAT' %}{{ (value|inp(current_group.currency_decimals)) }}{% else %}0{% endif %}"></div>
+{% endmacro %}
+{% block content %}
+<div class="page-head"><h1>{{ 'Edit' if p else 'New' }} loan product</h1><a class="btn" href="{{ url_for('products.index') }}">Back</a></div>
+<div class="card card-pad" style="max-width:820px"><form method="post">{{ csrf() }}
+<div class="form-grid">
+<div class="field"><label>Product name</label><input type="text" name="name" required maxlength="100" value="{{ p.name if p }}"></div>
+<div class="field"><label>Description</label><input type="text" name="description" maxlength="300" value="{{ p.description or '' if p }}"></div>
+<div class="field"><label>Interest method</label><select name="method">{% for k, v in methods.items() %}<option value="{{ k }}" {{ 'selected' if p and p.method == k }}>{{ v }}</option>{% endfor %}</select></div>
+<div class="field"><label>Interest rate (%)</label><input type="text" inputmode="decimal" name="rate" required value="{{ p.rate_bp|pct if p else '' }}"><div class="hint">Lenders: no more than {{ ((lender_cap or 0)|pct) ~ '% per month (platform cap)' if lender_cap else 'the platform maximum' }}.</div></div>
+<div class="field"><label>Rate period</label><select name="rate_period">{% for k, v in periods.items() %}<option value="{{ k }}" {{ 'selected' if (p and p.rate_period == k) or (not p and k == 'MONTH') }}>{{ v }}</option>{% endfor %}</select></div>
+<div class="field"><label>Duration</label><input type="number" min="1" name="duration" required value="{{ p.duration if p else 3 }}"></div>
+<div class="field"><label>Duration unit</label><select name="duration_unit">{% for k, v in units.items() %}<option value="{{ k }}" {{ 'selected' if p and p.duration_unit == k }}>{{ v|title }}</option>{% endfor %}</select></div>
+<div class="field"><label>Repayment frequency</label><select name="frequency">{% for k, v in freqs.items() %}<option value="{{ k }}" {{ 'selected' if p and p.frequency == k }}>{{ v }}</option>{% endfor %}</select></div>
+<div class="field"><label>Minimum amount ({{ current_group.currency }})</label><input type="text" inputmode="decimal" name="min_amount" value="{{ (p.min_amount|inp(current_group.currency_decimals)) if p and p.min_amount else '' }}"></div>
+<div class="field"><label>Maximum amount (empty = no limit)</label><input type="text" inputmode="decimal" name="max_amount" value="{{ (p.max_amount|inp(current_group.currency_decimals)) if p and p.max_amount else '' }}"></div>
+{{ charge('processing_fee', 'Processing fee', p.processing_fee_type if p else 'NONE', p.processing_fee_value if p else 0) }}
+{{ charge('insurance_fee', 'Insurance fee', p.insurance_fee_type if p else 'NONE', p.insurance_fee_value if p else 0) }}
+{{ charge('penalty', 'Late penalty (per late instalment)', p.penalty_type if p else 'NONE', p.penalty_value if p else 0) }}
+<div class="field"><label>Grace days before a penalty</label><input type="number" min="0" max="365" name="penalty_grace_days" value="{{ p.penalty_grace_days if p else 0 }}"></div></div>
+<div class="check"><input type="checkbox" id="act" name="active" value="1" {{ 'checked' if not p or p.active }}><label for="act">Active (can be chosen for new loans)</label></div>
+<button class="btn btn-primary mt1">Save product</button></form></div>
+{% endblock %}
