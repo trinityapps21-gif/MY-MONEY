@@ -134,8 +134,12 @@ def dashboard(group_id=None):
         recent = [e for e in recent if e.event_type in group.visible_types][:5]
         return member_dashboard(summary, charts, recent, today)
     pending = MemberApplication.query.filter_by(group_id=group.id, status="PENDING").count()
+    from app.services import fines as fine_svc, schedules as sched_svc
+    unpaid = sched_svc.run_daily(group, today)
+    db.session.commit()
     return render_template("groups/dashboard.html", s=summary, charts=charts, recent=recent, range_key=key,
-                           start=start, end=end, pending=pending)
+                           start=start, end=end, pending=pending, unpaid_members=unpaid,
+                           unpaid_fines=fine_svc.totals(group.id)["unpaid"])
 
 
 def member_dashboard(summary, charts, recent, today):
@@ -145,11 +149,20 @@ def member_dashboard(summary, charts, recent, today):
     total_mine = ledger.member_savings(g.group.id, g.membership.id)
     board = analytics.leaderboard(g.group, today)
     my_rank = next((r["rank"] for r in board if r["member_id"] == g.membership.id), None)
+    from app.services import schedules as sched_svc, shares as share_svc
+    from app.services.groupcfg import get_settings
+    row = sched_svc.get_schedule(g.group.id, g.membership.id)
+    countdown = sched_svc.status_for(g.group, g.membership, row, today)
+    sched_svc.run_daily(g.group, today)
+    units = share_svc.member_units(g.group.id, g.membership.id)
+    my_share_rank, _nx, _val = share_svc.rank_for(g.group.id, units)
+    db.session.commit()
     announcements = Announcement.query.filter_by(group_id=g.group.id, status="ACTIVE", is_published=True) \
         .order_by(Announcement.is_pinned.desc(), Announcement.publish_date.desc()).limit(3).all()
     return render_template("groups/member_dashboard.html", s=summary, charts=charts, recent=recent,
                            contributions=mine.limit(6).all(), total_mine=int(total_mine or 0), my_rank=my_rank,
-                           members_count=len(board), announcements=announcements)
+                           members_count=len(board), announcements=announcements, countdown=countdown,
+                           share_units=units, my_share_rank=my_share_rank)
 
 
 # ------------------------------------------------------------------ group settings
