@@ -77,13 +77,18 @@ def _clip(q, col, start, end):
     return q
 
 
+def _extra():
+    from app.services import reports_extra
+    return reports_extra
+
+
 def build(key, group, today, start=None, end=None, member_id=None, month=None, year=None) -> Report:
     fn = {
         "savings": _savings, "member_contributions": _member_contributions, "member_statement": _member_statement,
         "loan_disbursements": _disbursements, "loan_repayments": _repayments, "outstanding_loans": _outstanding,
         "overdue_loans": _overdue, "interest_income": _interest, "monthly": _monthly, "annual": _annual,
         "statement": _statement,
-    }.get(key)
+    }.get(key) or _extra().BUILDERS.get(key)
     if fn is None:
         raise KeyError(key)
     return fn(group, today, start, end, member_id=member_id, month=month, year=year)
@@ -307,3 +312,10 @@ def _statement(group, today, start, end, **_):
                   f"As at {today:%d %b %Y}",
                   [("Date", "date"), ("Reference", "text"), ("Type", "text"), ("Description", "text"),
                    ("Money in", "money"), ("Money out", "money")], rows, summary, notes)
+
+
+# register the extra reports (officials only) in the shared title/help tables
+from app.services import reports_extra as _rx  # noqa: E402
+
+REPORT_TITLES.update(_rx.TITLES)
+REPORT_HELP.update(_rx.HELP)
