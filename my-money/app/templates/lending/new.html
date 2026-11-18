@@ -11,7 +11,7 @@
 <div class="field"><label>Interest method</label><select name="method">{% if s.flat_enabled %}<option value="FLAT">Flat interest</option>{% endif %}{% if s.reducing_enabled %}<option value="REDUCING">Reducing balance</option>{% endif %}</select></div>
 {% if s.allow_custom_rates %}<div class="field"><label>Interest rate (%)</label><input type="text" inputmode="decimal" name="rate" value="{{ s.default_rate_bp|pct }}" required><div class="hint">Allowed {{ s.min_rate_bp|pct }}% - {{ s.max_rate_bp|pct }}%</div></div>
 <div class="field"><label>Rate period</label><select name="rate_period">{% for k, v in periods.items() %}<option value="{{ k }}" {{ 'selected' if k == s.default_period }}>{{ v }}</option>{% endfor %}</select></div>
-{% else %}<div class="field full"><div class="alert info">Platform rate: {{ s.default_rate_bp|pct }}% {{ periods[s.default_period] }}.</div></div>{% endif %}
+{% else %}<div class="field full"><div class="alert info">Group rate: {{ s.default_rate_bp|pct }}% {{ periods[s.default_period] }}.</div></div>{% endif %}
 <div class="field"><label>Duration</label><input type="number" name="duration" min="1" value="3" required></div>
 <div class="field"><label>Duration unit</label><select name="duration_unit">{% for k, v in units.items() %}<option value="{{ k }}">{{ v|title }}</option>{% endfor %}</select></div>
 <div class="field"><label>Repayment frequency</label><select name="frequency">{% for k, v in freqs.items() %}<option value="{{ k }}">{{ v }}</option>{% endfor %}</select></div>
