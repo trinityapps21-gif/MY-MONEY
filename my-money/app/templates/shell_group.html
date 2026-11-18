@@ -16,15 +16,18 @@
   <ul class="nav">
     {% if is_official %}
       {{ nav_item(url_for('groups.dashboard'), 'layout-dashboard', 'Dashboard', ep == 'groups.dashboard') }}
-      {{ nav_item(url_for('members.index'), 'users', 'Members', bpn == 'members' and ep != 'members.password_resets', pending_count_nav) }}
+      {{ nav_item(url_for('members.index'), 'users', 'Staff' if current_group.is_lender else 'Members', bpn == 'members' and ep != 'members.password_resets', pending_count_nav) }}
       {{ nav_item(url_for('members.password_resets'), 'key-round', 'Password Resets', ep == 'members.password_resets', reset_count_nav) }}
-      {{ nav_item(url_for('savings.index'), 'piggy-bank', 'Savings', bpn == 'savings') }}
+      {% if not current_group.is_lender %}{{ nav_item(url_for('savings.index'), 'piggy-bank', 'Savings', bpn == 'savings') }}
       {{ nav_item(url_for('shares.index'), 'pie-chart', 'Shares', bpn == 'shares') }}
-      {{ nav_item(url_for('schedules.index'), 'calendar-clock', 'Who Has Not Paid', bpn == 'schedules') }}
+      {{ nav_item(url_for('schedules.index'), 'calendar-clock', 'Who Has Not Paid', bpn == 'schedules') }}{% endif %}
       {{ nav_item(url_for('borrowers.index'), 'user-round-check', 'Borrowers', bpn == 'borrowers') }}
+      {% if current_group.is_lender %}{{ nav_item(url_for('products.index'), 'package', 'Loan Products', bpn == 'products') }}
+      {{ nav_item(url_for('applications.index'), 'clipboard-list', 'Applications', bpn == 'applications') }}{% endif %}
       {{ nav_item(url_for('lending.index'), 'hand-coins', 'Loans', bpn == 'lending') }}
+      {% if current_group.is_lender %}{{ nav_item(url_for('collections.index'), 'phone-call', 'Collections', bpn == 'collections') }}{% endif %}
       {{ nav_item(url_for('repayments.index'), 'receipt', 'Repayments', bpn == 'repayments') }}
-      {{ nav_item(url_for('fines.index'), 'alarm-clock', 'Loan Fines', bpn == 'fines') }}
+      {% if not current_group.is_lender %}{{ nav_item(url_for('fines.index'), 'alarm-clock', 'Loan Fines', bpn == 'fines') }}{% endif %}
       <li class="sec">Group Feed</li>
       {{ nav_item(url_for('feed.index'), 'activity', 'Financial Activity', bpn == 'feed') }}
       {{ nav_item(url_for('community.index'), 'messages-square', 'Community', bpn == 'community') }}
@@ -33,21 +36,22 @@
       {{ nav_item(url_for('finance.index'), 'trending-up', 'Income & Expenses', bpn == 'finance') }}
       {{ nav_item(url_for('reports.index'), 'bar-chart-3', 'Reports', ep in ('reports.index', 'reports.run')) }}
       {{ nav_item(url_for('reports.transactions'), 'book-open', 'Transactions', ep.startswith('reports.transaction')) }}
+      {% if current_group.is_lender %}{{ nav_item(url_for('capital.index'), 'landmark', 'Capital', bpn == 'capital') }}{% endif %}
       {{ nav_item(url_for('imports.index'), 'upload', 'Import Data', bpn == 'imports') }}
-      {{ nav_item(url_for('rules.index'), 'sliders-horizontal', 'Group Rules', bpn == 'rules') }}
+      {% if not current_group.is_lender %}{{ nav_item(url_for('rules.index'), 'sliders-horizontal', 'Group Rules', bpn == 'rules') }}{% endif %}
       {{ nav_item(url_for('groups.settings'), 'settings', 'Settings', ep.startswith('groups.settings')) }}
     {% else %}
-      {{ nav_item(url_for('groups.dashboard'), 'layout-dashboard', 'Dashboard', ep == 'groups.dashboard') }}
+      {% if not current_group.is_lender %}{{ nav_item(url_for('groups.dashboard'), 'layout-dashboard', 'Dashboard', ep == 'groups.dashboard') }}
       {{ nav_item(url_for('savings.mine'), 'piggy-bank', 'My Contributions', ep == 'savings.mine') }}
       {{ nav_item(url_for('shares.mine'), 'pie-chart', 'My Shares', ep == 'shares.mine') }}
       {{ nav_item(url_for('shares.leaderboard'), 'medal', 'Leaderboard', ep == 'shares.leaderboard') }}
       {{ nav_item(url_for('schedules.mine'), 'calendar-clock', 'My Contribution Day', bpn == 'schedules') }}
-      {{ nav_item(url_for('members.index'), 'users', 'Members', bpn == 'members') }}
+      {{ nav_item(url_for('members.index'), 'users', 'Members', bpn == 'members') }}{% endif %}
       <li class="sec">Group Feed</li>
       {{ nav_item(url_for('feed.index'), 'activity', 'Financial Activity', bpn == 'feed') }}
       {{ nav_item(url_for('community.index'), 'messages-square', 'Community', bpn == 'community') }}
       {{ nav_item(url_for('announcements.index'), 'megaphone', 'Announcements', bpn == 'announcements') }}
-      {{ nav_item(url_for('reports.run', key='member_statement'), 'file-text', 'My Statement', ep == 'reports.run') }}
+      {% if not current_group.is_lender %}{{ nav_item(url_for('reports.run', key='member_statement'), 'file-text', 'My Statement', ep == 'reports.run') }}{% endif %}
     {% endif %}
     <li class="sec">Account</li>
     {{ nav_item(url_for('notifications.index'), 'bell', 'Notifications', bpn == 'notifications', unread_count) }}
@@ -88,8 +92,9 @@
 </div>
 
 <nav class="bottom-nav" aria-label="Quick navigation">
-  <a href="{{ url_for('groups.dashboard') }}" class="{{ 'on' if ep == 'groups.dashboard' }}"><i data-lucide="home"></i>Home</a>
-  {% if is_official %}<a href="{{ url_for('members.index') }}" class="{{ 'on' if bpn == 'members' }}"><i data-lucide="users"></i>Members</a>
+  {% if is_official or not current_group.is_lender %}<a href="{{ url_for('groups.dashboard') }}" class="{{ 'on' if ep == 'groups.dashboard' }}"><i data-lucide="home"></i>Home</a>{% endif %}
+  {% if is_official %}<a href="{{ url_for('borrowers.index') if current_group.is_lender else url_for('members.index') }}" class="{{ 'on' if bpn in ('members', 'borrowers') }}"><i data-lucide="users"></i>{{ 'Borrowers' if current_group.is_lender else 'Members' }}</a>
+  {% elif current_group.is_lender %}<a href="{{ url_for('announcements.index') }}"><i data-lucide="megaphone"></i>News</a>
   {% else %}<a href="{{ url_for('savings.mine') }}" class="{{ 'on' if ep == 'savings.mine' }}"><i data-lucide="piggy-bank"></i>Savings</a>{% endif %}
   <a href="{{ url_for('community.index') }}" class="{{ 'on' if bpn in ('community', 'feed') }}"><i data-lucide="messages-square"></i>Feed</a>
   <button type="button" data-drawer><i data-lucide="menu"></i>More</button>
