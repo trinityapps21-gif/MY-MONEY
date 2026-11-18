@@ -6,7 +6,7 @@ from sqlalchemy import CheckConstraint, UniqueConstraint
 from app.extensions import db
 from app.models.core import utcnow
 
-TX_IN_TYPES = ("CONTRIBUTION", "SAVINGS_ADDITIONAL", "PRINCIPAL_REPAYMENT", "INTEREST_REPAYMENT", "PENALTY")
+TX_IN_TYPES = ("CONTRIBUTION", "SAVINGS_ADDITIONAL", "PRINCIPAL_REPAYMENT", "INTEREST_REPAYMENT", "PENALTY", "FEE")
 TX_OUT_TYPES = ("LOAN_DISBURSEMENT", "EXPENSE")
 TX_TYPES = TX_IN_TYPES + TX_OUT_TYPES + ("ADJUSTMENT",)
 
@@ -22,6 +22,20 @@ class Borrower(db.Model):
     id_number = db.Column(db.String(60))
     registered_on = db.Column(db.Date, nullable=False)
     notes = db.Column(db.Text)
+    # KYC (lending businesses)
+    date_of_birth = db.Column(db.Date)
+    address = db.Column(db.String(250))
+    occupation = db.Column(db.String(120))
+    employer = db.Column(db.String(150))
+    monthly_income = db.Column(db.BigInteger)
+    next_of_kin_name = db.Column(db.String(150))
+    next_of_kin_phone = db.Column(db.String(30))
+    next_of_kin_relation = db.Column(db.String(60))
+    officer_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    blacklisted = db.Column(db.Boolean, nullable=False, default=False, server_default="0")
+    blacklist_reason = db.Column(db.String(300))
+    blacklisted_at = db.Column(db.DateTime)
+    portal_nonce = db.Column(db.String(16))  # change it to revoke every link already sent to this borrower
     created_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=utcnow)
 
@@ -61,7 +75,7 @@ class Transaction(db.Model):
         CheckConstraint("direction IN ('IN','OUT')", name="ck_tx_direction"),
         CheckConstraint(
             "tx_type IN ('CONTRIBUTION','SAVINGS_ADDITIONAL','PRINCIPAL_REPAYMENT','INTEREST_REPAYMENT',"
-            "'PENALTY','LOAN_DISBURSEMENT','EXPENSE','ADJUSTMENT')",
+            "'PENALTY','FEE','LOAN_DISBURSEMENT','EXPENSE','ADJUSTMENT')",
             name="ck_tx_type",
         ),
         db.Index("ix_tx_group_date", "group_id", "tx_date"),
@@ -118,6 +132,17 @@ class Loan(db.Model):
     total_interest = db.Column(db.BigInteger, nullable=False)
     total_repayable = db.Column(db.BigInteger, nullable=False)
     approvals_required = db.Column(db.Integer, nullable=False, default=1)
+    # lending-business terms, copied at creation like every other term
+    product_id = db.Column(db.Integer, db.ForeignKey("loan_products.id"))
+    fee_processing = db.Column(db.BigInteger, nullable=False, default=0, server_default="0")
+    fee_insurance = db.Column(db.BigInteger, nullable=False, default=0, server_default="0")
+    fee_tx_id = db.Column(db.Integer, db.ForeignKey("transactions.id", use_alter=True, name="fk_loan_fee_tx"))
+    penalty_type = db.Column(db.String(10), nullable=False, default="NONE", server_default="NONE")
+    penalty_value = db.Column(db.BigInteger, nullable=False, default=0, server_default="0")
+    penalty_grace_days = db.Column(db.Integer, nullable=False, default=0, server_default="0")
+    officer_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    interest_rebate = db.Column(db.BigInteger, nullable=False, default=0, server_default="0")  # waived on early settlement
+    refinance_of_id = db.Column(db.Integer, db.ForeignKey("loans.id", use_alter=True, name="fk_loan_refinance"))
     rejection_reason = db.Column(db.String(300))
     write_off_reason = db.Column(db.String(300))
     disbursement_tx_id = db.Column(db.Integer, db.ForeignKey("transactions.id"), unique=True)
