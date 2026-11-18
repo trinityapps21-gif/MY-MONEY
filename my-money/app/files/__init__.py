@@ -32,7 +32,7 @@ def can_view(f: StoredFile) -> bool:
             is not None
     if f.group_id is None:
         return False
-    if f.kind == "import":  # source records of imports hold private financial data: officials only
+    if f.kind in ("import", "kyc"):  # KYC scans and source records of imports hold private financial data: officials only
         m = GroupMember.query.filter_by(group_id=f.group_id, user_id=current_user.id, status="ACTIVE").first()
         return bool(m and m.is_official)
     return GroupMember.query.filter_by(group_id=f.group_id, user_id=current_user.id, status="ACTIVE").first() \
