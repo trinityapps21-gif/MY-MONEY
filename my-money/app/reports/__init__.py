@@ -211,6 +211,10 @@ def transaction_new(group_id=None):
 @tenant_route(official=True)
 def transaction_reverse(tx_id, group_id=None):
     tx = get_scoped_or_404(Transaction, tx_id)
+    if tx.kind:
+        flash("Reverse share purchases, income, fines and withdrawals from their own pages so balances stay consistent.",
+              "error")
+        return redirect(url_for("reports.transactions"))
     if tx.tx_type not in ("EXPENSE", "PENALTY", "ADJUSTMENT"):
         flash("Reverse contributions and loan payments from their own pages so balances stay consistent.", "error")
         return redirect(url_for("reports.transactions"))
