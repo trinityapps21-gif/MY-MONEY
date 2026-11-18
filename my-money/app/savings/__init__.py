@@ -26,7 +26,7 @@ def _reversed_ids(tx_ids):
 
 
 @bp.route("/")
-@tenant_route(official=True)
+@tenant_route(official=True, kind="SAVINGS_GROUP")
 def index(group_id=None):
     group, today = g.group, local_today(g.group.timezone)
     start, end, key = resolve_range(request.args, group.timezone)
@@ -69,7 +69,7 @@ def index(group_id=None):
 
 
 @bp.route("/new", methods=["GET", "POST"])
-@tenant_route(official=True)
+@tenant_route(official=True, kind="SAVINGS_GROUP")
 def new(group_id=None):
     members = GroupMember.query.join(User, User.id == GroupMember.user_id).filter(GroupMember.group_id == g.group.id, GroupMember.status == "ACTIVE") \
         .order_by(User.full_name).all()
@@ -100,7 +100,7 @@ def new(group_id=None):
 
 
 @bp.route("/<int:contribution_id>/reverse", methods=["POST"])
-@tenant_route(official=True)
+@tenant_route(official=True, kind="SAVINGS_GROUP")
 def reverse(contribution_id, group_id=None):
     c = get_scoped_or_404(Contribution, contribution_id)
     try:
@@ -117,7 +117,7 @@ def reverse(contribution_id, group_id=None):
 
 
 @bp.route("/me")
-@tenant_route()
+@tenant_route(kind="SAVINGS_GROUP")
 def mine(group_id=None):
     q = Contribution.query.filter_by(group_id=g.group.id, member_id=g.membership.id)
     page = q.order_by(Contribution.contribution_date.desc(), Contribution.id.desc()) \
@@ -133,7 +133,7 @@ def mine(group_id=None):
 
 
 @bp.route("/member/<int:member_id>")
-@tenant_route(official=True)
+@tenant_route(official=True, kind="SAVINGS_GROUP")
 def member_statement(member_id, group_id=None):
     m = get_scoped_or_404(GroupMember, member_id)
     q = Contribution.query.filter_by(group_id=g.group.id, member_id=m.id) \
