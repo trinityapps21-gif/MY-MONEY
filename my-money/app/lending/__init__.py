@@ -2,7 +2,7 @@ from flask import Blueprint, abort, flash, g, jsonify, redirect, render_template
 from flask_login import current_user
 
 from app.extensions import db
-from app.models import Borrower, Loan, LoanApproval
+from app.models import Borrower, Loan, LoanApproval, utcnow
 from app.services import analytics, ledger, loans as loan_svc
 from app.services.audit import audit
 from app.services.forms import form_amount, form_choice, form_date, form_text
@@ -114,10 +114,42 @@ def detail(loan_id, group_id=None):
     today = local_today(g.group.timezone)
     p_out, i_out = loan_svc.outstanding(loan)
     my_decision = LoanApproval.query.filter_by(loan_id=loan.id, user_id=current_user.id).first()
-    return render_template("lending/detail.html", loan=loan, today=today, p_out=p_out, i_out=i_out,
+    wa_link = None
+    phone = "".join(ch for ch in (loan.borrower.phone or "") if ch.isdigit())
+    if phone:
+        if phone.startswith("0"):
+            phone = "256" + phone[1:]
+        from urllib.parse import quote
+        nd = loan_svc.next_due(loan)
+        msg = (f"Hello {loan.borrower.name}, this is {g.group.name}. Your loan {loan.reference} payment schedule is attached."
+               + (f" Your next payment of {fmt(nd.balance, g.group.currency, g.group.currency_decimals)} is due on {nd.due_date:%d %b %Y}." if nd else ""))
+        wa_link = f"https://wa.me/{phone}?text={quote(msg)}"
+    return render_template("lending/detail.html", wa_link=wa_link, loan=loan, today=today, p_out=p_out, i_out=i_out,
                            eff=loan_svc.effective_status(loan, today), next_due=loan_svc.next_due(loan),
                            my_decision=my_decision, periods=PERIODS, methods=METHODS, units=UNITS, freqs=FREQS,
                            can_self_approve=not (loan.approvals_required > 1 and loan.created_by == current_user.id))
+
+
+@bp.route("/<int:loan_id>/schedule.pdf")
+@tenant_route(official=True)
+def schedule_pdf(loan_id, group_id=None):
+    from flask import Response
+    from app.services import documents
+    from app.services.groupcfg import get_settings
+    loan = get_scoped_or_404(Loan, loan_id)
+    if not loan.disbursement_tx_id:
+        abort(404)
+    cfg = get_settings(g.group.id)
+    rule = (f"Late payments: no fine for {cfg.fine_grace_days} day(s) after the due date; after that a fine of "
+            + (f"{cfg.fine_rate_bp / 100:g}% of the late amount" if cfg.fine_type == "PERCENT"
+               else f"{g.group.currency} {cfg.fine_fixed:,}") + f" is added for every {cfg.fine_period_days} day(s) after that.")
+    data = documents.loan_schedule_pdf(g.group, loan, utcnow(), rule, loan.fines)
+    audit("loan.schedule_downloaded", "loan", loan.id, group_id=g.group.id)
+    db.session.commit()
+    resp = Response(data, mimetype="application/pdf")
+    resp.headers["Content-Disposition"] = f'attachment; filename="payment-schedule-{loan.reference}.pdf"'
+    resp.headers["Cache-Control"] = "private, no-store"
+    return resp
 
 
 @bp.route("/<int:loan_id>/action", methods=["POST"])
