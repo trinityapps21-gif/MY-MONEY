@@ -1,0 +1,20 @@
+{% extends "shell_group.html" %}
+{% from "partials/macros.html" import empty, pager, csrf, action_form %}
+{% block title %}Group income{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Group income</h1><p>Registration fees, donations and any other money the group earns. Loan interest and fine interest are added automatically.</p></div><a class="btn" href="{{ url_for('finance.index') }}">Overview</a></div>
+<div class="card card-pad mb2"><h2 class="mb2">Add income</h2><form method="post" action="{{ url_for('finance.income_new') }}">{{ csrf() }}<div class="form-grid">
+<div class="field"><label>Category</label><select name="category_id">{% for c in cats %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select></div>
+<div class="field"><label>Or create a new category</label><input type="text" name="new_category" maxlength="60" placeholder="e.g. Fundraiser"></div>
+<div class="field"><label>Amount ({{ current_group.currency }})</label><input type="text" inputmode="decimal" name="amount" required></div>
+<div class="field"><label>Date</label><input type="date" name="income_date" value="{{ today.isoformat() }}" required></div>
+<div class="field"><label>Payment method</label><select name="payment_method">{% for m in methods %}<option>{{ m }}</option>{% endfor %}</select></div>
+<div class="field"><label>Description</label><input type="text" name="description" maxlength="300"></div></div>
+<button class="btn btn-primary" type="submit">Save income</button></form></div>
+{% if breakdown %}<div class="card card-pad mb2"><h2 class="mb2">This year by source</h2>{% for n, v in breakdown %}<div class="list-row"><div class="grow">{{ n }}</div><b>{{ money(v) }}</b></div>{% endfor %}</div>{% endif %}
+<div class="card"><div class="card-head"><h2>Income records</h2><form class="filters" method="get"><select name="category" onchange="this.form.submit()"><option value="">All categories</option>{% for c in cats %}<option value="{{ c.id }}" {{ 'selected' if cat == c.id }}>{{ c.name }}</option>{% endfor %}</select></form></div>
+{% if page.items %}<div class="table-wrap"><table class="table"><thead><tr><th>Date</th><th>Category</th><th>Description</th><th class="num">Amount</th><th></th></tr></thead><tbody>
+{% for r in page.items %}<tr class="{{ 'reversed' if r.tx_id in reversed_ids }}"><td>{{ r.income_date|ld }}</td><td>{{ r.category.name }}</td><td>{{ r.description or '' }}</td><td class="num">{{ money(r.amount) }}</td>
+<td>{% if r.tx_id in reversed_ids %}<span class="pill red">Reversed</span>{% else %}{{ action_form(url_for('finance.income_reverse', rec_id=r.id), 'Reverse', 'Reverse this income?', 'undo-2', 'btn btn-sm', reason='Reason') }}{% endif %}</td></tr>{% endfor %}
+</tbody></table></div>{{ pager(page) }}{% else %}{{ empty('trending-up', 'No income recorded yet') }}{% endif %}</div>
+{% endblock %}

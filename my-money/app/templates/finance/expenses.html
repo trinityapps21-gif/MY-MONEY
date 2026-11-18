@@ -1,0 +1,11 @@
+{% extends "shell_group.html" %}
+{% from "partials/macros.html" import empty, pager %}
+{% block title %}Group expenses{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Group expenses</h1><p>Money the group spends, itemised</p></div><div class="row gap1"><a class="btn" href="{{ url_for('finance.index') }}">Overview</a><a class="btn btn-primary" href="{{ url_for('finance.expense_new') }}"><i data-lucide="plus"></i>New expense</a></div></div>
+{% if breakdown %}<div class="card card-pad mb2"><h2 class="mb2">This year by category</h2>{% for n, v in breakdown %}<div class="list-row"><div class="grow">{{ n }}</div><b>{{ money(v) }}</b></div>{% endfor %}</div>{% endif %}
+<div class="card"><div class="card-head"><h2>Expense records</h2><form class="filters" method="get"><select name="category" onchange="this.form.submit()"><option value="">All categories</option>{% for c in cats %}<option value="{{ c.name }}" {{ 'selected' if cat == c.name }}>{{ c.name }}</option>{% endfor %}</select></form></div>
+{% if page.items %}<div class="table-wrap"><table class="table"><thead><tr><th>Date</th><th>Title</th><th>Category</th><th class="num">Total</th><th></th></tr></thead><tbody>
+{% for e in page.items %}<tr class="{{ 'reversed' if e.tx_id in reversed_ids }}"><td>{{ e.expense_date|ld }}</td><td><a href="{{ url_for('finance.expense_detail', exp_id=e.id) }}">{{ e.description or e.category }}</a></td><td>{{ e.category }}</td><td class="num">{{ money(e.amount) }}</td><td>{% if e.tx_id in reversed_ids %}<span class="pill red">Reversed</span>{% endif %}</td></tr>{% endfor %}
+</tbody></table></div>{{ pager(page) }}{% else %}{{ empty('trending-down', 'No expenses recorded yet') }}{% endif %}</div>
+{% endblock %}
