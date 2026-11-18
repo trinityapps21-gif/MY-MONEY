@@ -75,9 +75,15 @@ def register_blueprints(app):
     from app.repayments import bp as repayments_bp
     from app.reports import bp as reports_bp
     from app.savings import bp as savings_bp
+    from app.shares import bp as shares_bp
+    from app.rules import bp as rules_bp
+    from app.fines import bp as fines_bp
+    from app.schedules import bp as schedules_bp
+    from app.finance import bp as finance_bp
 
     for bp in (main_bp, auth_bp, groups_bp, members_bp, savings_bp, borrowers_bp, lending_bp, repayments_bp,
-               feed_bp, community_bp, announcements_bp, reports_bp, notifications_bp, files_bp, platform_bp, imports_bp):
+               feed_bp, community_bp, announcements_bp, reports_bp, notifications_bp, files_bp, platform_bp, imports_bp,
+               shares_bp, rules_bp, fines_bp, schedules_bp, finance_bp):
         app.register_blueprint(bp)
 
 
