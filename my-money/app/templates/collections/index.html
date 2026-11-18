@@ -1,0 +1,23 @@
+{% extends "shell_group.html" %}
+{% from "partials/macros.html" import csrf, empty, stat %}
+{% block title %}Collections{% endblock %}
+{% macro table(rows, kind) %}
+{% if rows %}<div class="table-wrap"><table class="table"><thead><tr><th>Loan</th><th>Borrower</th><th class="num">{{ 'Overdue' if kind == 'overdue' else 'Due' }}</th>{% if kind == 'overdue' %}<th class="num">Days late</th>{% else %}<th>Due date</th>{% endif %}<th>Officer</th><th>Last contact</th><th></th></tr></thead><tbody>
+{% for r in rows %}{% set l = r.loan %}<tr>
+<td><a href="{{ url_for('lending.detail', loan_id=l.id) }}"><b>{{ l.reference }}</b></a></td>
+<td>{{ r.borrower.name }}{% if r.borrower.phone %}<div class="muted xs"><a href="tel:{{ r.borrower.phone }}">{{ r.borrower.phone }}</a></div>{% endif %}</td>
+<td class="num">{{ money(r.overdue_amount if kind == 'overdue' else r.next_due.balance) }}</td>
+{% if kind == 'overdue' %}<td class="num"><span class="pill {{ 'red' if r.days > 30 else 'amber' }}">{{ r.days }}</span></td>{% else %}<td>{{ r.next_due.due_date|ld }}</td>{% endif %}
+<td class="small">{{ officers.get(l.officer_id, '-') }}</td>
+<td class="small">{% if r.last %}{{ r.last.created_at|ldt('%d %b') }}: {{ r.last.note[:60] }}{% else %}<span class="muted">None</span>{% endif %}{% if r.promise %}<div class="xs {{ 'text-red' if r.broken else 'muted' }}">{{ 'Broken promise' if r.broken else 'Promised' }} {{ r.promise.promise_date|ld }}{% if r.promise.promise_amount %} ({{ money(r.promise.promise_amount) }}){% endif %}</div>{% endif %}</td>
+<td class="right"><a class="btn btn-sm" href="{{ url_for('lending.detail', loan_id=l.id) }}#followups">Follow up</a></td></tr>{% endfor %}</tbody></table></div>
+{% else %}<div class="card-body muted">Nothing here.</div>{% endif %}
+{% endmacro %}
+{% block content %}
+<div class="page-head"><div><h1>Collections</h1><p>Who to call today. Open a loan to log a follow-up or send a reminder.</p></div>
+<form class="filters" method="get"><select name="officer" onchange="this.form.submit()"><option value="">All officers</option>{% for uid, n in officers.items() %}<option value="{{ uid }}" {{ 'selected' if officer == uid }}>{{ n }}</option>{% endfor %}</select><a class="btn btn-sm" href="{{ url_for('collections.index', mine=1) }}">My portfolio</a></form></div>
+<div class="grid g4"><div>{{ stat('Overdue loans', work.overdue|length, 'alert-triangle', 'red') }}</div><div>{{ stat('Total overdue', money(total_overdue), 'wallet', 'amber') }}</div><div>{{ stat('Due today', work.due_today|length, 'calendar-clock') }}</div><div>{{ stat('Due in 7 days', work.soon|length, 'calendar') }}</div></div>
+<div class="card mt2"><div class="card-head"><h2>Overdue</h2></div>{{ table(work.overdue, 'overdue') }}</div>
+<div class="card mt2"><div class="card-head"><h2>Due today</h2></div>{{ table(work.due_today, 'due') }}</div>
+<div class="card mt2"><div class="card-head"><h2>Due in the next 7 days</h2></div>{{ table(work.soon, 'due') }}</div>
+{% endblock %}
