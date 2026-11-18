@@ -1,12 +1,29 @@
 {% extends "shell_group.html" %}
-{% from "partials/macros.html" import csrf, loan_pill, empty %}
+{% from "partials/macros.html" import csrf, loan_pill, empty, action_form %}
 {% block title %}{{ b.name }}{% endblock %}
 {% block content %}
-<div class="page-head"><div><h1>{{ b.name }}</h1><p>{{ b.category }} &middot; registered {{ b.registered_on|ld }}</p></div><a class="btn btn-primary" href="{{ url_for('lending.new', borrower=b.id) }}"><i data-lucide="plus"></i>New loan</a></div>
+<div class="page-head"><div class="flex gap2 items-center">{% if photo %}<img src="{{ url_for('files.serve', file_id=photo.file_id) }}" alt="" width="64" height="64" style="border-radius:50%;object-fit:cover">{% endif %}<div><h1>{{ b.name }}</h1><p>{{ b.category }} &middot; registered {{ b.registered_on|ld }}{% if b.phone %} &middot; {{ b.phone }}{% endif %}</p></div></div><a class="btn btn-primary" href="{{ url_for('lending.new', borrower=b.id) }}"><i data-lucide="plus"></i>New loan</a></div>
 <div class="split">
-<div class="card"><div class="card-head"><h2>Loans</h2></div>{% if loans %}<div class="table-wrap"><table class="table"><thead><tr><th>Reference</th><th class="num">Principal</th><th class="num">Outstanding</th><th>Status</th></tr></thead><tbody>
+<div>
+<div class="card mb2"><div class="card-head"><h2>Loans</h2></div>{% if loans %}<div class="table-wrap"><table class="table"><thead><tr><th>Reference</th><th class="num">Principal</th><th class="num">Outstanding</th><th>Status</th></tr></thead><tbody>
 {% for l in loans %}{% set o = outstanding(l) %}<tr><td><a href="{{ url_for('lending.detail', loan_id=l.id) }}">{{ l.reference }}</a></td><td class="num">{{ money(l.principal) }}</td><td class="num">{{ money(o[0] + o[1]) }}</td><td>{{ loan_pill(eff(l)) }}</td></tr>{% endfor %}</tbody></table></div>
 {% else %}{{ empty('hand-coins', 'No loans yet') }}{% endif %}</div>
-<div class="card card-pad"><h3 class="mb2">Edit details</h3><form method="post">{{ csrf() }}{% include "borrowers/_fields.html" %}<button class="btn btn-primary">Save changes</button></form></div>
+{% if current_group.is_lender %}<div class="card"><div class="card-head"><h2>KYC documents</h2></div>
+{% if docs %}<div class="table-wrap"><table class="table"><thead><tr><th>Type</th><th>File</th><th>Added</th><th></th></tr></thead><tbody>
+{% for d in docs %}<tr><td>{{ doc_types[d.doc_type] }}{% if d.note %}<div class="muted xs">{{ d.note }}</div>{% endif %}</td><td><a href="{{ url_for('files.serve', file_id=d.file_id) }}" target="_blank" rel="noopener">{{ d.file.filename }}</a></td><td class="nowrap">{{ d.created_at|ldt('%d %b %Y') }}</td><td class="right">{{ action_form(url_for('borrowers.delete_document', borrower_id=b.id, doc_id=d.id), 'Remove', 'Remove this document?', danger=true, cls='btn btn-sm btn-danger') }}</td></tr>{% endfor %}</tbody></table></div>{% else %}<div class="card-body muted">No documents yet. Add the ID, photo and proof of address.</div>{% endif %}
+<form class="card-body" method="post" action="{{ url_for('borrowers.add_document', borrower_id=b.id) }}" enctype="multipart/form-data">{{ csrf() }}
+<div class="form-grid"><div class="field"><label>Document type</label><select name="doc_type">{% for k, v in doc_types.items() %}<option value="{{ k }}">{{ v }}</option>{% endfor %}</select></div>
+<div class="field"><label>Photo or PDF</label><input type="file" name="file" accept="image/png,image/jpeg,image/webp,application/pdf" required><div class="hint">On a phone this opens the camera or your files.</div></div>
+<div class="field full"><label>Note (optional)</label><input type="text" name="note" maxlength="200"></div></div>
+<button class="btn btn-primary btn-sm">Upload</button></form>{% if portal_url %}<div class="field mt1"><label>Link to send</label><input type="text" readonly value="{{ portal_url }}" onclick="this.select()"></div>{% endif %}</div>{% endif %}
 </div>
+<div>
+{% if hist %}<div class="card card-pad mb2"><h3 class="mb2">Credit standing</h3><div class="mb2"><span class="pill {{ 'green' if hist.grade == 'Good' else ('red' if hist.grade in ('Poor','Blacklisted') else 'amber') }}">{{ hist.grade }}</span></div><div class="small">{{ hist.loans }} loan(s): {{ hist.repaid }} repaid, {{ hist.active }} open, {{ hist.written_off }} written off.<br>{{ hist.late }} late of {{ hist.instalments }} instalments due; worst delay {{ hist.worst_days }} days.</div>
+{% if b.blacklisted %}<div class="alert error mt2">Blacklisted: {{ b.blacklist_reason }}</div>{{ action_form(url_for('borrowers.blacklist', borrower_id=b.id), 'Remove from blacklist', 'Remove this borrower from the blacklist?', fields={'action':'remove'}, cls='btn btn-sm') }}
+{% else %}{{ action_form(url_for('borrowers.blacklist', borrower_id=b.id), 'Blacklist', 'Blacklist this borrower? New loans will be blocked.', reason='Reason', fields={'action':'add'}, danger=true, cls='btn btn-sm btn-danger') }}{% endif %}</div>
+<div class="card card-pad mb2"><h3 class="mb2">Borrower link</h3><p class="muted small">A private page where the borrower sees their balance, fines and payments. Copy the link and send it on WhatsApp, SMS or email. No login needed.</p><form method="post" action="{{ url_for('borrowers.portal_link', borrower_id=b.id) }}" class="flex gap1 wrap">{{ csrf() }}<button class="btn btn-sm" name="action" value="show">{{ 'Show link' if portal_url else 'Create link' }}</button><button class="btn btn-sm btn-danger" name="action" value="rotate">Revoke old links</button></form></div>{% endif %}
+{% if current_group.is_lender %}<div class="card card-pad mb2"><h3 class="mb2">Profile</h3><dl class="kv" style="grid-template-columns:130px 1fr">
+<dt>ID number</dt><dd>{{ b.id_number or '-' }}</dd><dt>Date of birth</dt><dd>{{ b.date_of_birth|ld if b.date_of_birth else '-' }}</dd><dt>Address</dt><dd>{{ b.address or '-' }}</dd><dt>Occupation</dt><dd>{{ b.occupation or '-' }}{% if b.employer %} ({{ b.employer }}){% endif %}</dd><dt>Monthly income</dt><dd>{{ money(b.monthly_income) if b.monthly_income is not none else '-' }}</dd><dt>Officer</dt><dd>{{ officer_names.get(b.officer_id, '-') }}</dd><dt>Next of kin</dt><dd>{{ b.next_of_kin_name or '-' }}{% if b.next_of_kin_relation %} ({{ b.next_of_kin_relation }}){% endif %}{% if b.next_of_kin_phone %}<br>{{ b.next_of_kin_phone }}{% endif %}</dd></dl></div>{% endif %}
+<div class="card card-pad"><h3 class="mb2">Edit details</h3><form method="post">{{ csrf() }}{% include "borrowers/_fields.html" %}<button class="btn btn-primary">Save changes</button></form></div>
+</div></div>
 {% endblock %}
