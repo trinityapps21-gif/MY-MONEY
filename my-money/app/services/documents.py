@@ -270,3 +270,67 @@ def receipt_pdf(group, title, receipt_no, fields, amount_minor, generated_at, ex
     foot = _footer_factory(group, "")
     doc.build(story, onFirstPage=foot, onLaterPages=foot)
     return buf.getvalue()
+
+
+# ------------------------------------------------------------ loan schedule PDF
+def loan_schedule_pdf(group, loan, generated_at, fine_rule_text=None, fines=None) -> bytes:
+    """Payment schedule an official can download and give to the borrower."""
+    st = _styles()
+    page = A4
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=page, leftMargin=14 * mm, rightMargin=14 * mm, topMargin=12 * mm,
+                            bottomMargin=20 * mm, title=f"Payment schedule {loan.reference}", author=BRAND)
+    width = page[0] - 28 * mm
+    cur, dec = group.currency, group.currency_decimals
+    m = lambda v: fmt(v, cur, dec)  # noqa: E731
+    local = to_local(generated_at, group.timezone)
+    b = loan.borrower
+    story = [_header(group, width, st, f"Currency: {cur}"), Spacer(1, 4 * mm),
+             Paragraph("Loan Payment Schedule", st["title"]),
+             Paragraph(f"Loan {loan.reference}  |  Generated {local:%d %b %Y %H:%M}", st["small"]), Spacer(1, 4 * mm)]
+    rate = f"{loan.rate_bp / 100:g}% per {loan.rate_period.lower()}"
+    info = [
+        ["Borrower", b.name, "Loan amount", m(loan.principal)],
+        ["Phone", b.phone or "-", "Interest", f"{rate} ({'Flat' if loan.method == 'FLAT' else 'Reducing balance'})"],
+        ["Location", b.location or "-", "Total interest", m(loan.total_interest)],
+        ["Disbursed", f"{loan.disbursement_date:%d %b %Y}", "Total to repay", m(loan.total_repayable)],
+        ["Instalments", f"{len(loan.schedule)} ({loan.frequency.lower()})", "Purpose", loan.purpose or "-"],
+    ]
+    t = Table([[Paragraph(f"<b>{r[0]}</b>", st["cell"]), Paragraph(str(r[1]), st["cell"]),
+                Paragraph(f"<b>{r[2]}</b>", st["cell"]), Paragraph(str(r[3]), st["cell"])] for r in info],
+              colWidths=[width * 0.14, width * 0.36, width * 0.16, width * 0.34])
+    t.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, -1), GREY), ("GRID", (0, 0), (-1, -1), 0.4, BORDER),
+                           ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 3)]))
+    story += [t, Spacer(1, 5 * mm)]
+    head = ["#", "Due date", "Principal", "Interest", "Instalment", "Paid", "Balance due"]
+    data = [[Paragraph(f"<b>{h}</b>", ParagraphStyle("h", parent=st["cell"], textColor=colors.white,
+                                                      alignment=0 if i < 2 else 2)) for i, h in enumerate(head)]]
+    tp = ti = tt = tpaid = tbal = 0
+    for s in loan.schedule:
+        due, paid, bal = s.total_due, s.total_paid, s.balance
+        tp, ti, tt, tpaid, tbal = tp + s.principal_due, ti + s.interest_due, tt + due, tpaid + paid, tbal + bal
+        data.append([Paragraph(str(s.number), st["cell"]), Paragraph(f"{s.due_date:%d %b %Y}", st["cell"]),
+                     Paragraph(m(s.principal_due), st["cellr"]), Paragraph(m(s.interest_due), st["cellr"]),
+                     Paragraph(m(due), st["cellr"]), Paragraph(m(paid), st["cellr"]), Paragraph(m(bal), st["cellr"])])
+    data.append([Paragraph("<b>Total</b>", st["cell"]), "", Paragraph(f"<b>{m(tp)}</b>", st["cellr"]),
+                 Paragraph(f"<b>{m(ti)}</b>", st["cellr"]), Paragraph(f"<b>{m(tt)}</b>", st["cellr"]),
+                 Paragraph(f"<b>{m(tpaid)}</b>", st["cellr"]), Paragraph(f"<b>{m(tbal)}</b>", st["cellr"])])
+    sch = Table(data, repeatRows=1, colWidths=[width * x for x in (0.06, 0.15, 0.17, 0.14, 0.17, 0.14, 0.17)])
+    sch.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, 0), NAVY), ("GRID", (0, 0), (-1, -1), 0.3, BORDER),
+                             ("ROWBACKGROUNDS", (0, 1), (-1, -2), [colors.white, GREY]),
+                             ("BACKGROUND", (0, -1), (-1, -1), GREY), ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                             ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 3)]))
+    story.append(sch)
+    open_fines = [f for f in (fines or []) if f.status == "UNPAID"]
+    if open_fines:
+        story += [Spacer(1, 4 * mm), Paragraph(
+            "<b>Late-payment fines still to pay:</b> " + ", ".join(
+                f"{m(f.amount)} ({f.days_late} days late)" for f in open_fines), st["note"])]
+    if fine_rule_text:
+        story += [Spacer(1, 3 * mm), Paragraph(fine_rule_text, st["note"])]
+    story += [Spacer(1, 3 * mm), Paragraph(
+        "Please pay each instalment on or before its due date. Keep your receipt for every payment. "
+        f"For questions contact {group.name}{(' on ' + group.phone) if group.phone else ''}.", st["note"])]
+    foot = _footer_factory(group, "")
+    doc.build(story, onFirstPage=foot, onLaterPages=foot)
+    return buf.getvalue()
