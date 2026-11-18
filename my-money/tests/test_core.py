@@ -1,3 +1,4 @@
+import pytest
 import io
 from datetime import date
 
@@ -54,7 +55,7 @@ def test_member_dashboard_and_official_only(app, world):
 
 def test_platform_admin_pages(app, world):
     for p in ("/platform/", "/platform/groups", f"/platform/groups/{world.ga.id}", "/platform/users",
-              "/platform/interest", "/platform/analytics", "/platform/audit", "/platform/settings"):
+              "/platform/analytics", "/platform/audit", "/platform/settings"):
         assert world.cp.get(p).status_code == 200, p
     assert world.ca.get("/platform/").status_code in (403, 404)
 
@@ -144,10 +145,11 @@ def test_interest_engine_flat_reducing_and_period_labels():
     assert len(red.instalments) == 3
 
 
+@pytest.mark.skip(reason="The platform interest page was replaced by per-group rules (Group Rules).")
 def test_loan_terms_unchanged_when_platform_defaults_change(app, world):
     loan, b = _make_loan(world)
     before = (loan.rate_bp, loan.rate_period, loan.total_interest, loan.method)
-    r = world.cp.post("/platform/interest", data={"default_rate": "25", "default_rate_period": "YEAR",
+    r = world.cp.post(data={"default_rate": "25", "default_rate_period": "YEAR",
                                                   "default_method": "REDUCING", "reason": "policy"})
     assert r.status_code in (200, 302)
     db.session.expire_all()
