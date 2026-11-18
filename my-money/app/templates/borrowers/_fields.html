@@ -5,4 +5,14 @@
 <div class="field"><label>Location</label><input type="text" name="location" value="{{ b.location or '' if b }}"></div>
 <div class="field"><label>ID number</label><input type="text" name="id_number" value="{{ b.id_number or '' if b }}"></div>
 <div class="field"><label>Registered on</label><input type="date" name="registered_on" value="{{ (b.registered_on if b else today).isoformat() }}"></div>
+{% if current_group.is_lender %}<div class="field full"><h3 class="mt1">KYC details</h3></div>
+<div class="field"><label>Date of birth</label><input type="date" name="date_of_birth" value="{{ b.date_of_birth.isoformat() if b and b.date_of_birth }}"></div>
+<div class="field"><label>Occupation</label><input type="text" name="occupation" value="{{ b.occupation or '' if b }}"></div>
+<div class="field"><label>Employer / business</label><input type="text" name="employer" value="{{ b.employer or '' if b }}"></div>
+<div class="field"><label>Monthly income ({{ current_group.currency }})</label><input type="text" inputmode="decimal" name="monthly_income" value="{{ (b.monthly_income|inp(current_group.currency_decimals)) if b and b.monthly_income is not none else '' }}"></div>
+<div class="field full"><label>Home address</label><input type="text" name="address" maxlength="250" value="{{ b.address or '' if b }}"></div>
+<div class="field"><label>Loan officer</label><select name="officer_id"><option value="">Unassigned</option>{% for uid, n in officer_opts %}<option value="{{ uid }}" {{ 'selected' if b and b.officer_id == uid }}>{{ n }}</option>{% endfor %}</select></div>
+<div class="field"><label>Next of kin</label><input type="text" name="next_of_kin_name" value="{{ b.next_of_kin_name or '' if b }}"></div>
+<div class="field"><label>Next of kin phone</label><input type="tel" name="next_of_kin_phone" value="{{ b.next_of_kin_phone or '' if b }}"></div>
+<div class="field"><label>Relationship</label><input type="text" name="next_of_kin_relation" value="{{ b.next_of_kin_relation or '' if b }}"></div>{% endif %}
 <div class="field full"><label>Notes</label><textarea name="notes">{{ b.notes or '' if b }}</textarea></div></div>
