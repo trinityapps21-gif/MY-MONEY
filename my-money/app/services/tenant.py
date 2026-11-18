@@ -14,7 +14,7 @@ from flask_login import current_user, login_required
 from app.models import GroupMember, OFFICIAL_ROLES
 
 
-def tenant_route(official=False):
+def tenant_route(official=False, kind=None):
     def decorator(view):
         @wraps(view)
         @login_required
@@ -29,6 +29,8 @@ def tenant_route(official=False):
                 return render_template("errors/group_suspended.html", group=membership.group), 403
             if official and membership.role not in OFFICIAL_ROLES:
                 abort(403)
+            if kind and membership.group.business_type != kind:  # e.g. savings pages in a lending business
+                abort(404)
             g.group = membership.group
             g.membership = membership
             g.is_official = membership.role in OFFICIAL_ROLES
