@@ -1,0 +1,20 @@
+{% extends "shell_group.html" %}
+{% from "partials/macros.html" import stat, chart_cfg, empty %}
+{% set use_charts = true %}
+{% block title %}Income and expenses{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Income and expenses</h1><p>For the group officials only</p></div>
+<div class="row gap1"><a class="btn" href="{{ url_for('reports.run', key='income_statement') }}"><i data-lucide="file-text"></i>Report</a>
+<a class="btn" href="{{ url_for('finance.income') }}"><i data-lucide="trending-up"></i>Income</a>
+<a class="btn" href="{{ url_for('finance.expenses') }}"><i data-lucide="trending-down"></i>Expenses</a></div></div>
+<h3 class="mb2">This year</h3>
+<div class="grid g4 mb2">{{ stat('Income', money(year.income), 'trending-up', 'green') }}{{ stat('Expenses', money(year.expenses), 'trending-down') }}{{ stat('Net result', money(year.net), 'scale', '', 'income minus expenses') }}{{ stat('This month (net)', money(month.net), 'calendar') }}</div>
+<div class="grid g3 mb2">{{ stat('Loan interest', money(year.loan_interest), 'percent') }}{{ stat('Fine interest and penalties', money(year.fines), 'alarm-clock') }}{{ stat('Other income', money(year.other_income), 'hand-coins') }}</div>
+<div class="card card-pad mb2"><h2 class="mb2">Income vs expenses (6 months)</h2><div class="chart-box"><canvas data-chart="ie"></canvas></div></div>
+<div class="grid g2">
+<div class="card card-pad"><h2 class="mb2">Income by category</h2>{% if inc_cat %}<div class="chart-box"><canvas data-chart="ic"></canvas></div>{% else %}{{ empty('trending-up', 'No income yet') }}{% endif %}</div>
+<div class="card card-pad"><h2 class="mb2">Expenses by category</h2>{% if exp_cat %}<div class="chart-box"><canvas data-chart="ec"></canvas></div>{% else %}{{ empty('trending-down', 'No expenses yet') }}{% endif %}</div></div>
+{{ chart_cfg('ie', {'currency':current_group.currency,'decimals':current_group.currency_decimals,'type':'bar','labels':labels,'datasets':[{'label':'Income','data':income},{'label':'Expenses','data':expenses},{'label':'Net','data':net}]}) }}
+{{ chart_cfg('ic', {'currency':current_group.currency,'decimals':current_group.currency_decimals,'type':'doughnut','labels':inc_cat|map(attribute=0)|list,'datasets':[{'label':'Income','data':inc_cat|map(attribute=1)|list}]}) }}
+{{ chart_cfg('ec', {'currency':current_group.currency,'decimals':current_group.currency_decimals,'type':'doughnut','labels':exp_cat|map(attribute=0)|list,'datasets':[{'label':'Expenses','data':exp_cat|map(attribute=1)|list}]}) }}
+{% endblock %}
