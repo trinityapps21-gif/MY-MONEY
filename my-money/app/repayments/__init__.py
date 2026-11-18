@@ -4,7 +4,7 @@ from sqlalchemy import func
 
 from app.extensions import db
 from app.models import Borrower, Loan, LoanRepayment, LoanRepaymentSchedule
-from app.services import ledger, loans as loan_svc
+from app.services import ledger, lender as lender_svc, loans as loan_svc
 from app.services.audit import audit
 from app.services.forms import form_amount, form_date, form_text, new_idem_key
 from app.services.loans import ACTIVE_STATES, LoanError
@@ -59,8 +59,11 @@ def loans_for_borrower(group_id=None):
     out = []
     for l in scoped(Loan, borrower_id=borrower.id).filter(Loan.status.in_(ACTIVE_STATES)).order_by(Loan.id):
         p, i = loan_svc.outstanding(l)
+        lender_svc.accrue_penalties(g.group, local_today(g.group.timezone), l)
+        fines = lender_svc.penalties_due(l) if g.group.is_lender else 0
         nd = loan_svc.next_due(l)
-        out.append({"id": l.id, "reference": l.reference, "outstanding": p + i, "outstanding_text": fmt(p + i, c, d),
+        out.append({"id": l.id, "reference": l.reference, "outstanding": p + i + fines,
+                    "outstanding_text": fmt(p + i + fines, c, d) + (f" (includes late fines {fmt(fines, c, d)})" if fines else ""),
                     "next_due": nd.due_date.strftime("%d %b %Y") if nd else "",
                     "next_amount": fmt(nd.balance, c, d) if nd else ""})
     return jsonify(loans=out)
@@ -73,17 +76,22 @@ def new(group_id=None):
     if request.method == "POST":
         try:
             loan = get_scoped_or_404(Loan, request.form.get("loan_id", type=int) or 0)
-            rep = loan_svc.record_repayment(
-                g.group, loan, current_user, form_amount(), form_date("payment_date"),
+            lender_svc.accrue_penalties(g.group, today, loan)
+            amount = form_amount()
+            rep, fine = lender_svc.record_payment(
+                g.group, loan, current_user, amount, form_date("payment_date"),
                 form_text("payment_method", 40), form_text("payment_reference", 80), form_text("notes"),
                 request.form.get("idempotency_key") or None)
-            audit("repayment.recorded", "loan_repayment", rep.id, {"amount": rep.amount, "loan": loan.reference},
-                  group_id=g.group.id)
+            audit("repayment.recorded", "loan_repayment", rep.id if rep else None,
+                  {"amount": amount, "fine_part": fine, "loan": loan.reference}, group_id=g.group.id)
             db.session.commit()
-            flash(f"Repayment recorded. Receipt {rep.receipt_no}.", "success")
-            fine = getattr(rep, "assessed_fine", None)
-            if fine is not None:
-                flash(f"Paid {fine.days_late} day(s) late: a fine of {money_text(fine.amount)} was added. "
+            msg = f"Payment recorded. Receipt {rep.receipt_no}." if rep else "Payment recorded against the late fine."
+            if fine and rep:
+                msg += f" {fmt(fine, g.group.currency, g.group.currency_decimals)} cleared the late fine first."
+            flash(msg, "success")
+            late = getattr(rep, "assessed_fine", None) if rep else None
+            if late is not None:
+                flash(f"Paid {late.days_late} day(s) late: a fine of {money_text(late.amount)} was added. "
                       "Collect it from the Fines page.", "info")
             return redirect(url_for("lending.detail", loan_id=loan.id))
         except DuplicateError as e:
