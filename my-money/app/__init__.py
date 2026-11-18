@@ -1,12 +1,13 @@
 """MY MONEY - multi-tenant savings group and lending platform.
 Developed and Powered by Emtrixz Technology Company."""
 import logging
+import os
 
 import click
 import json
 from flask import Flask, abort, g, jsonify, render_template, request, url_for
 from flask_login import current_user
-from sqlalchemy import event, text
+from sqlalchemy import event, inspect, text
 from sqlalchemy.engine import Engine
 from werkzeug.middleware.proxy_fix import ProxyFix
 
@@ -23,6 +24,70 @@ def _sqlite_fk_pragma(dbapi_conn, _):
         cur.close()
     except Exception:  # pragma: no cover
         pass
+
+
+def _sql_literal(value):
+    """Render a simple Python default as a SQL literal, or None if unsupported."""
+    if isinstance(value, bool):
+        return "1" if value else "0"
+    if isinstance(value, (int, float)):
+        return str(value)
+    if isinstance(value, str):
+        return "'" + value.replace("'", "''") + "'"
+    return None
+
+
+def sync_schema(app=None):
+    """Bring the live database in line with the models, additively.
+
+    1. Creates tables that do not exist yet (db.create_all never touches
+       existing tables).
+    2. Adds columns that exist in a model but not in the database.
+
+    It never drops, renames or retypes anything, so it is safe to run
+    repeatedly. Returns (added_columns, errors) and never raises.
+    Must be called inside an app context.
+    """
+    log = logging.getLogger("app.schema")
+    added, errors = [], []
+    try:
+        db.create_all()
+    except Exception as exc:
+        log.exception("create_all failed")
+        errors.append(f"create_all: {exc}")
+        return added, errors
+
+    try:
+        engine = db.engine
+        insp = inspect(engine)
+        prep = engine.dialect.identifier_preparer
+        existing_tables = set(insp.get_table_names())
+        for table in db.metadata.sorted_tables:
+            if table.name not in existing_tables:
+                continue
+            live = {c["name"] for c in insp.get_columns(table.name)}
+            for col in table.columns:
+                if col.name in live or col.primary_key:
+                    continue
+                ddl_type = col.type.compile(dialect=engine.dialect)
+                default_sql = None
+                if col.default is not None and getattr(col.default, "is_scalar", False):
+                    default_sql = _sql_literal(col.default.arg)
+                stmt = f"ALTER TABLE {prep.quote(table.name)} ADD COLUMN {prep.quote(col.name)} {ddl_type}"
+                if default_sql is not None:
+                    stmt += f" DEFAULT {default_sql}"
+                try:
+                    with engine.begin() as conn:
+                        conn.execute(text(stmt))
+                    added.append(f"{table.name}.{col.name}")
+                    log.warning("Added missing column %s.%s", table.name, col.name)
+                except Exception as exc:
+                    log.exception("Could not add column %s.%s", table.name, col.name)
+                    errors.append(f"{table.name}.{col.name}: {exc}")
+    except Exception as exc:
+        log.exception("Column sync failed")
+        errors.append(f"column sync: {exc}")
+    return added, errors
 
 
 def create_app(overrides=None):
@@ -45,6 +110,13 @@ def create_app(overrides=None):
 
     from app import models  # noqa: F401  (register tables)
     from app.models import User
+
+    # Startup sync is OFF by default because every check is a network round
+    # trip to Turso and can make boot exceed the worker timeout (502s).
+    # Prefer `flask sync-schema`. Set AUTO_SCHEMA_SYNC=1 only to force it.
+    if overrides is None and os.environ.get("AUTO_SCHEMA_SYNC", "0") == "1":
+        with app.app_context():
+            sync_schema(app)
 
     @login_manager.user_loader
     def load_user(user_id):
@@ -274,6 +346,21 @@ def register_errors(app):
 def register_cli(app):
     from app.services.seed import seed_defaults
 
+    @app.cli.command("sync-schema")
+    def sync_schema_cmd():
+        """Create missing tables and add missing columns (additive, idempotent)."""
+        added, errors = sync_schema(app)
+        if added:
+            click.echo("Added columns: " + ", ".join(added))
+        else:
+            click.echo("No missing columns.")
+        if errors:
+            click.echo("Problems:")
+            for err in errors:
+                click.echo(f"  - {err}")
+        else:
+            click.echo("Schema is in sync.")
+
     @app.cli.command("seed")
     def seed_cmd():
         """Create roles, interest settings and platform defaults (idempotent)."""
@@ -312,7 +399,6 @@ def register_cli(app):
     @app.cli.command("bootstrap-platform-admin")
     def bootstrap_admin():
         """Non-interactive, idempotent admin creation from environment variables."""
-        import os
         from app.auth import validate_password, normalize_phone
         from app.models import User
         from app.services.audit import audit
