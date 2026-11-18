@@ -13,6 +13,10 @@ from app.services.savings import PAYMENT_METHODS, DuplicateError
 from app.services.tenant import get_scoped_or_404, scoped, tenant_route
 from app.services.timeutil import local_today
 
+def money_text(v):
+    return f"{g.group.currency} {v / (10 ** g.group.currency_decimals):,.{g.group.currency_decimals}f}"
+
+
 bp = Blueprint("repayments", __name__, url_prefix="/g/<int:group_id>/repayments")
 
 
@@ -77,6 +81,10 @@ def new(group_id=None):
                   group_id=g.group.id)
             db.session.commit()
             flash(f"Repayment recorded. Receipt {rep.receipt_no}.", "success")
+            fine = getattr(rep, "assessed_fine", None)
+            if fine is not None:
+                flash(f"Paid {fine.days_late} day(s) late: a fine of {money_text(fine.amount)} was added. "
+                      "Collect it from the Fines page.", "info")
             return redirect(url_for("lending.detail", loan_id=loan.id))
         except DuplicateError as e:
             db.session.rollback()
