@@ -1,0 +1,32 @@
+{% extends "shell_group.html" %}
+{% from "partials/macros.html" import csrf %}
+{% block title %}Group rules{% endblock %}
+{% block content %}
+{% macro mv(v) %}{{ money_plain(v) }}{% endmacro %}
+{% macro pct(bp) %}{{ '%g' % (bp / 100) }}{% endmacro %}
+<div class="page-head"><div><h1>Group rules</h1><p>Set by the group officials. The platform administrator cannot change these.</p></div></div>
+<form method="post">{{ csrf() }}
+<div class="card card-pad mb2"><h2 class="mb2"><i data-lucide="piggy-bank"></i> Savings and shares</h2><div class="form-grid">
+<div class="field"><label>Minimum savings balance ({{ current_group.currency }})</label><input type="text" inputmode="decimal" name="min_savings_balance" value="{{ mv(s.min_savings_balance) }}"><small class="muted">Members can withdraw only what is above this.</small></div>
+<div class="field"><label>Price per share ({{ current_group.currency }})</label><input type="text" inputmode="decimal" name="share_price" value="{{ mv(s.share_price) }}"></div>
+<div class="field full check"><input type="checkbox" id="lb" name="leaderboard_on" value="1" {{ 'checked' if s.leaderboard_on }}><label for="lb">Show the share leaderboard (ranks only) to every member</label></div></div></div>
+<div class="card card-pad mb2"><h2 class="mb2"><i data-lucide="calendar-clock"></i> Contribution schedule</h2><div class="form-grid">
+<div class="field"><label>How often members contribute</label><select name="contribution_period">{% for k, v in [('WEEKLY','Weekly'),('MONTHLY','Monthly'),('ANNUAL','Annually')] %}<option value="{{ k }}" {{ 'selected' if s.contribution_period == k }}>{{ v }}</option>{% endfor %}</select><small class="muted">Each member then chooses their own day.</small></div>
+<div class="field"><label>Remind members this many days before</label><input type="number" name="reminder_days" min="1" max="30" value="{{ s.reminder_days }}"></div></div></div>
+<div class="card card-pad mb2"><h2 class="mb2"><i data-lucide="alarm-clock"></i> Late fines on external loans</h2><div class="form-grid">
+<div class="field"><label>Grace period (days after the deadline)</label><input type="number" name="fine_grace_days" min="0" max="90" value="{{ s.fine_grace_days }}"></div>
+<div class="field"><label>Fine is charged every (days)</label><input type="number" name="fine_period_days" min="1" max="90" value="{{ s.fine_period_days }}"></div>
+<div class="field"><label>Fine type</label><select name="fine_type"><option value="PERCENT" {{ 'selected' if s.fine_type == 'PERCENT' }}>Percentage of the late amount</option><option value="FIXED" {{ 'selected' if s.fine_type == 'FIXED' }}>Fixed amount</option></select></div>
+<div class="field"><label>Percentage per period (%)</label><input type="text" inputmode="decimal" name="fine_rate" value="{{ pct(s.fine_rate_bp) }}"></div>
+<div class="field"><label>Fixed amount per period ({{ current_group.currency }})</label><input type="text" inputmode="decimal" name="fine_fixed" value="{{ mv(s.fine_fixed) }}"></div>
+<div class="field check"><input type="checkbox" id="fc" name="fine_capped" value="1" {{ 'checked' if s.fine_capped }}><label for="fc">Never charge more than the late amount</label></div></div></div>
+<div class="card card-pad mb2"><h2 class="mb2"><i data-lucide="percent"></i> Loan interest policy</h2><div class="form-grid">
+<div class="field"><label>Default rate (%)</label><input type="text" name="default_rate" value="{{ pct(s.default_rate_bp) }}"></div>
+<div class="field"><label>Default period</label><select name="default_period">{% for k, v in [('WEEK','Per week'),('MONTH','Per month'),('YEAR','Per year')] %}<option value="{{ k }}" {{ 'selected' if s.default_period == k }}>{{ v }}</option>{% endfor %}</select></div>
+<div class="field"><label>Minimum rate (%)</label><input type="text" name="min_rate" value="{{ pct(s.min_rate_bp) }}"></div>
+<div class="field"><label>Maximum rate (%)</label><input type="text" name="max_rate" value="{{ pct(s.max_rate_bp) }}"></div>
+<div class="field check"><input type="checkbox" id="fl" name="flat_enabled" value="1" {{ 'checked' if s.flat_enabled }}><label for="fl">Allow flat interest</label></div>
+<div class="field check"><input type="checkbox" id="rd" name="reducing_enabled" value="1" {{ 'checked' if s.reducing_enabled }}><label for="rd">Allow reducing balance interest</label></div>
+<div class="field check full"><input type="checkbox" id="cr" name="allow_custom_rates" value="1" {{ 'checked' if s.allow_custom_rates }}><label for="cr">Let officials type a custom rate on each loan</label></div></div></div>
+<button class="btn btn-primary" type="submit">Save group rules</button></form>
+{% endblock %}
