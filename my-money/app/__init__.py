@@ -1,11 +1,12 @@
 """MY MONEY - multi-tenant savings group and lending platform.
 Developed and Powered by Emtrixz Technology Company."""
 import logging
+import os
 
 import click
 from flask import Flask, abort, g, jsonify, render_template, request, url_for
 from flask_login import current_user
-from sqlalchemy import event, text
+from sqlalchemy import event, inspect, text
 from sqlalchemy.engine import Engine
 from werkzeug.middleware.proxy_fix import ProxyFix
 
@@ -22,6 +23,64 @@ def _sqlite_fk_pragma(dbapi_conn, _):
         cur.close()
     except Exception:  # pragma: no cover
         pass
+
+
+def _sql_literal(value):
+    """Render a simple Python default as a SQL literal, or None if unsupported."""
+    if isinstance(value, bool):
+        return "1" if value else "0"
+    if isinstance(value, (int, float)):
+        return str(value)
+    if isinstance(value, str):
+        return "'" + value.replace("'", "''") + "'"
+    return None
+
+
+def sync_schema(app):
+    """Bring the live database in line with the models, additively.
+
+    1. Creates tables that do not exist yet (db.create_all never touches
+       existing tables).
+    2. Adds columns that exist in a model but not in the database.
+
+    It never drops, renames or retypes anything, so it is safe to run on every
+    start. Failures are logged and never stop the app from booting.
+    """
+    log = logging.getLogger("app.schema")
+    try:
+        db.create_all()
+    except Exception:
+        log.exception("create_all failed")
+        return
+
+    try:
+        engine = db.engine
+        insp = inspect(engine)
+        prep = engine.dialect.identifier_preparer
+        existing_tables = set(insp.get_table_names())
+        for table in db.metadata.sorted_tables:
+            if table.name not in existing_tables:
+                continue
+            live = {c["name"] for c in insp.get_columns(table.name)}
+            for col in table.columns:
+                if col.name in live or col.primary_key:
+                    continue
+                ddl_type = col.type.compile(dialect=engine.dialect)
+                default_sql = None
+                if col.default is not None and getattr(col.default, "is_scalar", False):
+                    default_sql = _sql_literal(col.default.arg)
+                stmt = f"ALTER TABLE {prep.quote(table.name)} ADD COLUMN {prep.quote(col.name)} {ddl_type}"
+                if default_sql is not None:
+                    stmt += f" DEFAULT {default_sql}"
+                try:
+                    with engine.begin() as conn:
+                        conn.execute(text(stmt))
+                    log.warning("Added missing column %s.%s", table.name, col.name)
+                except Exception:
+                    # Another worker may have added it at the same moment.
+                    log.exception("Could not add column %s.%s", table.name, col.name)
+    except Exception:
+        log.exception("Column sync failed")
 
 
 def create_app(overrides=None):
@@ -44,6 +103,12 @@ def create_app(overrides=None):
 
     from app import models  # noqa: F401  (register tables)
     from app.models import User
+
+    # Keep the live database in step with the models (skipped in tests, which
+    # pass overrides, and when AUTO_SCHEMA_SYNC=0).
+    if overrides is None and os.environ.get("AUTO_SCHEMA_SYNC", "1") != "0":
+        with app.app_context():
+            sync_schema(app)
 
     @login_manager.user_loader
     def load_user(user_id):
