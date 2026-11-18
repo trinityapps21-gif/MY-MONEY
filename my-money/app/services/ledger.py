@@ -6,17 +6,45 @@ with the opposite direction and the same ``tx_type``, so per-type nets stay
 correct without ever editing or deleting history.
 """
 import secrets
-from app.models import utcnow
 
-from sqlalchemy import case, func
+from sqlalchemy import case, func, inspect, text
 
 from app.extensions import db
-from app.models import Transaction
+from app.models import Transaction, utcnow
 from app.models.finance import TX_IN_TYPES, TX_OUT_TYPES
 
 
 class LedgerError(ValueError):
     pass
+
+
+# ---------------------------------------------------------------------------
+# Schema self-heal
+# ---------------------------------------------------------------------------
+# db.create_all() never adds columns to tables that already exist, so a column
+# added to the model later is missing in production. This adds it once per
+# process, only if it is absent.
+_schema_checked = False
+
+
+def ensure_schema():
+    global _schema_checked
+    if _schema_checked:
+        return
+    try:
+        cols = {c["name"] for c in inspect(db.engine).get_columns("transactions")}
+        if "kind" not in cols:
+            db.session.execute(text("ALTER TABLE transactions ADD COLUMN kind VARCHAR(30)"))
+            db.session.commit()
+        _schema_checked = True
+    except Exception:
+        # Another worker may have added the column at the same moment.
+        db.session.rollback()
+        cols = {c["name"] for c in inspect(db.engine).get_columns("transactions")}
+        if "kind" in cols:
+            _schema_checked = True
+        else:
+            raise
 
 
 def new_ref(prefix="TXN") -> str:
@@ -29,6 +57,7 @@ def post(group_id, tx_type, amount, direction, tx_date, user_id, description=Non
     business record that caused it)."""
     if amount <= 0:
         raise LedgerError("Amount must be greater than zero")
+    ensure_schema()
     tx = Transaction(
         group_id=group_id, reference=new_ref(prefix), tx_type=tx_type, direction=direction, amount=amount,
         tx_date=tx_date, description=(description or "")[:300], payment_method=payment_method,
@@ -66,6 +95,7 @@ def is_reversed(tx_id) -> bool:
 
 def totals(group_id, start=None, end=None) -> dict:
     """Net figures from the ledger for an optional date window."""
+    ensure_schema()
     q = db.session.query(Transaction.tx_type, Transaction.kind, Transaction.direction,
                          func.coalesce(func.sum(Transaction.amount), 0)).filter(Transaction.group_id == group_id)
     if start:
