@@ -24,7 +24,7 @@ MIME = {"pdf": "application/pdf", "csv": "text/csv; charset=utf-8",
 @tenant_route(official=True)
 def index(group_id=None):
     today = local_today(g.group.timezone)
-    return render_template("reports/index.html", titles=report_svc.REPORT_TITLES, helps=report_svc.REPORT_HELP,
+    return render_template("reports/index.html", titles=report_svc.titles_for(g.group), helps=report_svc.REPORT_HELP,
                            members=member_options(g.group.id), today=today, year_start=today.replace(month=1, day=1))
 
 
@@ -32,7 +32,7 @@ def index(group_id=None):
 @tenant_route()
 def run(key, group_id=None):
     today = local_today(g.group.timezone)
-    if key not in report_svc.REPORT_TITLES:
+    if key not in report_svc.titles_for(g.group):
         abort(404)
     member_id = request.args.get("member", type=int)
     if key == "member_statement" and not g.is_official:
