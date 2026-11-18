@@ -32,7 +32,12 @@ class LoanError(ValueError):
     pass
 
 
-def get_interest_settings() -> InterestSettings:
+def get_interest_settings():
+    """The current group's own interest policy (set by its officials)."""
+    from flask import g, has_request_context
+    if has_request_context() and getattr(g, "group", None) is not None:
+        from app.services.groupcfg import get_settings
+        return get_settings(g.group.id)
     s = db.session.get(InterestSettings, 1)
     if s is None:
         s = InterestSettings(id=1)
@@ -44,11 +49,11 @@ def get_interest_settings() -> InterestSettings:
 def validate_terms(method, rate_bp, rate_period):
     s = get_interest_settings()
     if method == "FLAT" and not s.flat_enabled:
-        raise LoanError("Flat interest is currently disabled by the platform.")
+        raise LoanError("Flat interest is currently disabled by the group officials.")
     if method == "REDUCING" and not s.reducing_enabled:
-        raise LoanError("Reducing balance interest is currently disabled by the platform.")
+        raise LoanError("Reducing balance interest is currently disabled by the group officials.")
     if not s.allow_custom_rates and (rate_bp != s.default_rate_bp or rate_period != s.default_period):
-        raise LoanError("The platform requires the default interest rate and period.")
+        raise LoanError("The group requires the default interest rate and period.")
     if not (s.min_rate_bp <= rate_bp <= s.max_rate_bp):
         raise LoanError(f"Interest rate must be between {s.min_rate_bp / 100:g}% and {s.max_rate_bp / 100:g}%.")
 
@@ -295,6 +300,8 @@ def record_repayment(group, loan, user, amount, paid_on, payment_method=None, pa
                      loan.total_repayable, user.id, "loan", loan.id)
     notify.notify(notify.official_ids(group.id, exclude=user.id), group.id, "REPAYMENT", "Repayment recorded",
                   f"{loan.reference}: repayment recorded.", f"/g/{group.id}/loans/{loan.id}")
+    from app.services import fines
+    rep.assessed_fine = fines.assess_on_repayment(group, loan, user, rep, alloc, paid_on)
     return rep
 
 
@@ -310,6 +317,8 @@ def reverse_repayment(group, rep: LoanRepayment, user, reason, today):
         s = db.session.get(LoanRepaymentSchedule, a.schedule_id)
         s.principal_paid -= a.principal
         s.interest_paid -= a.interest
+    from app.services import fines
+    fines.void_for_repayment(rep, user, reason, today)
     rep.status = "REVERSED"
     rep.reversed_by = user.id
     rep.reversed_at = utcnow()
