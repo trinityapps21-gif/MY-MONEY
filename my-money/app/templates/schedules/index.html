@@ -1,0 +1,14 @@
+{% extends "shell_group.html" %}
+{% from "partials/macros.html" import stat, csrf %}
+{% from "schedules/_picker.html" import picker %}
+{% block title %}Contribution schedule{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Who has not paid yet</h1><p>Contributions are collected {{ period_label }}. Each member has their own day.</p></div><a class="btn" href="{{ url_for('rules.index') }}"><i data-lucide="settings"></i>Change frequency</a></div>
+<div class="grid g4 mb2">{{ stat('Overdue', counts.OVERDUE, 'alarm-clock', 'red') }}{{ stat('Due today', counts.DUE_TODAY, 'calendar-check', 'amber') }}{{ stat('Due soon', counts.DUE_SOON, 'calendar-clock') }}{{ stat('No day chosen', counts.NO_DAY, 'circle-help') }}</div>
+<div class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Member</th><th>Contribution day</th><th>Status</th><th>Next due</th><th></th></tr></thead><tbody>
+{% for r in rows %}<tr><td>{{ r.m.user.full_name }}</td><td>{{ r.text }}</td>
+<td><span class="pill {{ 'red' if r.st.state in ('OVERDUE',) else ('amber' if r.st.state in ('DUE_TODAY','DUE_SOON') else ('green' if r.st.state in ('PAID','PAID_AHEAD') else '')) }}">{{ r.st.label }}</span></td>
+<td>{{ r.st.next_due|ld if r.st.next_due else '-' }}</td>
+<td><details><summary class="btn btn-sm">Set day</summary><form method="post" action="{{ url_for('schedules.set_for', member_id=r.m.id) }}">{{ csrf() }}{{ picker(s, r.row, weekdays, months) }} <button class="btn btn-sm">Save</button></form></details></td></tr>{% endfor %}
+</tbody></table></div></div>
+{% endblock %}
