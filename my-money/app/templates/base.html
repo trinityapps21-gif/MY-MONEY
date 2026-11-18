@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <meta name="theme-color" content="#101C36">
+  <meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="MY MONEY"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>{% block title %}{{ platform_name }}{% endblock %} - {{ platform_name }}</title>
   <meta name="description" content="{% block meta_description %}MY MONEY is a secure savings and lending platform for savings groups, SACCOs and community lenders. Record contributions, manage loans and share clear reports.{% endblock %}">
   <link rel="canonical" href="{{ site_url }}{{ request.path }}">
