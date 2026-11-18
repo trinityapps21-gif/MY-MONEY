@@ -1,0 +1,19 @@
+{% extends "shell_group.html" %}
+{% from "partials/macros.html" import stat, empty %}
+{% block title %}My shares{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>My shares</h1><p>Shares you hold in {{ current_group.name }}</p></div>
+<div class="row gap1"><a class="btn" href="{{ url_for('shares.leaderboard') }}"><i data-lucide="medal"></i>Leaderboard</a>
+<a class="btn btn-primary" href="{{ url_for('shares.transfer_new') }}"><i data-lucide="arrow-left-right"></i>Transfer shares</a></div></div>
+<div class="grid g3 mb2">{{ stat('My shares', '{:,}'.format(units), 'pie-chart') }}{{ stat('Value', money(value), 'wallet', '', 'at ' ~ money(s.share_price) ~ ' per share') }}{{ stat('My rank', cur.name if cur else 'No rank yet', cur.icon if cur else 'circle-dashed') }}</div>
+<div class="card card-pad mb2"><h2>Rank progress</h2>
+{% if nxt %}<p class="muted">{{ money(nxt.min_value - value) }} more in shares to reach <b>{{ nxt.name }}</b>.</p>{% else %}<p class="muted">You have reached the top rank.</p>{% endif %}
+<div style="background:#EEF1F5;border-radius:99px;height:12px;overflow:hidden"><div style="width:{{ pct }}%;height:100%;background:#101C36"></div></div>
+<div class="row gap1 mt2" style="flex-wrap:wrap">{% for r in ladder %}<span class="pill {{ '' if not cur or r.min_value > cur.min_value else 'green' }}"><i data-lucide="{{ r.icon }}"></i> {{ r.name }}</span>{% endfor %}</div></div>
+<div class="grid g2">
+<div class="card"><div class="card-head"><h2>My share history</h2></div>
+{% for e in entries %}<div class="list-row"><div class="grow">{{ e.kind.replace('_', ' ').title() }}{% if e.reversed_at %} <span class="pill red">Reversed</span>{% endif %}<div class="muted small">{{ e.entry_date|ld }} &middot; {{ e.note or '' }}</div></div><b>{{ '{:+,}'.format(e.units) }}</b></div>{% else %}{{ empty('pie-chart', 'No shares yet') }}{% endfor %}</div>
+<div class="card"><div class="card-head"><h2>My transfers</h2></div>
+{% for t in transfers %}<div class="list-row"><div class="grow">{{ t.units }} share(s): {{ t.seller.user.full_name }} &rarr; {{ t.buyer.user.full_name }}<div class="muted small">{{ t.created_at|ld }}</div></div><span class="pill {{ 'green' if t.status == 'APPROVED' else ('amber' if t.status == 'PENDING' else 'red') }}">{{ t.status.title() }}</span></div>{% else %}{{ empty('arrow-left-right', 'No transfers') }}{% endfor %}</div>
+</div>
+{% endblock %}
