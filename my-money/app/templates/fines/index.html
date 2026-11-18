@@ -1,0 +1,46 @@
+{% extends "shell_group.html" %}
+{% from "partials/macros.html" import stat, empty, pager, chart_cfg, csrf %}
+{% set use_charts = true %}
+{% block title %}Loan fines{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Loan fines</h1><p>Late-payment fines on external loans. Visible to the group officials only.</p></div>
+<div class="row gap1"><a class="btn" href="{{ url_for('reports.run', key='loan_fines') }}"><i data-lucide="file-text"></i>Report</a><a class="btn" href="{{ url_for('rules.index') }}"><i data-lucide="settings"></i>Fine rules</a></div></div>
+<div class="grid g4 mb2">
+{{ stat('Waiting to be collected', money(t.unpaid[0]), 'hourglass', 'amber', t.unpaid[1] ~ ' fine(s)') }}
+{{ stat('Collected (income)', money(t.paid[0]), 'badge-check', 'green', t.paid[1] ~ ' fine(s)') }}
+{{ stat('Waived', money(t.waived[0]), 'hand-heart', '', t.waived[1] ~ ' fine(s)') }}
+{{ stat('Overdue instalments', overdue|length, 'alarm-clock', 'red') }}</div>
+<p class="muted mb2">Rule: no fine for {{ s.fine_grace_days }} day(s) after the deadline; then
+{% if s.fine_type == 'PERCENT' %}{{ '%g' % (s.fine_rate_bp / 100) }}% of the late amount{% else %}{{ money(s.fine_fixed) }}{% endif %} for every {{ s.fine_period_days }} day(s) after that{% if s.fine_capped %}, never more than the late amount{% endif %}.</p>
+<div class="grid g2 mb2">
+<div class="card card-pad"><h2 class="mb2">Fines per month</h2><div class="chart-box"><canvas data-chart="f-m"></canvas></div></div>
+<div class="card card-pad"><h2 class="mb2">Fines by borrower</h2><div class="chart-box"><canvas data-chart="f-b"></canvas></div></div></div>
+{{ chart_cfg('f-m', {'currency':current_group.currency,'decimals':current_group.currency_decimals,'type':'bar','legend':false,'labels':labels,'datasets':[{'label':'Fines','data':monthly}]}) }}
+{{ chart_cfg('f-b', {'currency':current_group.currency,'decimals':current_group.currency_decimals,'type':'bar','legend':false,'labels':borrowers,'datasets':[{'label':'Fines','data':b_amounts}]}) }}
+
+<div class="card mb2"><div class="card-head"><h2>Overdue now</h2></div>
+{% if overdue %}<div class="table-wrap"><table class="table"><thead><tr><th>Loan</th><th>Borrower</th><th>Deadline</th><th class="num">Days late</th><th class="num">Balance</th><th class="num">Fine so far</th></tr></thead><tbody>
+{% for r in overdue %}<tr><td><a href="{{ url_for('lending.detail', loan_id=r.loan.id) }}">{{ r.loan.reference }}</a></td><td>{{ r.loan.borrower.name }}</td><td>{{ r.deadline|ld }}</td><td class="num">{{ r.days }}{% if r.in_grace %} <span class="pill amber">grace</span>{% endif %}</td><td class="num">{{ money(r.balance) }}</td><td class="num">{{ money(r.fine) }}</td></tr>{% endfor %}
+</tbody></table></div><p class="muted small" style="padding:0 1rem 1rem">The fine is added automatically when the borrower pays.</p>
+{% else %}{{ empty('check-circle-2', 'No overdue instalments') }}{% endif %}</div>
+
+<div class="card card-pad mb2"><h2 class="mb2">Promised payment dates</h2>
+<form method="post" action="{{ url_for('fines.promise') }}">{{ csrf() }}<div class="form-grid">
+<div class="field"><label>Loan</label><select name="loan_id" required><option value="">Select loan</option>{% for l in loans %}<option value="{{ l.id }}">{{ l.reference }} - {{ l.borrower.name }}</option>{% endfor %}</select></div>
+<div class="field"><label>Promised date</label><input type="date" name="promise_date" value="{{ today.isoformat() }}" required></div>
+<div class="field"><label>Amount ({{ current_group.currency }})</label><input type="text" inputmode="decimal" name="amount" required></div>
+<div class="field"><label>Note</label><input type="text" name="note" maxlength="300"></div></div>
+<button class="btn btn-primary" type="submit">Save promise</button></form>
+{% for p in promises %}<div class="list-row"><div class="grow"><b>{{ p.loan.reference }}</b> {{ p.loan.borrower.name }} promised {{ money(p.amount) }} by {{ p.promise_date|ld }}</div>
+<form method="post" action="{{ url_for('fines.promise_cancel', promise_id=p.id) }}">{{ csrf() }}<button class="btn btn-sm">Cancel</button></form></div>{% endfor %}</div>
+
+<div class="card"><div class="card-head"><h2>Fines register</h2>
+<form class="filters" method="get"><select name="status" onchange="this.form.submit()"><option value="">All</option>{% for k in ['UNPAID','PAID','WAIVED','VOID'] %}<option value="{{ k }}" {{ 'selected' if status == k }}>{{ k.title() }}</option>{% endfor %}</select></form></div>
+{% if page.items %}<div class="table-wrap"><table class="table"><thead><tr><th>Date</th><th>Loan</th><th>Borrower</th><th class="num">Days late</th><th class="num">Fine</th><th>Status</th><th></th></tr></thead><tbody>
+{% for f in page.items %}<tr><td>{{ f.paid_on|ld }}</td><td><a href="{{ url_for('lending.detail', loan_id=f.loan_id) }}">{{ f.loan.reference }}</a></td><td>{{ f.borrower.name }}</td><td class="num">{{ f.days_late }}</td><td class="num">{{ money(f.amount) }}</td>
+<td><span class="pill {{ 'green' if f.status == 'PAID' else ('amber' if f.status == 'UNPAID' else '') }}">{{ f.status.title() }}</span></td>
+<td>{% if f.status == 'UNPAID' %}<form method="post" action="{{ url_for('fines.settle', fine_id=f.id) }}" style="display:inline">{{ csrf() }}<select name="payment_method" style="width:auto">{% for m in methods %}<option>{{ m }}</option>{% endfor %}</select> <button class="btn btn-sm btn-primary">Collect</button></form>
+<details style="display:inline-block"><summary class="btn btn-sm">Waive / reduce</summary><form method="post" action="{{ url_for('fines.waive', fine_id=f.id) }}">{{ csrf() }}<input type="text" name="new_amount" inputmode="decimal" placeholder="New amount (empty = waive)"><input type="text" name="reason" placeholder="Reason" required><button class="btn btn-sm">Save</button></form></details>{% endif %}</td></tr>
+{% if f.reason %}<tr><td></td><td colspan="6" class="muted small">{{ f.reason }}</td></tr>{% endif %}{% endfor %}
+</tbody></table></div>{{ pager(page) }}{% else %}{{ empty('alarm-clock', 'No fines yet', 'Fines appear here when a borrower pays after the deadline plus the grace period.') }}{% endif %}</div>
+{% endblock %}
