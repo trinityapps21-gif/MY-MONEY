@@ -68,6 +68,7 @@ class Config:
     def build(cls) -> dict:
         prod = is_production()
         cfg = {k: v for k, v in cls.__dict__.items() if k.isupper()}
+        cfg["APP_BASE_URL"] = os.environ.get("APP_BASE_URL", "").strip()      # https://your-app.onrender.com (used in SMS links)
         secret = os.environ.get("SECRET_KEY", "").strip()
         if prod:
             missing = [
