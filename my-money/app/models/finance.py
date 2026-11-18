@@ -46,6 +46,8 @@ class Transaction(db.Model):
     is_reversal = db.Column(db.Boolean, nullable=False, default=False)
     reverses_id = db.Column(db.Integer, db.ForeignKey("transactions.id"), unique=True)
     reversal_reason = db.Column(db.String(300))
+    # Sub-classification of rows that share a base tx_type: SHARE_PURCHASE, SAVINGS_WITHDRAWAL, INCOME, FINE.
+    kind = db.Column(db.String(20))
     recorded_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=utcnow)
 
