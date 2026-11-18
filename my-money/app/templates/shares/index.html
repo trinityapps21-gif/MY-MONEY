@@ -1,0 +1,32 @@
+{% extends "shell_group.html" %}
+{% from "partials/macros.html" import stat, empty, chart_cfg, action_form %}
+{% set use_charts = true %}
+{% block title %}Shares{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Shares</h1><p>Member shares, transfers and ranks</p></div>
+<div class="row gap1">
+<a class="btn" href="{{ url_for('shares.transfers') }}"><i data-lucide="arrow-left-right"></i>Transfers{% if pending %} ({{ pending }}){% endif %}</a>
+<a class="btn" href="{{ url_for('shares.ranks') }}"><i data-lucide="trophy"></i>Rank ladder</a>
+<a class="btn" href="{{ url_for('shares.leaderboard') }}"><i data-lucide="medal"></i>Leaderboard</a>
+<a class="btn btn-primary" href="{{ url_for('shares.new') }}"><i data-lucide="plus"></i>Add shares</a></div></div>
+<div class="grid g4 mb2">
+{{ stat('Total shares', '{:,}'.format(total_units), 'pie-chart') }}
+{{ stat('Shares value', money(total_value), 'wallet', '', 'at ' ~ money(s.share_price) ~ ' per share') }}
+{{ stat('Shareholders', holders, 'users') }}
+{{ stat('Pending transfers', pending, 'arrow-left-right') }}
+</div>
+<div class="grid g2 mb2">
+<div class="card card-pad"><h2 class="mb2">Shares added per month</h2><div class="chart-box"><canvas data-chart="sh-month"></canvas></div></div>
+<div class="card card-pad"><h2 class="mb2">Members by rank</h2><div class="chart-box"><canvas data-chart="sh-rank"></canvas></div></div>
+</div>
+{{ chart_cfg('sh-month', {'type':'bar','money':false,'legend':false,'labels':labels,'datasets':[{'label':'Shares','data':bought}]}) }}
+{{ chart_cfg('sh-rank', {'type':'bar','money':false,'legend':false,'labels':dist|map(attribute=0)|list,'datasets':[{'label':'Members','data':dist|map(attribute=1)|list}]}) }}
+<div class="card mb2"><div class="card-head"><h2>Holdings by member</h2><a href="{{ url_for('reports.run', key='shares_register') }}">Report</a></div>
+{% if rows %}<div class="table-wrap"><table class="table"><thead><tr><th>Member</th><th>Rank</th><th class="num">Shares</th><th class="num">Value</th><th></th></tr></thead><tbody>
+{% for r in rows %}<tr><td>{{ r.m.user.full_name }}</td><td>{% if r.rank %}<i data-lucide="{{ r.rank.icon }}"></i> {{ r.rank.name }}{% else %}-{% endif %}</td><td class="num">{{ '{:,}'.format(r.units) }}</td><td class="num">{{ money(r.value) }}</td><td><a class="btn btn-sm" href="{{ url_for('shares.new', member=r.m.id) }}">Add</a></td></tr>{% endfor %}
+</tbody></table></div>{% else %}{{ empty('pie-chart', 'No members yet') }}{% endif %}</div>
+<div class="card"><div class="card-head"><h2>Recent share purchases</h2></div>
+{% for e in recent %}<div class="list-row"><div class="grow"><b>{{ e.member.user.full_name }}</b> &middot; {{ e.units }} share(s) &middot; {{ e.entry_date|ld }}{% if e.reversed_at %} <span class="pill red">Reversed</span>{% endif %}<div class="muted small">{{ e.receipt_no }}</div></div><b>{{ money(e.amount) }}</b>
+{% if not e.reversed_at %}{{ action_form(url_for('shares.reverse', entry_id=e.id), 'Reverse', 'Reverse this share purchase?', 'undo-2', 'btn btn-sm', reason='Reason') }}{% endif %}</div>
+{% else %}<div class="empty"><p class="mb0">No share purchases yet.</p></div>{% endfor %}</div>
+{% endblock %}
