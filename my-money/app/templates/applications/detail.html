@@ -1,0 +1,23 @@
+{% extends "shell_group.html" %}
+{% from "partials/macros.html" import csrf, action_form %}
+{% block title %}Application #{{ a.id }}{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Application #{{ a.id }} <span class="pill {{ 'green' if a.status in ('APPROVED','CONVERTED') else ('red' if a.status == 'REJECTED' else 'amber') }}">{{ labels[a.status] }}</span></h1><p>{{ a.borrower.name }} requests {{ money(a.amount) }}{% if a.purpose %} for {{ a.purpose }}{% endif %}</p></div>
+{% if a.status == 'APPROVED' %}<a class="btn btn-primary" href="{{ url_for('lending.new', application=a.id) }}">Create loan</a>{% endif %}
+{% if a.loan_id %}<a class="btn" href="{{ url_for('lending.detail', loan_id=a.loan_id) }}">View loan</a>{% endif %}</div>
+<div class="split"><div>
+<div class="card card-pad mb2"><h3 class="mb2">Appraisal</h3>
+<form method="post" action="{{ url_for('applications.appraise', app_id=a.id) }}">{{ csrf() }}<div class="form-grid">
+<div class="field"><label>Monthly income ({{ current_group.currency }})</label><input type="text" inputmode="decimal" name="monthly_income" value="{{ (a.monthly_income if a.monthly_income is not none else a.borrower.monthly_income)|inp(current_group.currency_decimals) }}"></div>
+<div class="field"><label>Monthly expenses</label><input type="text" inputmode="decimal" name="monthly_expenses" value="{{ a.monthly_expenses|inp(current_group.currency_decimals) }}"></div>
+<div class="field"><label>Recommended amount</label><input type="text" inputmode="decimal" name="recommended_amount" value="{{ (a.recommended_amount or a.amount)|inp(current_group.currency_decimals) }}"></div>
+<div class="field full"><label>Appraisal notes (business visit, affordability, references)</label><textarea name="appraisal_notes" rows="4">{{ a.appraisal_notes or '' }}</textarea></div></div>
+{% if a.status in ('SUBMITTED','UNDER_REVIEW') %}<button class="btn btn-primary btn-sm">Save appraisal</button>{% endif %}</form>
+{% if a.monthly_income is not none and a.monthly_expenses is not none %}<p class="small mt2">Disposable income: <b>{{ money(a.monthly_income - a.monthly_expenses) }}</b> a month.</p>{% endif %}</div>
+{% if a.status in ('SUBMITTED','UNDER_REVIEW') %}<div class="card card-pad"><h3 class="mb2">Decision</h3><div class="flex gap1 wrap">
+{{ action_form(url_for('applications.decide', app_id=a.id), 'Approve', 'Approve this application?', fields={'action':'approve'}, cls='btn btn-primary') }}
+{{ action_form(url_for('applications.decide', app_id=a.id), 'Reject', 'Reject this application?', reason='Reason for rejecting', fields={'action':'reject'}, danger=true, cls='btn btn-danger') }}</div></div>{% elif a.decision_reason %}<div class="alert info">Decision note: {{ a.decision_reason }}</div>{% endif %}
+</div><div>
+<div class="card card-pad"><h3 class="mb2">Credit history</h3><dl class="kv" style="grid-template-columns:140px 1fr"><dt>Standing</dt><dd><span class="pill {{ 'green' if hist.grade == 'Good' else ('red' if hist.grade in ('Poor','Blacklisted') else 'amber') }}">{{ hist.grade }}</span></dd><dt>Loans taken</dt><dd>{{ hist.loans }} ({{ hist.repaid }} repaid, {{ hist.active }} open, {{ hist.written_off }} written off)</dd><dt>Late instalments</dt><dd>{{ hist.late }} of {{ hist.instalments }}</dd><dt>Worst delay</dt><dd>{{ hist.worst_days }} days</dd></dl>
+<a class="btn btn-sm mt1" href="{{ url_for('borrowers.detail', borrower_id=a.borrower_id) }}">Open borrower profile</a></div></div></div>
+{% endblock %}
