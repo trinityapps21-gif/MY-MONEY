@@ -34,6 +34,7 @@
       {{ nav_item(url_for('announcements.index'), 'megaphone', 'Announcements', bpn == 'announcements') }}
       <li class="sec">Finance</li>
       {{ nav_item(url_for('finance.index'), 'trending-up', 'Income & Expenses', bpn == 'finance') }}
+      {{ nav_item(url_for('interest.index'), 'percent', 'Interest', bpn == 'interest') }}
       {{ nav_item(url_for('reports.index'), 'bar-chart-3', 'Reports', ep in ('reports.index', 'reports.run')) }}
       {{ nav_item(url_for('reports.transactions'), 'book-open', 'Transactions', ep.startswith('reports.transaction')) }}
       {% if current_group.is_lender %}{{ nav_item(url_for('capital.index'), 'landmark', 'Capital', bpn == 'capital') }}{% endif %}
