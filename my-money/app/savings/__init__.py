@@ -6,7 +6,7 @@ from sqlalchemy import func
 
 from app.extensions import db
 from app.models import Contribution, GroupMember, SavingsWithdrawal, Transaction, User
-from app.services import analytics, ledger, savings as savings_svc
+from app.services import analytics, group_savings, ledger, savings as savings_svc
 from app.services.audit import audit
 from app.services.forms import form_amount, form_choice, form_date, form_text, new_idem_key
 from app.services.savings import CATEGORY_LABELS, PAYMENT_METHODS, DuplicateError
@@ -114,6 +114,38 @@ def reverse(contribution_id, group_id=None):
         db.session.rollback()
         flash(str(e), "error")
     return redirect(request.referrer or url_for("savings.index"))
+
+
+@bp.route("/group")
+@tenant_route(kind="SAVINGS_GROUP")
+def overview(group_id=None):
+    """The Savings button: the group's total savings and everyone's contributions. Open to every active member
+    of the group, administrators and ordinary members alike."""
+    group, today = g.group, local_today(g.group.timezone)
+    view = request.args.get("view", "members")
+    if view not in ("members", "all"):
+        view = "members"
+    data = group_savings.breakdown(group)
+    month_start = today.replace(day=1)
+    month = ledger.totals(group.id, month_start, today)["total_savings"]
+    contributed, active_members = analytics.members_contributed(group, month_start, today)
+    mine = next((r for r in data["rows"] if r["member"].id == g.membership.id), None)
+    ctx = dict(view=view, data=data, month=month, contributed=contributed, active_members=active_members,
+               mine=mine, today=today, categories=CATEGORY_LABELS, page=None, selected=None, q="", reversed_ids=set())
+    if view == "all":
+        q = Contribution.query.join(GroupMember, GroupMember.id == Contribution.member_id) \
+            .join(User, User.id == GroupMember.user_id).filter(Contribution.group_id == group.id)
+        member_id = request.args.get("member", type=int)
+        selected = next((r for r in data["rows"] if r["member"].id == member_id), None) if member_id else None
+        if selected:
+            q = q.filter(Contribution.member_id == member_id)
+        term = (request.args.get("q") or "").strip()
+        if term:
+            q = q.filter(User.full_name.ilike(f"%{term}%"))
+        page = q.order_by(Contribution.contribution_date.desc(), Contribution.id.desc()) \
+            .paginate(page=request.args.get("page", 1, type=int), per_page=20, error_out=False)
+        ctx.update(page=page, selected=selected, q=term, reversed_ids=_reversed_ids([c.tx_id for c in page.items]))
+    return render_template("savings/overview.html", **ctx)
 
 
 @bp.route("/me")
