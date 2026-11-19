@@ -65,6 +65,14 @@ Group officials open **Import Data**, download an Excel/CSV template (or use the
 - A loan's full-term interest is only shown, and only counted as *earned*, once the loan is **fully repaid**. Until then the loan page shows "Interest received so far", the dashboard / Loans / Interest-income report count completed loans only, and the Loan disbursements report shows interest received so far.
 - Not changed: the payment schedule and agreement PDFs given to the borrower still list each instalment's interest, and the loan page's schedule table still shows interest per instalment (needed to collect payments).
 
+## Overdue & late fees (company policy)
+Menu -> **Overdue & Late Fees** (officials only). Rules: no fine from the due date through day 7; after that **5% of the late amount for every completed 7-day block**, capped at **100%** (`LATE_FEE_BLOCK_MODE=STARTED` charges at the start of each block instead).
+- **Tracking log** with the columns Loan ID | Borrower Name | Due Date | Days Overdue | Principal Due | Penalty % | Fine Accrued | Total Owed | Last Notified, exportable to CSV. One row per overdue instalment.
+- **Admin alert** (in-app notification to every official) once each time a borrower enters a new penalty block, with borrower, loan, due date, days overdue, late amount, tier, fine, new total and status ("Active Overdue - Tier N" / "Max Fine Cap Reached"). Alerts fire when an official opens the dashboard or this page, and from `flask late-fees`; schedule that command daily (Render Cron Job: `flask --app run late-fees`) so alerts do not wait for someone to log in.
+- **PDF notice**: the PDF icon on each row (or tapping the alert) builds the "Overdue Loan & Late Fine Notice" with the current fine. Payment instructions come from the group's Payment instructions setting.
+- These figures are informational: nothing is posted to the ledger here. The older per-group "Loan fines" (Group rules) and lender product penalties are separate and unchanged.
+- New table `late_fee_tracker`: created by `flask sync-schema` on deploy.
+
 ## Speed notes
 Icons and charts are now served from this site, `/static` files carry a version stamp and are cached for a year, pages are compressed, `/sw.js` is actually served (it was registered but returned 404, so the service worker never ran), and per-page database round trips were cut (menu counters 4 -> 1, platform settings cached 30 s, group settings once per request, group loaded with the membership). Set `DB_POOL_PRE_PING=0` to save one more round trip per request if you see no stale-connection errors on Turso.
 
