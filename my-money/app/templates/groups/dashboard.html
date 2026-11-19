@@ -11,7 +11,7 @@
 {{ stat('Total Savings', money(s.total_savings), 'piggy-bank') }}
 {{ stat('Available Cash', money(s.available_cash), 'wallet', 'green') }}
 {{ stat('Principal Outstanding', money(s.principal_outstanding), 'hand-coins', 'amber') }}
-{{ stat('Interest Earned', money(s.interest_earned), 'percent') }}
+{{ stat('Interest Earned', money(s.interest_earned), 'percent', '', 'Completed loans only') }}
 {{ stat('Active Members', s.active_members, 'users') }}
 {{ stat('Active Loans', s.active_loans, 'file-text') }}
 {{ stat('Overdue Loans', s.overdue_loans, 'alert-triangle', 'red') }}
