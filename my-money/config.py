@@ -108,7 +108,7 @@ class Config:
             cfg["SQLALCHEMY_ENGINE_OPTIONS"] = {
                 "connect_args": connect_args,
                 "pool_pre_ping": cls.DB_POOL_PRE_PING,
-                "pool_recycle": 90,
+                "pool_recycle": 240,
             }
             if not (cfg.get("TURNSTILE_SITE_KEY") and cfg.get("TURNSTILE_SECRET_KEY")):
                 import logging
