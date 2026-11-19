@@ -6,6 +6,7 @@
 <form method="post">{{ csrf() }}
 <div class="field"><label>Phone or email</label><input type="text" name="identifier" required autocomplete="username"></div>
 <div class="field"><label>Message to your administrator (optional)</label><textarea name="note" maxlength="300" placeholder="e.g. This is Grace from the Tuesday meeting. I changed my phone."></textarea></div>
+{% set ts_action = 'forgot' %}{% include "auth/_turnstile.html" %}
 <button class="btn btn-primary" style="width:100%" type="submit">Ask my administrator</button></form>
 <div class="alert info mt2 mb0">Have your recovery code? <a href="{{ url_for('auth.recover') }}">Reset your password now</a> without waiting.</div>
 <p class="center small mt2"><a href="{{ url_for('auth.login') }}">Back to login</a></p>{% include "auth/_foot.html" %}</div></div>{% endblock %}
