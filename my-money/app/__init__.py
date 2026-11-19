@@ -27,6 +27,39 @@ def _sqlite_fk_pragma(dbapi_conn, _):
         pass
 
 
+def _heal_stale_turso_connections(engine):
+    """Turso closes idle connections. The libsql driver reports that as a plain ValueError
+    ("Hrana: connection closed before message completed"), which SQLAlchemy's pre-ping does not
+    recognise as a dead connection, so the request crashed with a 500. Treat it as a disconnect:
+    the pool then discards the dead connection and opens a fresh one transparently."""
+    dialect = engine.dialect
+    if getattr(dialect, "_hrana_healed", False):
+        return
+    dialect._hrana_healed = True
+    dbapi_error = dialect.dbapi.Error if hasattr(dialect.dbapi, "Error") else Exception
+
+    def _is_dead(exc):
+        msg = str(exc).lower()
+        return "hrana" in msg or "connection closed" in msg or "stream expired" in msg
+
+    orig_ping = dialect.do_ping
+    orig_disc = dialect.is_disconnect
+
+    def do_ping(dbapi_connection):
+        try:
+            return orig_ping(dbapi_connection)
+        except ValueError as exc:
+            if _is_dead(exc):
+                raise dbapi_error(str(exc)) from exc
+            raise
+
+    def is_disconnect(e, connection, cursor):
+        return _is_dead(e) or orig_disc(e, connection, cursor)
+
+    dialect.do_ping = do_ping
+    dialect.is_disconnect = is_disconnect
+
+
 def _sql_literal(value):
     """Render a simple Python default as a SQL literal, or None if unsupported."""
     if isinstance(value, bool):
@@ -104,6 +137,9 @@ def create_app(overrides=None):
     logging.basicConfig(level=logging.INFO)
 
     db.init_app(app)
+    if app.config["IS_PRODUCTION"]:
+        with app.app_context():
+            _heal_stale_turso_connections(db.engine)
     migrate.init_app(app, db)
     login_manager.init_app(app)
     csrf.init_app(app)
