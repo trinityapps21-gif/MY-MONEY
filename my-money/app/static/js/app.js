@@ -169,6 +169,28 @@
     img.src = URL.createObjectURL(f); img.classList.remove("hide"); const ph = document.getElementById(i.dataset.preview + "-ph"); if (ph) ph.classList.add("hide");
   });
 
+
+  /* ---------- page-change progress bar: instant feedback while the next page loads ---------- */
+  (function () {
+    let bar = null, t = null;
+    function start() {
+      if (!bar) { bar = document.createElement("div"); bar.className = "nav-progress"; document.body.appendChild(bar); }
+      clearTimeout(t); bar.style.transition = ""; bar.style.width = "0"; void bar.offsetWidth; bar.classList.add("run");
+      t = setTimeout(stop, 10000);
+    }
+    function stop() { if (!bar) return; bar.classList.remove("run"); bar.style.width = "0"; }
+    document.addEventListener("click", function (e) {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      const a = e.target.closest("a[href]");
+      if (!a || a.target === "_blank" || a.hasAttribute("download") || a.hasAttribute("data-menu") || a.hasAttribute("data-no-progress")) return;
+      const u = new URL(a.href, location.href);
+      if (u.origin !== location.origin || (u.pathname === location.pathname && u.search === location.search) || /^(\/static\/|\/files\/)/.test(u.pathname)) return;
+      start();
+    });
+    document.addEventListener("submit", function (e) { if (!e.defaultPrevented && !e.target.hasAttribute("data-ajax")) start(); });
+    window.addEventListener("pageshow", stop);
+  })();
+
   document.addEventListener("DOMContentLoaded", function () {
     MM.icons();
     initCharts();
