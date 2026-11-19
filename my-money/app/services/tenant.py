@@ -8,7 +8,7 @@ so group existence is not disclosed). All data access afterwards goes through
 """
 from functools import wraps
 
-from flask import abort, g, render_template
+from flask import abort, g, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 from sqlalchemy.orm import joinedload
 
@@ -31,6 +31,8 @@ def tenant_route(official=False, kind=None):
             if official and membership.role not in OFFICIAL_ROLES:
                 abort(403)
             if kind and membership.group.business_type != kind:  # e.g. savings pages in a lending business
+                if request.method == "GET":  # a page this kind of group does not have: go home instead of a dead end
+                    return redirect(url_for("groups.dashboard", group_id=group_id))
                 abort(404)
             g.group = membership.group
             g.membership = membership
