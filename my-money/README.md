@@ -42,6 +42,27 @@ Group officials open **Import Data**, download an Excel/CSV template (or use the
 - **PDF:** PDFs with real, selectable tables are read (pdfplumber). **Scanned PDFs (photos of paper, e.g. CamScanner) cannot be read automatically**: they are kept privately as a reference document (ImageKit, officials only) and the figures must be typed into a template. No OCR is included because it is not reliable enough for money.
 - Imported members have a random password; they sign in by tapping **Forgot password** and an official approves it (Password Resets).
 
+## Security upgrades (Turnstile, inactivity sign-out, biometrics)
+**Cloudflare Turnstile** protects login, biometric login, group sign-up, forgot-password, recovery-code reset and the reset-link page.
+1. Cloudflare dashboard -> Turnstile -> Add widget (add your domain, e.g. `joinmymoney.com` and your `*.onrender.com` host).
+2. In Render set `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY`. Without both the check is off (a warning is logged in production).
+3. Every protected POST is verified server-side with Cloudflare; a missing, reused or rejected token blocks the request, and if Cloudflare cannot be reached the request is refused (fails closed).
+4. Local testing: site key `1x00000000000000000000AA` / secret `1x0000000000000000000000000000000AA` always passes; `2x00000000000000000000AB` / `2x0000000000000000000000000000000AA` always fails.
+
+**30-minute inactivity sign-out** (`IDLE_TIMEOUT_MINUTES`, default 30) applies to the website and the installed phone app.
+- Enforced on the server: any request after 30 idle minutes is refused and the session ends. The "Keep me signed in" box was removed (a 7-day cookie would contradict the rule).
+- `static/js/idle.js` warns 60 seconds before, signs out on time, keeps the session alive only while the person is really typing or tapping, and re-checks when a phone app returns from the background.
+
+**Biometric sign-in** (fingerprint / face / device unlock) uses WebAuthn passkeys, so no biometric data ever reaches the server, only a public key (`webauthn_credentials` table).
+- Enable it in **Profile -> Fingerprint / face sign-in** (needs the current password). Password login keeps working.
+- By default it is offered only inside the installed home-screen app (`BIOMETRIC_INSTALLED_APP_ONLY=0` also allows browsers). Requires HTTPS.
+- Credentials belong to one website address. If you use a custom domain, set `WEBAUTHN_RP_ID` (e.g. `joinmymoney.com`) and `WEBAUTHN_ORIGIN` (e.g. `https://joinmymoney.com`) before users enrol.
+- A password reset (recovery code or reset link) removes the person's enrolled phones.
+- After deploying run `flask db upgrade` (or `flask sync-schema`) to create the new table.
+
+## Speed notes
+Icons and charts are now served from this site, `/static` files carry a version stamp and are cached for a year, pages are compressed, `/sw.js` is actually served (it was registered but returned 404, so the service worker never ran), and per-page database round trips were cut (menu counters 4 -> 1, platform settings cached 30 s, group settings once per request, group loaded with the membership). Set `DB_POOL_PRE_PING=0` to save one more round trip per request if you see no stale-connection errors on Turso.
+
 ## Password recovery
 - **Forgot password:** the member files a request. A group administrator, treasurer or vice chair of their group sees it under *Password Resets*, confirms it is really that person, then sends a reset link (valid 24 hours, one use, emailed too if SMTP and an email exist). Links only work for admin-approved requests. Officials cannot approve their own request.
 - **Recovery code:** on first sign-in every account must save a one-time recovery code (shown once, downloadable as .txt). Only a hash is stored. It can be used at `/recover` to reset the password without an administrator; it is single use and a new one is issued at the next sign-in. A new code can be generated from *Profile* (needs the current password).
@@ -51,6 +72,7 @@ Group officials open **Import Data**, download an Excel/CSV template (or use the
 Tenant isolation is enforced centrally (`tenant_route`, `scoped`). Money is stored in integer minor units, interest uses Decimal, the ledger is append-only (corrections are reversal rows), and each loan stores its own terms so platform default changes affect new loans only.
 
 ## Known limitations (please read)
+- The biometric and Turnstile browser flows were verified with automated tests and a software authenticator, not on a physical phone or against your live Cloudflare keys: try both once after deploying.
 - Not visually verified in a browser against the mockup; the UI was built from the CSS design system and only render-tested via the test client.
 - The ImageKit upload URL default (`https://upload.imagekit.io/api/v1/files/upload`) is unverified; confirm against ImageKit docs and override `IMAGEKIT_UPLOAD_URL` if needed. Neither provider was exercised against live accounts.
 - Uploadcare REST uses the `Uploadcare.Simple` auth scheme; use signed auth for production hardening.
