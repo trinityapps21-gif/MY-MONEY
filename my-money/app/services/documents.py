@@ -334,3 +334,68 @@ def loan_schedule_pdf(group, loan, generated_at, fine_rule_text=None, fines=None
     foot = _footer_factory(group, "")
     doc.build(story, onFirstPage=foot, onLaterPages=foot)
     return buf.getvalue()
+
+
+def late_fee_notice_pdf(group, loan, a, notice_date) -> bytes:
+    """Formal 'Overdue Loan & Late Fine Notice' for a borrower. `a` is a late_fees.assess() result."""
+    st = _styles()
+    page = A4
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=page, leftMargin=16 * mm, rightMargin=16 * mm, topMargin=12 * mm,
+                            bottomMargin=20 * mm, title=f"Overdue Loan & Late Fine Notice {loan.reference}", author=BRAND)
+    width = page[0] - 32 * mm
+    cur, dec = group.currency, group.currency_decimals
+    m = lambda v: fmt(v, cur, dec)  # noqa: E731
+    b = loan.borrower
+    from xml.sax.saxutils import escape as esc
+    cell, cellr = st["cell"], st["cellr"]
+    big = ParagraphStyle("big", parent=cell, fontName="Helvetica-Bold", fontSize=10.5, leading=13)
+    bigr = ParagraphStyle("bigr", parent=big, alignment=2)
+    sec = ParagraphStyle("sec", parent=st["title"], fontSize=10.5, textColor=NAVY, spaceBefore=6, spaceAfter=3)
+
+    story = [_header(group, width, st), Spacer(1, 4 * mm),
+             Paragraph("Overdue Loan &amp; Late Fine Notice", st["title"]), Spacer(1, 2 * mm)]
+    head = Table([[Paragraph("<b>Company Name</b>", cell), Paragraph(esc(group.name), cell),
+                   Paragraph("<b>Notice Date</b>", cell), Paragraph(f"{notice_date:%d %B %Y}", cell)],
+                  [Paragraph("<b>Loan Reference ID</b>", cell), Paragraph(esc(loan.reference), cell),
+                   Paragraph("<b>Currency</b>", cell), Paragraph(cur, cell)]],
+                 colWidths=[width * 0.20, width * 0.32, width * 0.18, width * 0.30])
+    head.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, -1), GREY), ("GRID", (0, 0), (-1, -1), 0.4, BORDER),
+                              ("TOPPADDING", (0, 0), (-1, -1), 4), ("BOTTOMPADDING", (0, 0), (-1, -1), 4)]))
+    story += [head, Paragraph("Borrower Details", sec)]
+    contact = " | ".join(esc(x) for x in (b.phone, getattr(b, "email", None), b.location) if x) or "-"
+    bt = Table([[Paragraph("<b>Full Name</b>", cell), Paragraph(esc(b.name), cell)],
+                [Paragraph("<b>Contact Info</b>", cell), Paragraph(contact, cell)]],
+               colWidths=[width * 0.20, width * 0.80])
+    bt.setStyle(TableStyle([("GRID", (0, 0), (-1, -1), 0.4, BORDER), ("TOPPADDING", (0, 0), (-1, -1), 4),
+                            ("BOTTOMPADDING", (0, 0), (-1, -1), 4), ("BACKGROUND", (0, 0), (0, -1), GREY)]))
+    story += [bt, Paragraph("Repayment Breakdown", sec)]
+    tier = f"5% per 7-day cycle post-grace (currently {a['tier_pct']:g}% applied)"
+    rows = [("Original Repayment Amount", m(a["amount"])),
+            ("Original Due Date", f"{a['due_date']:%d %B %Y}"),
+            ("Grace Period End Date (+7 Days)", f"{a['grace_end']:%d %B %Y}"),
+            ("Current Days Past Due", f"{a['days_overdue']} day(s)"),
+            ("Late Fine Rate Applied", tier),
+            ("Accumulated Late Fine", m(a["fine"]))]
+    data = [[Paragraph(f"<b>{k}</b>", cell), Paragraph(v, cellr)] for k, v in rows]
+    data.append([Paragraph("TOTAL AMOUNT PAYABLE", big), Paragraph(m(a["total"]), bigr)])
+    bd = Table(data, colWidths=[width * 0.55, width * 0.45])
+    bd.setStyle(TableStyle([("GRID", (0, 0), (-1, -1), 0.4, BORDER), ("ROWBACKGROUNDS", (0, 0), (-1, -2), [colors.white, GREY]),
+                            ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#FFF4D6")), ("LINEABOVE", (0, -1), (-1, -1), 1.2, NAVY),
+                            ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                            ("VALIGN", (0, 0), (-1, -1), "MIDDLE")]))
+    story += [bd]
+    if a["capped"]:
+        story += [Spacer(1, 2 * mm), Paragraph("<b>The maximum late fine (100% of the original late amount) has been reached.</b>", st["note"])]
+    story += [Paragraph("Policy Reminder", sec), Paragraph(
+        "A late fee of <b>5%</b> of the original late amount applies for <b>every 7 days</b> after the <b>7-day grace period</b> "
+        "has ended. The total late fine is <b>capped at 100%</b> of the original late amount.", st["note"])]
+    pay = esc((group.pay_instructions or "").strip()).replace("\n", "<br/>") or esc(
+        f"Please contact {group.name}" + (f" on {group.phone}" if getattr(group, "phone", None) else "") + " for payment details.")
+    nxt = (f" The next 7-day penalty increase applies on <b>{a['next_increase']:%d %B %Y}</b>." if a["next_increase"] else "")
+    story += [Paragraph("Payment Instructions", sec), Paragraph(pay, st["note"]), Spacer(1, 2 * mm),
+              Paragraph(f"<b>Please settle the total amount payable immediately</b> to avoid the next 7-day penalty increase.{nxt} "
+                        "Keep your receipt for every payment.", st["note"])]
+    foot = _footer_factory(group, "")
+    doc.build(story, onFirstPage=foot, onLaterPages=foot)
+    return buf.getvalue()
