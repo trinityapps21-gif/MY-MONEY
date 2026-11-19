@@ -1,0 +1,27 @@
+{% extends "shell_group.html" %}
+{% from "partials/macros.html" import stat, empty %}
+{% block title %}Overdue &amp; late fees{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Overdue &amp; late fees</h1><p>Tracking log as at {{ today|ld }}. Administrators are alerted each time a borrower enters a new penalty block.</p></div>
+{% if rows %}<a class="btn" href="{{ url_for('overdue.index', export='csv') }}"><i data-lucide="file-down"></i>Export log (CSV)</a>{% endif %}</div>
+<div class="grid g4 mb2">
+{{ stat('Overdue instalments', totals.count, 'alarm-clock', 'red', totals.fined ~ ' with a late fine') }}
+{{ stat('Principal due (late)', money(totals.amount), 'hand-coins', 'amber') }}
+{{ stat('Fines accrued', money(totals.fine), 'percent', '', totals.capped ~ ' at the 100% cap' if totals.capped else '') }}
+{{ stat('Total owed', money(totals.total), 'wallet') }}
+</div>
+<div class="alert info small mb2"><b>Policy.</b> No fine from the due date through day 7 (grace period). After that, a <b>5% fine</b> on the original late amount for every {% if mode == 'STARTED' %}<b>started</b>{% else %}<b>completed</b>{% endif %} 7-day block, capped at <b>100%</b> of the late amount. "Principal due" is what is still unpaid on the instalment (principal and interest).</div>
+<div class="card">{% if rows %}<div class="table-wrap"><table class="table"><thead><tr>{% for c in columns %}<th class="{{ 'num' if c in ('Days Overdue','Principal Due','Penalty %','Fine Accrued','Total Owed') }}">{{ c }}</th>{% endfor %}</tr></thead><tbody>
+{% for r in rows %}<tr>
+<td class="nowrap"><a href="{{ url_for('lending.detail', loan_id=r.loan.id) }}"><b>{{ r.loan.reference }}</b></a> <span class="muted xs">#{{ r.sched.number }}</span> <a class="btn btn-sm btn-ghost" href="{{ url_for('overdue.notice', sched_id=r.sched.id) }}" title="Overdue Loan &amp; Late Fine Notice (PDF)"><i data-lucide="file-down"></i></a></td>
+<td>{{ r.borrower.name }}</td>
+<td class="nowrap">{{ r.due_date|ld }}</td>
+<td class="num">{{ r.days_overdue }}</td>
+<td class="num">{{ money(r.amount) }}</td>
+<td class="num"><b>{{ '%g'|format(r.tier_pct) }}%</b><div><span class="pill {{ 'red' if r.capped or r.blocks >= 3 else ('amber' if r.blocks else '') }}">{{ r.flag }}</span></div></td>
+<td class="num">{{ money(r.fine) }}</td>
+<td class="num"><b>{{ money(r.total) }}</b></td>
+<td class="nowrap">{{ r.last_notified|ldt('%d %b %Y %H:%M') if r.last_notified else 'Never' }}</td></tr>{% endfor %}
+</tbody></table></div>
+{% else %}{{ empty('circle-check', 'Nothing is overdue', 'Every instalment is paid or not yet due.') }}{% endif %}</div>
+{% endblock %}
