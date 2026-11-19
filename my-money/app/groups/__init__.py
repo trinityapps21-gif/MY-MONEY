@@ -168,6 +168,8 @@ def dashboard(group_id=None):
     pending = MemberApplication.query.filter_by(group_id=group.id, status="PENDING").count()
     from app.services import fines as fine_svc, schedules as sched_svc
     unpaid = sched_svc.run_daily(group, today)
+    from app.services import late_fees
+    late_fees.run_daily_once(group, today)          # alert administrators about new late-fee penalty blocks
     db.session.commit()
     return render_template("groups/dashboard.html", s=summary, charts=charts, recent=recent, range_key=key,
                            start=start, end=end, pending=pending, unpaid_members=unpaid,
@@ -180,6 +182,8 @@ def lender_dashboard(group, today):
     if not g.is_official:  # staff without finance rights go to the community instead of a savings dashboard
         return redirect(url_for("community.index"))
     lender_svc.accrue_penalties(group, today)
+    from app.services import late_fees
+    late_fees.run_daily_once(group, today)          # alert administrators about new late-fee penalty blocks
     start, end, key = resolve_range(request.args, group.timezone)
     summary = analytics.group_summary(group, today, start, end)
     charts = analytics.dashboard_charts(group, today)
