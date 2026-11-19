@@ -1,0 +1,35 @@
+{% extends "shell_group.html" %}
+{% from "partials/macros.html" import stat, empty, pager %}
+{% block title %}Interest{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Interest</h1><p>What has been received, what is still expected, and the dates it should come in. As at {{ today|ld }}.</p></div></div>
+<div class="grid g4 mb2">
+{{ stat('Received interest', money(ov.received), 'circle-check', 'green', 'Collected so far, on all loans') }}
+{{ stat('Expected interest', money(ov.expected), 'hourglass', 'amber', 'Still to collect on running loans') }}
+{{ stat('Incoming interest', money(ov.incoming), 'calendar-clock', '', ('Next due ' ~ (ov.next_date|ld)) if ov.next_date else 'Nothing coming up') }}
+{{ stat('Overdue interest', money(ov.overdue), 'alert-triangle', 'red', 'Date passed, not yet paid') }}
+</div>
+<div class="alert info small mb2"><b>How to read this.</b> <b>Expected</b> = incoming + overdue. <b>Incoming</b> is interest whose due date has not arrived yet ({{ money(ov.soon) }} of it falls due in the next {{ ov.soon_days }} days). The full interest of a loan is only counted as <i>earned</i> once the borrower has finished paying that loan.</div>
+
+<div class="tabs">{% for k, label in views.items() %}<a class="{{ 'on' if view == k }}" href="{{ url_for('interest.index', view=k) }}">{{ label }}</a>{% endfor %}</div>
+
+{% if view == 'loans' %}
+<div class="card"><div class="card-head"><form class="filters" method="get" style="width:100%"><input type="hidden" name="view" value="loans"><div class="search"><i data-lucide="search"></i><input type="search" name="q" value="{{ q }}" placeholder="Search borrower or loan"></div></form></div>
+{% if rows %}<div class="table-wrap"><table class="table"><thead><tr><th>Loan</th><th>Borrower</th><th>Status</th><th class="num">Received</th><th class="num">Still expected</th><th class="num">Overdue</th><th>Next interest date</th><th class="num">Total interest</th></tr></thead><tbody>
+{% for r in rows %}{% set l = r.loan %}<tr><td><a href="{{ url_for('lending.detail', loan_id=l.id) }}"><b>{{ l.reference }}</b></a></td><td>{{ l.borrower.name }}</td><td>{{ STATUS_LABELS.get(l.status, l.status) }}</td>
+<td class="num">{{ money(r.received) }}</td><td class="num">{{ money(r.remaining) if r.open else '-' }}</td><td class="num">{% if r.overdue %}<span class="pill red">{{ money(r.overdue) }}</span>{% else %}-{% endif %}</td>
+<td>{{ r.next_date|ld if r.next_date else '-' }}</td>
+<td class="num">{% if r.total is not none %}{{ money(r.total) }}{% elif r.open %}<span class="muted small">After full repayment</span>{% else %}-{% endif %}</td></tr>{% endfor %}
+</tbody></table></div>{{ pager(page) }}
+{% else %}{{ empty('percent', 'No loans found', 'Loans appear here once they are disbursed.') }}{% endif %}</div>
+
+{% else %}
+<div class="card">{% if rows %}<div class="table-wrap"><table class="table"><thead><tr><th>Interest date</th><th>Loan</th><th>Borrower</th><th class="num">Instalment</th><th class="num">Interest due</th><th class="num">Received</th><th class="num">Still to receive</th><th>Status</th></tr></thead><tbody>
+{% for r in rows %}{% set s = r.s %}{% set l = r.loan %}<tr><td><b>{{ s.due_date|ld }}</b>{% if r.state in ('UPCOMING','PART') %}<div class="muted xs">in {{ (s.due_date - today).days }} day{{ '' if (s.due_date - today).days == 1 else 's' }}</div>{% elif r.state == 'OVERDUE' %}<div class="muted xs">{{ (today - s.due_date).days }} day{{ '' if (today - s.due_date).days == 1 else 's' }} late</div>{% endif %}</td>
+<td><a href="{{ url_for('lending.detail', loan_id=l.id) }}">{{ l.reference }}</a></td><td>{{ r.borrower.name }}</td><td class="num">#{{ s.number }}</td>
+<td class="num">{{ money(s.interest_due) }}</td><td class="num">{{ money(s.interest_paid) }}</td><td class="num">{{ money(s.interest_due - s.interest_paid) }}</td>
+<td>{% if r.state == 'RECEIVED' %}<span class="pill green">Received</span>{% elif r.state == 'OVERDUE' %}<span class="pill red">Overdue</span>{% elif r.state == 'PART' %}<span class="pill amber">Part paid</span>{% elif r.state == 'UPCOMING' %}<span class="pill blue">Coming in</span>{% elif r.state == 'NOT_COLLECTED' %}<span class="pill">Written off</span>{% elif r.state == 'WAIVED' %}<span class="pill">Waived</span>{% else %}-{% endif %}</td></tr>{% endfor %}
+</tbody></table></div>{{ pager(page) }}
+{% else %}{{ empty('calendar-clock', 'Nothing here', 'No interest dates match this view.') }}{% endif %}</div>
+{% endif %}
+{% endblock %}
