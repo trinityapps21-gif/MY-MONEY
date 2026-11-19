@@ -221,3 +221,16 @@ dialog { border: 0; border-radius: 12px; padding: 0; width: min(440px, calc(100v
   .media.n3, .media.n5, .media.n6 { grid-template-columns: 1fr 1fr; } .table-wrap.cards .table thead { display: none; }
 }
 @media print { .sidebar, .topbar, .bottom-nav, .app-foot, .no-print { display: none !important; } .main { margin: 0; } body { background: #fff; } .card { box-shadow: none; } }
+
+/* ---- page-change progress bar, idle sign-out prompt, Turnstile ---- */
+.nav-progress{position:fixed;top:0;left:0;height:3px;width:0;background:#1F4FB8;z-index:9999;opacity:0;pointer-events:none;transition:width .4s ease,opacity .25s ease}
+.nav-progress.run{opacity:1;width:80%;transition:width 8s cubic-bezier(.1,.6,.2,1)}
+.idle-warn{position:fixed;inset:0;background:rgba(16,28,54,.55);display:none;align-items:center;justify-content:center;z-index:10000;padding:16px}
+.idle-warn.show{display:flex}
+.idle-card{background:#fff;border-radius:14px;max-width:380px;width:100%;padding:22px;box-shadow:0 20px 50px rgba(0,0,0,.3)}
+.idle-card b{font-size:18px;display:block;margin-bottom:6px}
+.idle-card p{margin:0 0 16px;color:#44506a}
+.idle-actions{display:flex;gap:10px;flex-wrap:wrap}
+.idle-actions .btn{flex:1 1 140px}
+.ts-wrap{min-height:65px}
+.bio-login i{vertical-align:-3px;margin-right:6px}
