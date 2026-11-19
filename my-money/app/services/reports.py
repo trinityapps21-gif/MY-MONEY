@@ -168,13 +168,13 @@ def _disbursements(group, today, start, end, **_):
         tx = db.session.get(Transaction, l.disbursement_tx_id)
         rows.append([tx.tx_date, l.reference, l.borrower.name, l.principal, l.rate_bp / 100,
                      "Flat" if l.method == "FLAT" else "Reducing", f"{l.duration} {l.duration_unit.lower()}(s)",
-                     l.total_interest, l.total_repayable])
+                     sum(x.interest_paid for x in l.schedule), l.total_repayable])  # received so far, never the running total
     return Report("loan_disbursements", REPORT_TITLES["loan_disbursements"], _range_label(start, end),
                   [("Date", "date"), ("Loan", "text"), ("Borrower", "text"), ("Principal", "money"),
-                   ("Rate %", "pct"), ("Method", "text"), ("Term", "text"), ("Interest", "money"),
+                   ("Rate %", "pct"), ("Method", "text"), ("Term", "text"), ("Interest received so far", "money"),
                    ("Total repayable", "money")], rows,
                   [("Loans disbursed", len(rows), "int"), ("Principal disbursed", sum(r[3] for r in rows), "money"),
-                   ("Interest agreed", sum(r[7] for r in rows), "money")])
+                   ("Interest received so far", sum(r[7] for r in rows), "money")])
 
 
 def _repayments(group, today, start, end, **_):
@@ -242,7 +242,7 @@ def _interest(group, today, start, end, **_):
     return Report("interest_income", REPORT_TITLES["interest_income"], _range_label(start, end),
                   [("Date", "date"), ("Receipt", "text"), ("Loan", "text"), ("Interest received", "money")], rows,
                   [("Interest collected in period (ledger)", t["interest_collected"], "money"),
-                   ("Interest earned on all loans (agreed)", pf["interest_earned"], "money"),
+                   ("Interest earned on completed loans", pf["interest_earned"], "money"),
                    ("Interest collected (all time)", pf["interest_collected"], "money"),
                    ("Interest receivable (still owed)", pf["interest_receivable"], "money")])
 
