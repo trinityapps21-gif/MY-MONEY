@@ -27,6 +27,7 @@
       {{ nav_item(url_for('applications.index'), 'clipboard-list', 'Applications', bpn == 'applications') }}{% endif %}
       {{ nav_item(url_for('lending.index'), 'hand-coins', 'Loans', bpn == 'lending') }}
       {% if current_group.is_lender %}{{ nav_item(url_for('collections.index'), 'phone-call', 'Collections', bpn == 'collections') }}{% endif %}
+      {{ nav_item(url_for('overdue.index'), 'alert-triangle', 'Overdue & Late Fees', bpn == 'overdue') }}
       {{ nav_item(url_for('repayments.index'), 'receipt', 'Repayments', bpn == 'repayments') }}
       {% if not current_group.is_lender %}{{ nav_item(url_for('fines.index'), 'alarm-clock', 'Loan Fines', bpn == 'fines') }}{% endif %}
       <li class="sec">Group Feed</li>
