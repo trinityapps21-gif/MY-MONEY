@@ -1,0 +1,14 @@
+{% extends "shell_group.html" %}
+{% from "partials/macros.html" import stat, empty, pager, csrf, action_form %}
+{% block title %}Withdrawals{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Savings withdrawals</h1><p>Requests and approvals</p></div><a class="btn btn-primary" href="{{ url_for('savings.withdraw') }}"><i data-lucide="plus"></i>New withdrawal</a></div>
+<div class="grid g2 mb2">{{ stat('Total withdrawn', money(withdrawn), 'arrow-up-from-line') }}{{ stat('Minimum balance per member', money(minimum), 'lock') }}</div>
+<div class="card">{% if page.items %}<div class="table-wrap"><table class="table"><thead><tr><th>Date</th><th>Member</th><th class="num">Amount</th><th>Status</th><th>Receipt</th><th></th></tr></thead><tbody>
+{% for w in page.items %}<tr><td>{{ w.created_at|ld }}</td><td>{{ w.member.user.full_name }}</td><td class="num">{{ money(w.amount) }}</td>
+<td><span class="pill {{ 'green' if w.status == 'APPROVED' else ('amber' if w.status == 'PENDING' else 'red') }}">{{ w.status.title() }}</span></td><td>{{ w.receipt_no or '' }}</td>
+<td>{% if w.status == 'PENDING' %}<form method="post" action="{{ url_for('savings.withdrawal_decide', wid=w.id) }}" style="display:inline">{{ csrf() }}<input type="hidden" name="decision" value="approve"><select name="payment_method" style="width:auto">{% for m in methods %}<option>{{ m }}</option>{% endfor %}</select> <button class="btn btn-sm btn-primary">Approve</button></form>
+<form method="post" action="{{ url_for('savings.withdrawal_decide', wid=w.id) }}" style="display:inline">{{ csrf() }}<input type="hidden" name="decision" value="reject"><button class="btn btn-sm">Decline</button></form>
+{% elif w.status == 'APPROVED' %}{{ action_form(url_for('savings.withdrawal_decide', wid=w.id), 'Reverse', 'Reverse this withdrawal?', 'undo-2', 'btn btn-sm', reason='Reason', fields={'decision': 'reverse'}) }}{% endif %}</td></tr>{% endfor %}
+</tbody></table></div>{{ pager(page) }}{% else %}{{ empty('arrow-up-from-line', 'No withdrawal requests yet') }}{% endif %}</div>
+{% endblock %}

@@ -2,4 +2,4 @@
 {% block title %}Reset password{% endblock %}
 {% block body %}<div class="auth-wrap photo" style="--photo:url('{{ url_for('static', filename='img/growth.jpg') }}')"><div class="auth-card">{% include "auth/_brand.html" %}
 <form method="post">{{ csrf() }}<div class="field"><label>New password</label><input type="password" name="password" required minlength="8"><div class="hint">At least 8 characters with letters and numbers.</div></div>
-<div class="field"><label>Confirm password</label><input type="password" name="confirm_password" required></div><button class="btn btn-primary" style="width:100%" type="submit">Update password</button></form>{% include "auth/_foot.html" %}</div></div>{% endblock %}
+<div class="field"><label>Confirm password</label><input type="password" name="confirm_password" required></div>{% set ts_action = 'reset' %}{% include "auth/_turnstile.html" %}<button class="btn btn-primary" style="width:100%" type="submit">Update password</button></form>{% include "auth/_foot.html" %}</div></div>{% endblock %}

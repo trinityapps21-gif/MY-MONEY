@@ -24,7 +24,7 @@ def new_ref(prefix="TXN") -> str:
 
 
 def post(group_id, tx_type, amount, direction, tx_date, user_id, description=None, payment_method=None,
-         payment_reference=None, member_id=None, borrower_id=None, loan_id=None, prefix="TXN"):
+         payment_reference=None, member_id=None, borrower_id=None, loan_id=None, prefix="TXN", kind=None):
     """Add a ledger row to the session (caller commits => atomic with the
     business record that caused it)."""
     if amount <= 0:
@@ -33,7 +33,7 @@ def post(group_id, tx_type, amount, direction, tx_date, user_id, description=Non
         group_id=group_id, reference=new_ref(prefix), tx_type=tx_type, direction=direction, amount=amount,
         tx_date=tx_date, description=(description or "")[:300], payment_method=payment_method,
         payment_reference=payment_reference, member_id=member_id, borrower_id=borrower_id, loan_id=loan_id,
-        recorded_by=user_id,
+        recorded_by=user_id, kind=kind,
     )
     db.session.add(tx)
     db.session.flush()
@@ -53,7 +53,7 @@ def reverse(tx: Transaction, user_id, reason, tx_date) -> Transaction:
         direction="OUT" if tx.direction == "IN" else "IN", amount=tx.amount, tx_date=tx_date,
         description=f"Reversal of {tx.reference}: {reason.strip()}"[:300], member_id=tx.member_id,
         borrower_id=tx.borrower_id, loan_id=tx.loan_id, is_reversal=True, reverses_id=tx.id,
-        reversal_reason=reason.strip()[:300], recorded_by=user_id,
+        reversal_reason=reason.strip()[:300], recorded_by=user_id, kind=tx.kind,
     )
     db.session.add(rev)
     db.session.flush()
@@ -66,34 +66,44 @@ def is_reversed(tx_id) -> bool:
 
 def totals(group_id, start=None, end=None) -> dict:
     """Net figures from the ledger for an optional date window."""
-    q = db.session.query(Transaction.tx_type, Transaction.direction, func.coalesce(func.sum(Transaction.amount), 0)) \
-        .filter(Transaction.group_id == group_id)
+    q = db.session.query(Transaction.tx_type, Transaction.kind, Transaction.direction,
+                         func.coalesce(func.sum(Transaction.amount), 0)).filter(Transaction.group_id == group_id)
     if start:
         q = q.filter(Transaction.tx_date >= start)
     if end:
         q = q.filter(Transaction.tx_date <= end)
-    raw = {(t, d): int(s) for t, d, s in q.group_by(Transaction.tx_type, Transaction.direction)}
+    raw = {(t, k, d): int(s) for t, k, d, s in q.group_by(Transaction.tx_type, Transaction.kind, Transaction.direction)}
 
-    def net_in(t):
-        return raw.get((t, "IN"), 0) - raw.get((t, "OUT"), 0)
+    def _sum(t, direction, kind="*"):
+        return sum(v for (tt, kk, dd), v in raw.items()
+                   if tt == t and dd == direction and (kind == "*" or kk == kind))
 
-    def net_out(t):
-        return raw.get((t, "OUT"), 0) - raw.get((t, "IN"), 0)
+    def net_in(t, kind="*"):
+        return _sum(t, "IN", kind) - _sum(t, "OUT", kind)
 
-    cash_in = sum(v for (_, d), v in raw.items() if d == "IN")
-    cash_out = sum(v for (_, d), v in raw.items() if d == "OUT")
+    def net_out(t, kind="*"):
+        return _sum(t, "OUT", kind) - _sum(t, "IN", kind)
+
+    cash_in = sum(v for (_, _, d), v in raw.items() if d == "IN")
+    cash_out = sum(v for (_, _, d), v in raw.items() if d == "OUT")
     contributions = net_in("CONTRIBUTION")
-    additional = net_in("SAVINGS_ADDITIONAL")
+    additional = net_in("SAVINGS_ADDITIONAL")  # includes withdrawals (OUT rows)
+    withdrawals = net_out("SAVINGS_ADDITIONAL", "SAVINGS_WITHDRAWAL")
     return {
         "contributions": contributions,
         "additional_savings": additional,
         "total_savings": contributions + additional,
+        "withdrawals": withdrawals,
         "disbursed": net_out("LOAN_DISBURSEMENT"),
         "principal_repaid": net_in("PRINCIPAL_REPAYMENT"),
         "interest_collected": net_in("INTEREST_REPAYMENT"),
         "penalties": net_in("PENALTY"),
+        "fines_collected": net_in("PENALTY", "FINE"),
+        "fees": net_in("FEE"),
         "expenses": net_out("EXPENSE"),
-        "adjustments": net_in("ADJUSTMENT"),
+        "share_capital": net_in("ADJUSTMENT", "SHARE_PURCHASE"),
+        "other_income": net_in("ADJUSTMENT", "INCOME"),
+        "adjustments": net_in("ADJUSTMENT", None),
         "total_repayments": net_in("PRINCIPAL_REPAYMENT") + net_in("INTEREST_REPAYMENT"),
         "cash": cash_in - cash_out,
     }

@@ -3,9 +3,9 @@ from flask_login import current_user, login_required
 
 from app.extensions import db
 from app.models import (FEED_EVENT_TYPES, Group, GroupFeed, GroupMember, MemberApplication, StoredFile, Transaction, utcnow)
-from app.services import analytics, ledger, storage
+from app.services import analytics, ledger, loans as loan_svc, storage
 from app.services.audit import audit
-from app.services.money import CURRENCIES, decimals_for, to_minor
+from app.services.money import CURRENCIES, decimals_for, parse_rate_bp, to_minor
 from app.services.seed import seed_defaults
 from app.services.tenant import tenant_route
 from app.services.timeutil import local_today, resolve_range
@@ -32,7 +32,12 @@ def _apply_group_fields(group, form, creating=False):
     currency = (form.get("currency") or group.currency or "UGX").upper()
     if currency not in CURRENCIES:
         return "Select a valid currency."
+    btype = (form.get("business_type") or "SAVINGS_GROUP") if creating else group.business_type
+    if btype not in ("SAVINGS_GROUP", "LENDING"):
+        return "Choose whether this is a savings group or a lending business."
     freq = form.get("contribution_frequency") or "MONTHLY"
+    if btype == "LENDING":
+        freq = "MONTHLY"
     if freq not in ("WEEKLY", "MONTHLY", "CUSTOM"):
         return "Select a valid contribution frequency."
     tz = form.get("timezone") or "Africa/Kampala"
@@ -45,6 +50,8 @@ def _apply_group_fields(group, form, creating=False):
         default_contrib = to_minor(form.get("default_contribution") or "0", dec)
     except ValueError as e:
         return str(e)
+    if creating:
+        group.business_type = btype
     group.name, group.description = name, (form.get("description") or "").strip()[:1000] or None
     group.location = (form.get("location") or "").strip()[:120] or None
     group.phone = (form.get("group_phone") or form.get("contact_phone") or "").strip()[:30] or None
@@ -52,6 +59,29 @@ def _apply_group_fields(group, form, creating=False):
     group.registration_number = (form.get("registration_number") or "").strip()[:60] or None
     group.currency, group.currency_decimals = currency, decimals_for(currency)
     group.contribution_frequency, group.default_contribution, group.timezone = freq, default_contrib, tz
+    return None
+
+
+def _apply_lender_settings(group, form):
+    """Own rate cap and default late-payment penalty (lending businesses only)."""
+    try:
+        cap = (form.get("rate_cap") or "").strip()
+        group.rate_cap_bp = parse_rate_bp(cap) if cap else None
+        if group.rate_cap_bp is not None and group.rate_cap_bp <= 0:
+            raise ValueError("Enter a rate cap above zero, or leave it empty.")
+        ptype = form.get("penalty_type") or "NONE"
+        if ptype not in ("NONE", "FLAT", "PERCENT"):
+            raise ValueError("Select a valid penalty type.")
+        raw = (form.get("penalty_value") or "0").strip() or "0"
+        value = 0 if ptype == "NONE" else (to_minor(raw, group.currency_decimals) if ptype == "FLAT"
+                                           else parse_rate_bp(raw))
+        grace = int(form.get("penalty_grace_days") or 0)
+        if not 0 <= grace <= 365:
+            raise ValueError("Grace days must be between 0 and 365.")
+    except ValueError as e:
+        return str(e) or "Check the penalty and rate cap values."
+    group.penalty_type, group.penalty_value, group.penalty_grace_days = ptype, value, grace
+    group.pay_instructions = (form.get("pay_instructions") or "").strip()[:400] or None
     return None
 
 
@@ -125,6 +155,8 @@ def new():
 def dashboard(group_id=None):
     group = g.group
     today = local_today(group.timezone)
+    if group.is_lender:
+        return lender_dashboard(group, today)
     start, end, key = resolve_range(request.args, group.timezone)
     summary = analytics.group_summary(group, today, start, end)
     charts = analytics.dashboard_charts(group, today)
@@ -134,8 +166,35 @@ def dashboard(group_id=None):
         recent = [e for e in recent if e.event_type in group.visible_types][:5]
         return member_dashboard(summary, charts, recent, today)
     pending = MemberApplication.query.filter_by(group_id=group.id, status="PENDING").count()
+    from app.services import fines as fine_svc, schedules as sched_svc
+    unpaid = sched_svc.run_daily(group, today)
+    db.session.commit()
     return render_template("groups/dashboard.html", s=summary, charts=charts, recent=recent, range_key=key,
-                           start=start, end=end, pending=pending)
+                           start=start, end=end, pending=pending, unpaid_members=unpaid,
+                           unpaid_fines=fine_svc.totals(group.id)["unpaid"])
+
+
+def lender_dashboard(group, today):
+    from app.models import Borrower, Loan
+    from app.services import lender as lender_svc
+    if not g.is_official:  # staff without finance rights go to the community instead of a savings dashboard
+        return redirect(url_for("community.index"))
+    lender_svc.accrue_penalties(group, today)
+    start, end, key = resolve_range(request.args, group.timezone)
+    summary = analytics.group_summary(group, today, start, end)
+    charts = analytics.dashboard_charts(group, today)
+    pf = loan_svc.portfolio(group, today)
+    from datetime import timedelta
+    due_soon = [l for l in Loan.query.filter(Loan.group_id == group.id, Loan.disbursement_tx_id.isnot(None)).all()
+                if l.status in loan_svc.ACTIVE_STATES and (n := loan_svc.next_due(l)) is not None
+                and today <= n.due_date <= today + timedelta(days=7)]
+    recent = GroupFeed.query.filter_by(group_id=group.id).order_by(GroupFeed.created_at.desc(), GroupFeed.id.desc()) \
+        .limit(8).all()
+    pending = MemberApplication.query.filter_by(group_id=group.id, status="PENDING").count()
+    awaiting = Loan.query.filter_by(group_id=group.id, status="PENDING_APPROVAL").count()
+    return render_template("groups/dashboard_lender.html", s=summary, pf=pf, charts=charts, recent=recent,
+                           range_key=key, pending=pending, awaiting=awaiting, due_soon=len(due_soon),
+                           borrowers=Borrower.query.filter_by(group_id=group.id).count())
 
 
 def member_dashboard(summary, charts, recent, today):
@@ -145,11 +204,20 @@ def member_dashboard(summary, charts, recent, today):
     total_mine = ledger.member_savings(g.group.id, g.membership.id)
     board = analytics.leaderboard(g.group, today)
     my_rank = next((r["rank"] for r in board if r["member_id"] == g.membership.id), None)
+    from app.services import schedules as sched_svc, shares as share_svc
+    from app.services.groupcfg import get_settings
+    row = sched_svc.get_schedule(g.group.id, g.membership.id)
+    countdown = sched_svc.status_for(g.group, g.membership, row, today)
+    sched_svc.run_daily(g.group, today)
+    units = share_svc.member_units(g.group.id, g.membership.id)
+    my_share_rank, _nx, _val = share_svc.rank_for(g.group.id, units)
+    db.session.commit()
     announcements = Announcement.query.filter_by(group_id=g.group.id, status="ACTIVE", is_published=True) \
         .order_by(Announcement.is_pinned.desc(), Announcement.publish_date.desc()).limit(3).all()
     return render_template("groups/member_dashboard.html", s=summary, charts=charts, recent=recent,
                            contributions=mine.limit(6).all(), total_mine=int(total_mine or 0), my_rank=my_rank,
-                           members_count=len(board), announcements=announcements)
+                           members_count=len(board), announcements=announcements, countdown=countdown,
+                           share_units=units, my_share_rank=my_share_rank)
 
 
 # ------------------------------------------------------------------ group settings
@@ -167,6 +235,8 @@ def settings(group_id=None):
                 group.loan_approvals_required = approvals
             except ValueError:
                 err = "Loan approvals required must be 1, 2 or 3."
+        if not err and group.is_lender:
+            err = _apply_lender_settings(group, request.form)
         if err:
             db.session.rollback()
             flash(err, "error")
@@ -180,7 +250,7 @@ def settings(group_id=None):
     officials = GroupMember.query.filter(GroupMember.group_id == group.id, GroupMember.status == "ACTIVE",
                                          GroupMember.role.in_(["ADMIN", "TREASURER", "VICE_CHAIR"])).all()
     return render_template("groups/settings.html", **group_form_context(group), feed_labels=FEED_TYPE_LABELS,
-                           officials=officials)
+                           officials=officials, platform_cap=loan_svc.platform_lender_cap())
 
 
 @bp.route("/g/<int:group_id>/settings/logo", methods=["POST"])

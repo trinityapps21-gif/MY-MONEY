@@ -142,6 +142,13 @@ class Group(db.Model):
     status = db.Column(db.String(20), nullable=False, default="ACTIVE")
     owner_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     loan_approvals_required = db.Column(db.Integer, nullable=False, default=1)
+    # Business type is chosen once at creation and never changes: SAVINGS_GROUP or LENDING.
+    business_type = db.Column(db.String(20), nullable=False, default="SAVINGS_GROUP", server_default="SAVINGS_GROUP")
+    rate_cap_bp = db.Column(db.Integer)  # optional own cap, % per month x100 (stricter than the platform cap)
+    penalty_type = db.Column(db.String(10), nullable=False, default="NONE", server_default="NONE")
+    penalty_value = db.Column(db.BigInteger, nullable=False, default=0, server_default="0")
+    penalty_grace_days = db.Column(db.Integer, nullable=False, default=0, server_default="0")
+    pay_instructions = db.Column(db.String(400))  # shown to borrowers: where to send mobile money, bank details...
     feed_visible_types = db.Column(
         db.String(300),
         nullable=False,
@@ -156,7 +163,13 @@ class Group(db.Model):
         CheckConstraint("contribution_frequency IN ('WEEKLY','MONTHLY','CUSTOM')", name="ck_group_freq"),
         CheckConstraint("loan_approvals_required BETWEEN 1 AND 3", name="ck_group_approvals"),
         CheckConstraint("default_contribution >= 0", name="ck_group_contrib"),
+        CheckConstraint("business_type IN ('SAVINGS_GROUP','LENDING')", name="ck_group_btype"),
+        CheckConstraint("penalty_type IN ('NONE','FLAT','PERCENT')", name="ck_group_penalty"),
     )
+
+    @property
+    def is_lender(self):
+        return self.business_type == "LENDING"
 
     @property
     def visible_types(self):
@@ -248,6 +261,7 @@ class InterestSettings(db.Model):
     reducing_enabled = db.Column(db.Boolean, nullable=False, default=True)
     default_period = db.Column(db.String(10), nullable=False, default="MONTH")
     allow_custom_rates = db.Column(db.Boolean, nullable=False, default=True)
+    lender_cap_bp = db.Column(db.Integer, default=280, server_default="280")  # % per month x100; NULL = no cap
     updated_by = db.Column(db.Integer, db.ForeignKey("users.id"))
     updated_at = db.Column(db.DateTime, nullable=False, default=utcnow)
 
@@ -331,3 +345,19 @@ class StoredFile(db.Model):
     @property
     def is_image(self):
         return self.content_type.startswith("image/")
+
+
+class WebAuthnCredential(db.Model):
+    """A fingerprint / face / device-unlock credential (passkey) a user enrolled on one phone.
+    Only the PUBLIC key is stored; the private key never leaves the phone."""
+    __tablename__ = "webauthn_credentials"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    credential_id = db.Column(db.String(512), nullable=False, unique=True)  # base64url
+    public_key = db.Column(db.Text, nullable=False)  # base64url COSE key
+    sign_count = db.Column(db.BigInteger, nullable=False, default=0)
+    label = db.Column(db.String(80))
+    created_at = db.Column(db.DateTime, nullable=False, default=utcnow)
+    last_used_at = db.Column(db.DateTime)
+
+    user = db.relationship("User", backref=db.backref("webauthn_credentials", lazy="select"))

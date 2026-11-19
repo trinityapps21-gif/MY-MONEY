@@ -1,0 +1,12 @@
+{% extends "shell_group.html" %}
+{% from "partials/macros.html" import csrf %}
+{% from "schedules/_picker.html" import picker %}
+{% block title %}My contribution day{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>My contribution day</h1><p>This group collects contributions {{ period_label }}.</p></div></div>
+<div class="card card-pad mb2"><h2><i data-lucide="calendar-clock"></i> {{ st.label }}</h2>{% if st.next_due %}<p class="muted">Next due date: {{ st.next_due|ld }}</p>{% endif %}</div>
+<div class="card card-pad" style="max-width:560px"><form method="post">{{ csrf() }}
+<div class="field"><label>Choose your day</label>{{ picker(s, row, weekdays, months) }}</div>
+<p class="muted small">You get a reminder {{ s.reminder_days }} day(s) before. No fines are charged to members.</p>
+<button class="btn btn-primary" type="submit">Save my day</button></form></div>
+{% endblock %}

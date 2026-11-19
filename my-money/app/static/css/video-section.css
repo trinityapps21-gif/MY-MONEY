@@ -1,0 +1,59 @@
+/* MY MONEY - landing page video section: square video frame beside the story. */
+.vs-section { padding-top: 64px; padding-bottom: 64px; }
+.vs { display: grid; grid-template-columns: minmax(0, 520px) minmax(0, 1fr); gap: 56px; align-items: center; }
+
+/* ---------- square frame ---------- */
+.vs-frame { position: relative; margin: 0; width: 100%; aspect-ratio: 1 / 1; border-radius: 22px; overflow: hidden; background: #011842; border: 1px solid #E4E8EF;
+  box-shadow: 0 26px 60px rgba(16, 28, 54, .20); isolation: isolate; }
+.vs-bg { position: absolute; inset: -34px; background-size: cover; background-position: center; filter: blur(28px) saturate(1.15); transform: scale(1.08); z-index: -2; }
+.vs-frame::before { content: ""; position: absolute; inset: 0; background: rgba(1, 24, 66, .5); z-index: -1; }
+.vs-frame video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; display: block; background: transparent; }
+.vs-frame::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 26%; background: linear-gradient(to top, rgba(0,0,0,.5), transparent); pointer-events: none; z-index: 1; }
+
+.vs-play { position: absolute; left: 50%; top: 50%; z-index: 3; width: 76px; height: 76px; margin: -38px 0 0 -38px; border: 0; border-radius: 50%; background: #fff; display: none; place-items: center;
+  cursor: pointer; box-shadow: 0 10px 30px rgba(0,0,0,.35); transition: transform .15s ease; }
+.vs-frame.is-paused .vs-play { display: grid; }
+.vs-play:hover { transform: scale(1.06); }
+.vs-play svg { width: 30px; height: 30px; fill: #0B0F1A; margin-left: 4px; }
+
+.vs-bar { position: absolute; left: 14px; right: 14px; bottom: 16px; z-index: 3; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.vs-chip { height: 38px; padding: 0 14px 0 12px; border: 0; border-radius: 999px; background: #fff; color: #0B0F1A; display: inline-flex; align-items: center; gap: 8px;
+  font: 700 13px/1 var(--font, Inter, system-ui, sans-serif); cursor: pointer; box-shadow: 0 3px 12px rgba(0,0,0,.28); }
+.vs-chip:hover { background: #F4F5F7; }
+.vs-chip.vs-icon { width: 38px; padding: 0; justify-content: center; }
+.vs-chip svg { width: 18px; height: 18px; fill: none; stroke: #0B0F1A; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.vs-chip .on { display: none; } .vs-chip[aria-pressed="true"] .on { display: block; } .vs-chip[aria-pressed="true"] .off { display: none; }
+.vs-chip:focus-visible, .vs-play:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+.vs-track { position: absolute; left: 0; right: 0; bottom: 0; height: 5px; background: rgba(255,255,255,.28); z-index: 3; cursor: pointer; }
+.vs-track span { display: block; height: 100%; width: 0; background: #fff; }
+.vs-frame:fullscreen { aspect-ratio: auto; border-radius: 0; border: 0; background: #000; }
+.vs-frame:fullscreen .vs-bg, .vs-frame:fullscreen::before { display: none; }
+.vs-frame:-webkit-full-screen { aspect-ratio: auto; border-radius: 0; background: #000; }
+
+/* ---------- copy ---------- */
+.vs-eyebrow { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #0B0F1A;
+  background: #F4F5F7; border: 1px solid #E4E8EF; padding: 6px 12px; border-radius: 999px; margin-bottom: 14px; }
+.vs-eyebrow svg { width: 15px; height: 15px; stroke-width: 1.8; }
+.vs-copy h2 { font-size: 32px; letter-spacing: -.01em; margin: 0 0 10px; }
+.vs-copy .lead { margin-bottom: 22px; max-width: 540px; }
+.vs-list { list-style: none; margin: 0 0 26px; padding: 0; display: grid; gap: 16px; }
+.vs-list li { display: flex; gap: 14px; align-items: flex-start; }
+.vs-list li > svg { flex: none; width: 40px; height: 40px; padding: 10px; border-radius: 11px; background: #F4F5F7; border: 1px solid #E4E8EF; stroke-width: 1.6; }
+.vs-list b { display: block; color: var(--navy); font-size: 15px; margin-bottom: 2px; }
+.vs-list span { color: var(--muted); font-size: 13.5px; line-height: 1.5; }
+
+@media (max-width: 980px) {
+  .vs { grid-template-columns: minmax(0, 1fr); gap: 32px; }
+  .vs-frame { max-width: 560px; margin: 0 auto; }
+  .vs-copy { max-width: 620px; margin: 0 auto; }
+}
+@media (max-width: 640px) {
+  .vs-section { padding-top: 40px; padding-bottom: 40px; }
+  .vs-frame { border-radius: 18px; }
+  .vs-copy h2 { font-size: 25px; }
+  .vs-play { width: 64px; height: 64px; margin: -32px 0 0 -32px; }
+  .vs-bar { left: 10px; right: 10px; bottom: 14px; }
+  .vs-chip { height: 40px; } .vs-chip.vs-icon { width: 40px; }
+  .vs-copy .flex .btn { width: 100%; flex: 1 1 100%; }
+}
+@media print { .vs-frame { display: none; } }

@@ -1,0 +1,14 @@
+{% extends "shell_group.html" %}
+{% from "partials/macros.html" import empty %}
+{% block title %}Loan products{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Loan products</h1><p>Saved terms, fees and penalty rules. Pick one when creating a loan.</p></div><a class="btn btn-primary" href="{{ url_for('products.new') }}"><i data-lucide="plus"></i>New product</a></div>
+{% if items %}<div class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Product</th><th>Rate</th><th>Term</th><th class="num">Amount range</th><th>Fees</th><th>Penalty</th><th></th></tr></thead><tbody>
+{% for p in items %}<tr class="{{ 'reversed' if not p.active }}"><td><a href="{{ url_for('products.edit', product_id=p.id) }}"><b>{{ p.name }}</b></a>{% if not p.active %} <span class="pill">Inactive</span>{% endif %}<div class="muted xs">{{ methods[p.method] }}</div></td>
+<td>{{ p.rate_bp|pct }}% {{ periods[p.rate_period] }}</td><td>{{ p.duration }} {{ units[p.duration_unit] }}</td>
+<td class="num">{{ money(p.min_amount) }}{% if p.max_amount %} - {{ money(p.max_amount) }}{% else %}+{% endif %}</td>
+<td class="small">{% if p.processing_fee_type != 'NONE' %}Processing {{ (p.processing_fee_value|pct ~ '%') if p.processing_fee_type == 'PERCENT' else money(p.processing_fee_value) }}<br>{% endif %}{% if p.insurance_fee_type != 'NONE' %}Insurance {{ (p.insurance_fee_value|pct ~ '%') if p.insurance_fee_type == 'PERCENT' else money(p.insurance_fee_value) }}{% endif %}{% if p.processing_fee_type == 'NONE' and p.insurance_fee_type == 'NONE' %}<span class="muted">None</span>{% endif %}</td>
+<td class="small">{% if p.penalty_type == 'NONE' %}<span class="muted">None</span>{% else %}{{ (p.penalty_value|pct ~ '%') if p.penalty_type == 'PERCENT' else money(p.penalty_value) }} after {{ p.penalty_grace_days }} day(s){% endif %}</td>
+<td class="right"><a class="btn btn-sm" href="{{ url_for('products.edit', product_id=p.id) }}">Edit</a></td></tr>{% endfor %}</tbody></table></div></div>
+{% else %}<div class="card">{{ empty('package', 'No loan products yet', 'Create a product such as "Salary loan" so staff do not retype the terms for every loan.') }}</div>{% endif %}
+{% endblock %}

@@ -1,0 +1,14 @@
+{% extends "shell_group.html" %}
+{% from "partials/macros.html" import csrf %}
+{% block title %}Withdraw savings{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Withdraw savings</h1><a class="btn" href="{{ url_for('savings.mine') }}">Back</a></div>
+<div class="card card-pad" style="max-width:720px"><form method="post">{{ csrf() }}
+<div class="form-grid">
+{% if members|length > 1 %}<div class="field full"><label>Member</label><select name="member_id" id="wm">{% for m in members %}<option value="{{ m.id }}" {{ 'selected' if m.id == mine.id }}>{{ m.user.full_name }} (can withdraw {{ money(avail[m.id]) }})</option>{% endfor %}</select></div>
+{% else %}<div class="field full"><label>Available to withdraw</label><input type="text" value="{{ money(avail[mine.id]) }}" disabled></div>{% endif %}
+<div class="field"><label>Amount ({{ current_group.currency }})</label><input type="text" inputmode="decimal" name="amount" required></div>
+<div class="field"><label>Notes</label><input type="text" name="note" maxlength="300"></div></div>
+<p class="muted">The group keeps a minimum balance of {{ money(minimum) }} in each member's savings. An official approves every withdrawal.</p>
+<button class="btn btn-primary" type="submit">Request withdrawal</button></form></div>
+{% endblock %}

@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}My loans{% endblock %}
+{% block body %}
+<div class="portal">
+<header class="portal-head"><img src="{{ url_for('static', filename='img/logo.png') }}" alt="" width="40" height="40"><div><b>{{ group.name }}</b><div class="muted xs">Loan account for {{ b.name }}</div></div></header>
+<main class="portal-main">
+{% if group.pay_instructions %}<section class="card card-pad mb2"><h3 class="mb2">How to pay</h3><p>{{ group.pay_instructions }}</p><p class="muted xs mt1">After you pay, your loan officer records it and this page updates.</p></section>{% endif %}
+{% if rows %}{% for r in rows %}{% set l = r.loan %}
+<section class="card card-pad mb2">
+<div class="flex between items-center"><h2>{{ l.reference }}</h2>{% if r.late %}<span class="pill red">Overdue</span>{% else %}<span class="pill green">Active</span>{% endif %}</div>
+<div class="portal-bal">{{ money(r.owe_total) }}<span class="muted small"> left to pay</span></div>
+<div class="progress"><span style="width:{{ r.pct }}%"></span></div><div class="muted xs mb2">{{ r.pct }}% repaid of {{ money(l.total_repayable) }}</div>
+{% if r.due.overdue %}<div class="alert warn"><b>Pay now: {{ money(r.due.total) }}</b><div class="small">{{ money(r.due.instalments) }} overdue instalment(s){% if r.due.fines %} + {{ money(r.due.fines) }} late fine{% endif %}</div></div>
+{% elif r.due.next %}<div class="small">Next payment: <b>{{ money(r.due.next.balance) }}</b> due <b>{{ r.due.next.due_date|ld }}</b>{% if r.due.fines %}<br>Late fine still owed: <b>{{ money(r.due.fines) }}</b>{% endif %}</div>{% endif %}
+{% if r.fines %}<div class="mt2"><h3 class="mb2">Late fines</h3>{% for f, why in r.fines %}<div class="fine"><div class="flex between"><b>{{ money(f.amount) }}</b><span class="muted xs">added {{ f.assessed_on|ld }}</span></div><div class="small">{{ why }}</div><div class="muted xs">Paid {{ money(f.paid) }}{% if f.waived %} &middot; Waived {{ money(f.waived) }}{% endif %} &middot; Still owed {{ money(f.balance) }}</div></div>{% endfor %}</div>{% endif %}
+{% if r.officer %}<div class="muted small mt2">Your loan officer: <b>{{ r.officer.full_name }}</b>{% if r.officer.phone %} &middot; <a href="tel:{{ r.officer.phone }}">{{ r.officer.phone }}</a>{% endif %}</div>{% endif %}
+<details class="mt2"><summary>Payment schedule</summary><div class="table-wrap"><table class="table"><thead><tr><th>#</th><th>Due</th><th class="num">Amount</th><th class="num">Paid</th></tr></thead><tbody>{% for s in l.schedule %}<tr><td>{{ s.number }}</td><td>{{ s.due_date|ld }}</td><td class="num">{{ money(s.total_due) }}</td><td class="num">{{ money(s.principal_paid + s.interest_paid) }}</td></tr>{% endfor %}</tbody></table></div></details>
+</section>{% endfor %}
+{% else %}<section class="card card-pad mb2"><h2>No open loans</h2><p class="muted">You have nothing to pay right now.</p></section>{% endif %}
+{% if history %}<section class="card mb2"><div class="card-head"><h2>My payments</h2></div><div class="table-wrap"><table class="table"><thead><tr><th>Date</th><th>Receipt</th><th class="num">Amount</th></tr></thead><tbody>{% for h in history %}<tr><td>{{ h.payment_date|ld }}</td><td>{{ h.receipt_no }}</td><td class="num">{{ money(h.amount) }}</td></tr>{% endfor %}</tbody></table></div></section>{% endif %}
+{% if closed %}<section class="card card-pad mb2"><h3 class="mb2">Finished loans</h3>{% for l in closed %}<div class="small">{{ l.reference }} &middot; {{ money(l.principal) }} &middot; {{ 'Fully repaid' if l.status == 'FULLY_REPAID' else l.status|title }}</div>{% endfor %}</section>{% endif %}
+<p class="muted xs center">This page is private to you. Do not share the link.<br>MY MONEY &middot; Developed and Powered by Emtrixz Technology Company.</p>
+</main></div>
+<style>
+.portal{max-width:560px;margin:0 auto;padding:0 16px 40px}.portal-head{display:flex;gap:12px;align-items:center;padding:18px 0}
+.portal-bal{font-size:28px;font-weight:800;color:var(--navy,#101C36);margin:8px 0}.progress{height:8px;background:#E5EAF4;border-radius:99px;overflow:hidden}.progress span{display:block;height:100%;background:#1F5FD6}
+.fine{border:1px solid #E5EAF4;border-radius:10px;padding:10px 12px;margin-bottom:8px;background:#FFFAF0}.btn-block{width:100%}.center{text-align:center}.between{justify-content:space-between}
+</style>
+{% endblock %}

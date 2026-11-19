@@ -1,0 +1,15 @@
+{% extends "shell_group.html" %}
+{% from "partials/macros.html" import csrf %}
+{% block title %}Add shares{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Add shares</h1><a class="btn" href="{{ url_for('shares.index') }}">Back</a></div>
+<div class="card card-pad" style="max-width:720px"><form method="post">{{ csrf() }}
+<div class="form-grid">
+<div class="field full"><label>Member</label><select name="member_id" required><option value="">Select member</option>{% for m in members %}<option value="{{ m.id }}" {{ 'selected' if preselect == m.id }}>{{ m.user.full_name }}</option>{% endfor %}</select></div>
+<div class="field"><label>Number of shares</label><input type="text" inputmode="numeric" name="units" required></div>
+<div class="field"><label>Price per share ({{ current_group.currency }})</label><input type="text" inputmode="decimal" name="unit_price" placeholder="{{ money_plain(s.share_price) }}"><small class="muted">Leave empty to use the group price.</small></div>
+<div class="field"><label>Date</label><input type="date" name="entry_date" value="{{ today.isoformat() }}" required></div>
+<div class="field"><label>Payment method</label><select name="payment_method"><option>Cash</option><option>Mobile Money</option><option>Bank Transfer</option><option>Cheque</option><option>Other</option></select></div>
+<div class="field full"><label>Notes</label><input type="text" name="note" maxlength="300"></div></div>
+<button class="btn btn-primary" type="submit">Save shares</button></form></div>
+{% endblock %}

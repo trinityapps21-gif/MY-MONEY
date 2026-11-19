@@ -5,11 +5,12 @@ from flask_login import current_user
 from sqlalchemy import func
 
 from app.extensions import db
-from app.models import Contribution, GroupMember, Transaction, User
+from app.models import Contribution, GroupMember, SavingsWithdrawal, Transaction, User
 from app.services import analytics, ledger, savings as savings_svc
 from app.services.audit import audit
 from app.services.forms import form_amount, form_choice, form_date, form_text, new_idem_key
 from app.services.savings import CATEGORY_LABELS, PAYMENT_METHODS, DuplicateError
+from app.services.groupcfg import get_settings
 from app.services.tenant import get_scoped_or_404, scoped, tenant_route
 from app.services.timeutil import local_today, resolve_range
 
@@ -25,7 +26,7 @@ def _reversed_ids(tx_ids):
 
 
 @bp.route("/")
-@tenant_route(official=True)
+@tenant_route(official=True, kind="SAVINGS_GROUP")
 def index(group_id=None):
     group, today = g.group, local_today(g.group.timezone)
     start, end, key = resolve_range(request.args, group.timezone)
@@ -68,7 +69,7 @@ def index(group_id=None):
 
 
 @bp.route("/new", methods=["GET", "POST"])
-@tenant_route(official=True)
+@tenant_route(official=True, kind="SAVINGS_GROUP")
 def new(group_id=None):
     members = GroupMember.query.join(User, User.id == GroupMember.user_id).filter(GroupMember.group_id == g.group.id, GroupMember.status == "ACTIVE") \
         .order_by(User.full_name).all()
@@ -99,7 +100,7 @@ def new(group_id=None):
 
 
 @bp.route("/<int:contribution_id>/reverse", methods=["POST"])
-@tenant_route(official=True)
+@tenant_route(official=True, kind="SAVINGS_GROUP")
 def reverse(contribution_id, group_id=None):
     c = get_scoped_or_404(Contribution, contribution_id)
     try:
@@ -116,19 +117,23 @@ def reverse(contribution_id, group_id=None):
 
 
 @bp.route("/me")
-@tenant_route()
+@tenant_route(kind="SAVINGS_GROUP")
 def mine(group_id=None):
     q = Contribution.query.filter_by(group_id=g.group.id, member_id=g.membership.id)
     page = q.order_by(Contribution.contribution_date.desc(), Contribution.id.desc()) \
         .paginate(page=request.args.get("page", 1, type=int), per_page=15, error_out=False)
     today = local_today(g.group.timezone)
+    wds = SavingsWithdrawal.query.filter_by(group_id=g.group.id, member_id=g.membership.id).order_by(
+        SavingsWithdrawal.created_at.desc()).limit(10).all()
     return render_template("savings/mine.html", page=page, total=ledger.member_savings(g.group.id, g.membership.id),
                            reversed_ids=_reversed_ids([c.tx_id for c in page.items]),
-                           expected=savings_svc.expected_for_member(g.group, g.membership, today))
+                           expected=savings_svc.expected_for_member(g.group, g.membership, today),
+                           available=savings_svc.available_to_withdraw(g.group, g.membership),
+                           minimum=get_settings(g.group.id).min_savings_balance, withdrawals=wds)
 
 
 @bp.route("/member/<int:member_id>")
-@tenant_route(official=True)
+@tenant_route(official=True, kind="SAVINGS_GROUP")
 def member_statement(member_id, group_id=None):
     m = get_scoped_or_404(GroupMember, member_id)
     q = Contribution.query.filter_by(group_id=g.group.id, member_id=m.id) \
@@ -137,3 +142,82 @@ def member_statement(member_id, group_id=None):
     return render_template("savings/member.html", m=m, page=page, total=ledger.member_savings(g.group.id, m.id),
                            reversed_ids=_reversed_ids([c.tx_id for c in page.items]),
                            expected=savings_svc.expected_for_member(g.group, m, local_today(g.group.timezone)))
+
+
+# ------------------------------------------------------------------ withdrawals
+@bp.route("/withdraw", methods=["GET", "POST"])
+@tenant_route()
+def withdraw(group_id=None):
+    members = GroupMember.query.join(User, User.id == GroupMember.user_id).filter(
+        GroupMember.group_id == g.group.id, GroupMember.status == "ACTIVE").order_by(User.full_name).all() \
+        if g.is_official else [g.membership]
+    if request.method == "POST":
+        try:
+            member = next((m for m in members if m.id == (request.form.get("member_id", type=int) or g.membership.id)),
+                          None)
+            if member is None:
+                raise ValueError("Select a member.")
+            w = savings_svc.request_withdrawal(g.group, current_user, member, form_amount(), form_text("note"))
+            audit("savings.withdrawal_requested", "savings_withdrawal", w.id, {"amount": w.amount}, group_id=g.group.id)
+            db.session.commit()
+            flash("Withdrawal request sent. An official will review it." if not g.is_official or
+                  member.id == g.membership.id else "Withdrawal request created. Approve it from Withdrawals.",
+                  "success")
+            return redirect(url_for("savings.withdrawals") if g.is_official else url_for("savings.mine"))
+        except ValueError as e:
+            db.session.rollback()
+            flash(str(e), "error")
+    avail = {m.id: savings_svc.available_to_withdraw(g.group, m) for m in members}
+    return render_template("savings/withdraw.html", members=members, avail=avail, mine=g.membership,
+                           minimum=get_settings(g.group.id).min_savings_balance)
+
+
+@bp.route("/withdrawals")
+@tenant_route(official=True)
+def withdrawals(group_id=None):
+    q = SavingsWithdrawal.query.filter_by(group_id=g.group.id).order_by(
+        (SavingsWithdrawal.status == "PENDING").desc(), SavingsWithdrawal.created_at.desc())
+    page = q.paginate(page=request.args.get("page", 1, type=int), per_page=20, error_out=False)
+    t = ledger.totals(g.group.id)
+    return render_template("savings/withdrawals.html", page=page, methods=PAYMENT_METHODS, withdrawn=t["withdrawals"],
+                           minimum=get_settings(g.group.id).min_savings_balance)
+
+
+@bp.route("/withdrawals/<int:wid>/decide", methods=["POST"])
+@tenant_route(official=True)
+def withdrawal_decide(wid, group_id=None):
+    w = get_scoped_or_404(SavingsWithdrawal, wid)
+    try:
+        today = local_today(g.group.timezone)
+        action = request.form.get("decision")
+        if action == "approve":
+            savings_svc.approve_withdrawal(g.group, w, current_user, today, form_text("payment_method", 40))
+        elif action == "reject":
+            savings_svc.reject_withdrawal(g.group, w, current_user, form_text("note"))
+        elif action == "reverse":
+            savings_svc.reverse_withdrawal(g.group, w, current_user, request.form.get("reason") or "", today)
+        else:
+            raise ValueError("Choose an action.")
+        audit(f"savings.withdrawal_{action}", "savings_withdrawal", w.id, group_id=g.group.id)
+        db.session.commit()
+        flash("Done.", "success")
+    except ValueError as e:
+        db.session.rollback()
+        flash(str(e), "error")
+    return redirect(url_for("savings.withdrawals"))
+
+
+@bp.route("/withdrawals/<int:wid>/cancel", methods=["POST"])
+@tenant_route()
+def withdrawal_cancel(wid, group_id=None):
+    w = get_scoped_or_404(SavingsWithdrawal, wid)
+    if w.requested_by != current_user.id and not g.is_official:
+        abort(403)
+    try:
+        savings_svc.cancel_withdrawal(g.group, w, current_user)
+        db.session.commit()
+        flash("Request cancelled.", "success")
+    except ValueError as e:
+        db.session.rollback()
+        flash(str(e), "error")
+    return redirect(request.referrer or url_for("savings.mine"))

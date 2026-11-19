@@ -29,6 +29,16 @@ services:
         sync: false
       - key: PLATFORM_ADMIN_EMAIL
         sync: false
+      - key: TURNSTILE_SITE_KEY
+        sync: false
+      - key: TURNSTILE_SECRET_KEY
+        sync: false
+      - key: IDLE_TIMEOUT_MINUTES
+        value: "30"
+      - key: WEBAUTHN_RP_ID
+        sync: false
+      - key: WEBAUTHN_ORIGIN
+        sync: false
       - key: SMTP_HOST
         sync: false
       - key: SMTP_USER

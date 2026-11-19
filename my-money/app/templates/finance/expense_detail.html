@@ -1,0 +1,10 @@
+{% extends "shell_group.html" %}
+{% from "partials/macros.html" import action_form %}
+{% block title %}Expense{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>{{ exp.description or exp.category }}</h1><p>{{ exp.category }} &middot; {{ exp.expense_date|ld }}</p></div><div class="row gap1"><a class="btn" href="{{ url_for('finance.expenses') }}">Back</a>
+{% if not is_reversed %}{{ action_form(url_for('finance.expense_reverse', exp_id=exp.id), 'Reverse', 'Reverse this expense?', 'undo-2', 'btn', reason='Reason') }}{% else %}<span class="pill red">Reversed</span>{% endif %}</div></div>
+<div class="card" style="max-width:720px"><div class="table-wrap"><table class="table"><thead><tr><th>Item</th><th class="num">Amount</th></tr></thead><tbody>
+{% for i in items %}<tr><td>{{ i.name }}</td><td class="num">{{ money(i.amount) }}</td></tr>{% else %}<tr><td>{{ exp.description or exp.category }}</td><td class="num">{{ money(exp.amount) }}</td></tr>{% endfor %}
+<tr><td><b>Total</b></td><td class="num"><b>{{ money(exp.amount) }}</b></td></tr></tbody></table></div></div>
+{% endblock %}

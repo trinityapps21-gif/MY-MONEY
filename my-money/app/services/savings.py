@@ -2,7 +2,7 @@
 from datetime import timedelta
 
 from app.extensions import db
-from app.models import Contribution, GroupMember
+from app.models import Contribution, GroupMember, SavingsWithdrawal, Transaction, utcnow
 from app.services import feedlog, ledger, notify
 
 CATEGORY_TX = {
@@ -76,3 +76,79 @@ def expected_for_member(group, member: GroupMember, today) -> int:
     else:
         periods = (today.year - start.year) * 12 + (today.month - start.month) + 1
     return periods * group.default_contribution
+
+
+# --------------------------------------------------------------- withdrawals
+class WithdrawalError(ValueError):
+    pass
+
+
+def available_to_withdraw(group, member) -> int:
+    """Savings the member may take out now: balance minus the group's minimum."""
+    from app.services.groupcfg import get_settings
+    pending = sum(w.amount for w in SavingsWithdrawal.query.filter_by(
+        group_id=group.id, member_id=member.id, status="PENDING"))
+    bal = ledger.member_savings(group.id, member.id)
+    return max(0, bal - get_settings(group.id).min_savings_balance - pending)
+
+
+def request_withdrawal(group, user, member, amount, note=None):
+    if member.group_id != group.id or member.status != "ACTIVE":
+        raise WithdrawalError("Select an active member of this group.")
+    if amount <= 0:
+        raise WithdrawalError("Amount must be greater than zero.")
+    avail = available_to_withdraw(group, member)
+    if amount > avail:
+        from app.services.groupcfg import get_settings
+        raise WithdrawalError(
+            f"You can withdraw at most {avail:,} now. The group keeps a minimum balance of "
+            f"{get_settings(group.id).min_savings_balance:,} in every member's savings.")
+    w = SavingsWithdrawal(group_id=group.id, member_id=member.id, amount=amount, note=(note or "")[:300],
+                          requested_by=user.id)
+    db.session.add(w)
+    db.session.flush()
+    if user.id == member.user_id:
+        notify.notify_officials(group.id, "WITHDRAWAL", "Withdrawal request",
+                                f"{member.user.full_name} asked to withdraw savings.",
+                                f"/g/{group.id}/savings/withdrawals", exclude=user.id)
+    return w
+
+
+def approve_withdrawal(group, w, user, today, method=None):
+    if w.group_id != group.id or w.status != "PENDING":
+        raise WithdrawalError("This request is no longer pending.")
+    from app.services.groupcfg import get_settings
+    bal = ledger.member_savings(group.id, w.member_id)
+    if bal - w.amount < get_settings(group.id).min_savings_balance:
+        raise WithdrawalError("This would take the member below the group's minimum savings balance.")
+    if w.amount > ledger.cash_balance(group.id):
+        raise WithdrawalError("The group does not have enough cash for this withdrawal.")
+    tx = ledger.post(group.id, "SAVINGS_ADDITIONAL", w.amount, "OUT", today, user.id,
+                     f"Savings withdrawal - {w.member.user.full_name}", method, None, member_id=w.member_id,
+                     prefix="WDL", kind="SAVINGS_WITHDRAWAL")
+    w.status, w.decided_by, w.decided_at, w.tx_id = "APPROVED", user.id, utcnow(), tx.id
+    w.payment_method = method
+    w.receipt_no = ledger.new_ref("WD")
+    notify.notify([w.member.user_id], group.id, "WITHDRAWAL", "Withdrawal approved",
+                  f"Your withdrawal was approved. Receipt {w.receipt_no}.", f"/g/{group.id}/savings/me")
+
+
+def reject_withdrawal(group, w, user, note=None):
+    if w.group_id != group.id or w.status != "PENDING":
+        raise WithdrawalError("This request is no longer pending.")
+    w.status, w.decided_by, w.decided_at, w.decision_note = "REJECTED", user.id, utcnow(), (note or "")[:300]
+    notify.notify([w.member.user_id], group.id, "WITHDRAWAL", "Withdrawal not approved",
+                  (note or "Your withdrawal request was not approved.")[:200], f"/g/{group.id}/savings/me")
+
+
+def cancel_withdrawal(group, w, user):
+    if w.group_id != group.id or w.status != "PENDING":
+        raise WithdrawalError("This request is no longer pending.")
+    w.status = "CANCELLED"
+
+
+def reverse_withdrawal(group, w, user, reason, today):
+    if w.group_id != group.id or w.status != "APPROVED":
+        raise WithdrawalError("Only approved withdrawals can be reversed.")
+    ledger.reverse(db.session.get(Transaction, w.tx_id), user.id, reason, today)
+    w.status = "REVERSED"

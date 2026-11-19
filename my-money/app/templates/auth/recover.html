@@ -7,5 +7,6 @@
 <div class="field"><label>Recovery code</label><input type="text" name="recovery_code" required placeholder="XXXXX-XXXXX-XXXXX-XXXXX" style="text-transform:uppercase;letter-spacing:.05em"></div>
 <div class="field"><label>New password</label><input type="password" name="password" required minlength="8" autocomplete="new-password"></div>
 <div class="field"><label>Confirm new password</label><input type="password" name="confirm_password" required autocomplete="new-password"></div>
+{% set ts_action = 'recover' %}{% include "auth/_turnstile.html" %}
 <button class="btn btn-primary" style="width:100%" type="submit">Reset password</button></form>
 <p class="center small mt2">Lost your code too? <a href="{{ url_for('auth.forgot_password') }}">Ask your group administrator</a> &middot; <a href="{{ url_for('auth.login') }}">Login</a></p>{% include "auth/_foot.html" %}</div></div>{% endblock %}

@@ -1,3 +1,7 @@
+import time
+
+from flask import current_app
+
 from app.extensions import db
 from app.models import GroupRole, InterestSettings, PlatformSetting
 
@@ -29,11 +33,28 @@ def seed_defaults():
         if db.session.get(PlatformSetting, k) is None:
             db.session.add(PlatformSetting(key=k, value=v))
     db.session.commit()
+    clear_settings_cache()
+
+
+SETTINGS_TTL = 30  # seconds; platform settings rarely change, and every page asks for them
+
+
+def _settings_cache():
+    """Per-app, per-process cache of ALL platform settings (one query instead of one per lookup per page)."""
+    store = current_app.extensions.setdefault("mm_settings_cache", {"at": 0.0, "data": None})
+    if store["data"] is None or time.monotonic() - store["at"] > SETTINGS_TTL:
+        store["data"] = {r.key: r.value for r in db.session.query(PlatformSetting).all()}
+        store["at"] = time.monotonic()
+    return store
 
 
 def get_setting(key, default=""):
-    row = db.session.get(PlatformSetting, key)
-    return row.value if row and row.value is not None else PLATFORM_DEFAULTS.get(key, default)
+    value = _settings_cache()["data"].get(key)
+    return value if value is not None else PLATFORM_DEFAULTS.get(key, default)
+
+
+def clear_settings_cache():
+    current_app.extensions.pop("mm_settings_cache", None)
 
 
 def set_setting(key, value):
@@ -42,3 +63,4 @@ def set_setting(key, value):
         db.session.add(PlatformSetting(key=key, value=str(value)))
     else:
         row.value = str(value)
+    clear_settings_cache()

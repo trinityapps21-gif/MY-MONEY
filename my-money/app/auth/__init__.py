@@ -1,9 +1,10 @@
 import re
+import time
 from urllib.parse import urlparse
 
 import secrets
 
-from flask import Blueprint, Response, current_app, flash, redirect, render_template, request, session, url_for
+from flask import Blueprint, Response, current_app, flash, jsonify, redirect, render_template, request, session, url_for
 from flask_login import current_user, login_required, login_user, logout_user
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -11,6 +12,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from app.extensions import db, limiter
 from app.models import GroupMember, User, utcnow
 from app.services.audit import audit
+from app.services import turnstile
 from app.services.seed import get_setting, seed_defaults
 
 bp = Blueprint("auth", __name__)
@@ -72,9 +74,11 @@ def home_for(user):
     return url_for("groups.select")
 
 
-def _login(user, remember=False):
-    login_user(user, remember=remember)
+def _login(user):
+    """Start a session. No "remember me" cookie: sessions end after 30 idle minutes (see enforce_idle_timeout)."""
+    login_user(user, remember=False)
     session.permanent = True
+    session["last_activity"] = int(time.time())
     user.last_login_at = utcnow()
     audit("auth.login", "user", user.id, user_id=user.id)
     db.session.commit()
@@ -85,6 +89,8 @@ def _login(user, remember=False):
 def login():
     if current_user.is_authenticated:
         return redirect(home_for(current_user))
+    if request.method == "POST" and not turnstile.check_request():
+        return render_template("auth/login.html"), 400
     if request.method == "POST":
         ident = (request.form.get("identifier") or "").strip()
         password = request.form.get("password") or ""
@@ -95,10 +101,12 @@ def login():
             if user.status != "ACTIVE":
                 flash("This account has been suspended. Contact your group administrator.", "error")
             else:
-                _login(user, remember=bool(request.form.get("remember")))
+                _login(user)
                 return redirect(safe_next(request.args.get("next")) or home_for(user))
         else:
             flash("Incorrect phone/email or password.", "error")
+    if request.method == "GET" and request.args.get("idle") == "1":
+        flash(f"You were signed out after {current_app.config['IDLE_TIMEOUT_MINUTES']} minutes of inactivity. Please sign in again.", "info")
     return render_template("auth/login.html")
 
 
@@ -123,6 +131,8 @@ def register():
     if get_setting("allow_group_registration", "1") != "1":
         flash("New group registration is currently closed.", "error")
         return redirect(url_for("main.index"))
+    if request.method == "POST" and not current_user.is_authenticated and not turnstile.check_request():
+        return render_template("auth/register.html", **group_form_context()), 400
     if request.method == "POST":
         seed_defaults()
         user = current_user if current_user.is_authenticated else None
@@ -162,6 +172,12 @@ def make_reset_link(req):
     return url_for("auth.reset_password", token=token, _external=True)
 
 
+def revoke_biometrics(user):
+    """A password reset means the account may have been at risk: phones must be enrolled again."""
+    from app.biometric import revoke_all
+    revoke_all(user)
+
+
 def _find_user(ident):
     ident = (ident or "").strip()
     if not ident:
@@ -174,6 +190,8 @@ def _find_user(ident):
 def forgot_password():
     from app.models import PasswordResetRequest
     from app.services import notify
+    if request.method == "POST" and not turnstile.check_request():
+        return render_template("auth/forgot.html"), 400
     if request.method == "POST":
         user = _find_user(request.form.get("identifier"))
         note = (request.form.get("note") or "").strip()[:300] or None
@@ -214,6 +232,8 @@ def reset_password(token):
     except (BadSignature, SignatureExpired, KeyError):
         flash("This reset link is invalid or has expired. Ask your group administrator for a new one.", "error")
         return redirect(url_for("auth.forgot_password"))
+    if request.method == "POST" and not turnstile.check_request():
+        return render_template("auth/reset.html", token=token), 400
     if request.method == "POST":
         pw, confirm = request.form.get("password") or "", request.form.get("confirm_password") or ""
         err = "Passwords do not match." if pw != confirm else validate_password(pw)
@@ -221,6 +241,7 @@ def reset_password(token):
             flash(err, "error")
         else:
             user.password_hash = generate_password_hash(pw)
+            revoke_biometrics(user)
             req.status, req.completed_at = "COMPLETED", utcnow()
             audit("auth.password_reset", "user", user.id, user_id=user.id, group_id=req.decided_group_id)
             db.session.commit()
@@ -316,6 +337,8 @@ def new_recovery_code_request():
 @bp.route("/recover", methods=["GET", "POST"])
 @limiter.limit("5 per hour; 20 per day", methods=["POST"])
 def recover():
+    if request.method == "POST" and not turnstile.check_request():
+        return render_template("auth/recover.html"), 400
     if request.method == "POST":
         user = _find_user(request.form.get("identifier"))
         pw, confirm = request.form.get("password") or "", request.form.get("confirm_password") or ""
@@ -327,6 +350,7 @@ def recover():
                 check_password_hash(_DUMMY_HASH, "x")  # keep timing similar
             if user and user.status == "ACTIVE" and recovery_code_ok(user, request.form.get("recovery_code")):
                 user.password_hash = generate_password_hash(pw)
+                revoke_biometrics(user)
                 user.recovery_code_hash = user.recovery_code_created_at = None  # single use: a new one is issued at sign-in
                 audit("auth.password_reset_recovery_code", "user", user.id, user_id=user.id)
                 db.session.commit()
@@ -354,3 +378,12 @@ def change_password():
         db.session.commit()
         flash("Password changed.", "success")
     return redirect(request.referrer or url_for("groups.select"))
+
+
+@bp.route("/session/keepalive", methods=["POST"])
+@login_required
+@limiter.limit("60 per hour")
+def keepalive():
+    """Called by the page while the person is really using it (and from the 'Stay signed in' prompt).
+    The idle-timeout hook refreshes the session clock on every normal request, including this one."""
+    return jsonify(ok=True)

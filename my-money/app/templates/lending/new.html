@@ -5,19 +5,23 @@
 <div class="page-head"><div><h1>New loan</h1><p>Available cash: {{ money(cash) }}</p></div><a class="btn" href="{{ url_for('lending.index') }}">Back</a></div>
 <div class="split">
 <div class="card card-pad"><form method="post" id="loan-form">{{ csrf() }}
+{% if prefill.application_id %}<input type="hidden" name="application_id" value="{{ prefill.application_id }}"><div class="alert info field full">Creating a loan from application #{{ prefill.application_id }}.</div>{% endif %}
+{% if prefill.refinance_of %}<input type="hidden" name="refinance_of_id" value="{{ prefill.refinance_of.id }}"><div class="alert info field full">Refinancing {{ prefill.refinance_of.reference }}. The new principal must be at least {{ money(prefill.payoff) }} (what is owed today). On disbursement the old loan is settled automatically and interest on instalments not yet due is waived.</div>{% endif %}
 <div class="form-grid">
 <div class="field full"><label>Borrower</label><select name="borrower_id" required><option value="">Select borrower</option>{% for b in borrowers %}<option value="{{ b.id }}" {{ 'selected' if preselect == b.id }}>{{ b.name }}</option>{% endfor %}</select>{% if not borrowers %}<div class="hint">Register a <a href="{{ url_for('borrowers.new') }}">borrower</a> first.</div>{% endif %}</div>
-<div class="field"><label>Principal ({{ current_group.currency }})</label><input type="text" inputmode="decimal" name="principal" required></div>
+{% if products %}<div class="field full"><label>Loan product</label><select name="product_id" id="product"><option value="">Custom terms (no product)</option>{% for p in products %}<option value="{{ p.id }}" {{ 'selected' if prefill.product_id == p.id }} data-method="{{ p.method }}" data-rate="{{ p.rate_bp|pct }}" data-period="{{ p.rate_period }}" data-duration="{{ p.duration }}" data-unit="{{ p.duration_unit }}" data-freq="{{ p.frequency }}">{{ p.name }}</option>{% endfor %}</select><div class="hint">Choosing a product fills the terms and applies its fees and late penalty.</div></div>{% endif %}
+<div class="field"><label>Principal ({{ current_group.currency }})</label><input type="text" inputmode="decimal" name="principal" required value="{{ prefill.principal or '' }}"></div>
 <div class="field"><label>Interest method</label><select name="method">{% if s.flat_enabled %}<option value="FLAT">Flat interest</option>{% endif %}{% if s.reducing_enabled %}<option value="REDUCING">Reducing balance</option>{% endif %}</select></div>
-{% if s.allow_custom_rates %}<div class="field"><label>Interest rate (%)</label><input type="text" inputmode="decimal" name="rate" value="{{ s.default_rate_bp|pct }}" required><div class="hint">Allowed {{ s.min_rate_bp|pct }}% - {{ s.max_rate_bp|pct }}%</div></div>
+{% if s.allow_custom_rates or current_group.is_lender %}<div class="field"><label>Interest rate (%)</label><input type="text" inputmode="decimal" name="rate" value="{{ s.default_rate_bp|pct }}" required><div class="hint">{% if current_group.is_lender %}{% if lender_cap %}Maximum {{ lender_cap|pct }}% per month.{% endif %}{% else %}Allowed {{ s.min_rate_bp|pct }}% - {{ s.max_rate_bp|pct }}%{% endif %}</div></div>
 <div class="field"><label>Rate period</label><select name="rate_period">{% for k, v in periods.items() %}<option value="{{ k }}" {{ 'selected' if k == s.default_period }}>{{ v }}</option>{% endfor %}</select></div>
-{% else %}<div class="field full"><div class="alert info">Platform rate: {{ s.default_rate_bp|pct }}% {{ periods[s.default_period] }}.</div></div>{% endif %}
+{% else %}<div class="field full"><div class="alert info">Group rate: {{ s.default_rate_bp|pct }}% {{ periods[s.default_period] }}.</div></div>{% endif %}
 <div class="field"><label>Duration</label><input type="number" name="duration" min="1" value="3" required></div>
 <div class="field"><label>Duration unit</label><select name="duration_unit">{% for k, v in units.items() %}<option value="{{ k }}">{{ v|title }}</option>{% endfor %}</select></div>
 <div class="field"><label>Repayment frequency</label><select name="frequency">{% for k, v in freqs.items() %}<option value="{{ k }}">{{ v }}</option>{% endfor %}</select></div>
+{% if current_group.is_lender and officers %}<div class="field"><label>Loan officer</label><select name="officer_id"><option value="">Borrower's officer</option>{% for uid, n in officers %}<option value="{{ uid }}">{{ n }}</option>{% endfor %}</select></div>{% endif %}
 <div class="field"><label>Disbursement date</label><input type="date" name="disbursement_date" value="{{ today.isoformat() }}" required></div>
 <div class="field"><label>First repayment date</label><input type="date" name="first_repayment_date" required></div>
-<div class="field full"><label>Purpose</label><input type="text" name="purpose" maxlength="300"></div>
+<div class="field full"><label>Purpose</label><input type="text" name="purpose" maxlength="300" value="{{ prefill.purpose or '' }}"></div>
 <div class="field full"><label>Notes</label><textarea name="notes"></textarea></div></div>
 <div class="flex gap1 wrap"><button class="btn btn-primary" type="submit">Submit for approval</button><button class="btn" type="submit" name="draft" value="1">Save as draft</button></div></form></div>
 <div class="card"><div class="card-head"><h2>Repayment schedule</h2></div><div id="preview" class="card-body muted small">Fill in the loan terms to preview the full schedule.</div></div>
@@ -35,9 +39,16 @@
       const d = await MM.post("{{ url_for('lending.preview') }}", fd);
       box.innerHTML = '<div class="table-wrap"><table class="table"><thead><tr><th>#</th><th>Due</th><th class="num">Principal</th><th class="num">Interest</th><th class="num">Total</th></tr></thead><tbody>' +
         d.rows.map((r) => "<tr><td>" + r.n + "</td><td>" + esc(r.due) + '</td><td class="num">' + esc(r.principal) + '</td><td class="num">' + esc(r.interest) + '</td><td class="num">' + esc(r.total) + "</td></tr>").join("") +
-        '</tbody></table></div><dl class="kv mt2"><dt>Total interest</dt><dd>' + esc(d.totals.interest) + "</dd><dt>Total repayable</dt><dd>" + esc(d.totals.total) + "</dd><dt>Instalments</dt><dd>" + d.totals.count + "</dd></dl>";
+        '</tbody></table></div><dl class="kv mt2"><dt>Total interest</dt><dd>' + esc(d.totals.interest) + "</dd><dt>Total repayable</dt><dd>" + esc(d.totals.total) + "</dd>" + (d.totals.fees_raw > 0 ? "<dt>Fees at disbursement</dt><dd>" + esc(d.totals.fees) + "</dd><dt>Borrower receives</dt><dd>" + esc(d.totals.net) + "</dd>" : "") + "<dt>Instalments</dt><dd>" + d.totals.count + "</dd></dl>";
     } catch (e) { box.innerHTML = '<div class="alert error mb0">' + esc(e.message) + "</div>"; }
   }
+  const prod = document.getElementById("product");
+  if (prod) prod.addEventListener("change", () => {
+    const o = prod.selectedOptions[0]; if (!o || !o.value) return;
+    const set = (n, v) => { const e = form.elements[n]; if (e && v) e.value = v; };
+    set("method", o.dataset.method); set("rate", o.dataset.rate); set("rate_period", o.dataset.period);
+    set("duration", o.dataset.duration); set("duration_unit", o.dataset.unit); set("frequency", o.dataset.freq);
+  });
   form.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(run, 400); });
   form.addEventListener("change", () => { clearTimeout(timer); timer = setTimeout(run, 200); });
 })();

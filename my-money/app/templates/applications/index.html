@@ -1,0 +1,10 @@
+{% extends "shell_group.html" %}
+{% from "partials/macros.html" import empty, pager %}
+{% block title %}Loan applications{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Loan applications</h1><p>Requests waiting for appraisal and a decision.</p></div><a class="btn btn-primary" href="{{ url_for('applications.new') }}"><i data-lucide="plus"></i>New application</a></div>
+<div class="card"><div class="card-head"><form class="filters" method="get"><select name="status" onchange="this.form.submit()"><option value="">All</option>{% for k, v in labels.items() %}<option value="{{ k }}" {{ 'selected' if status == k }}>{{ v }}</option>{% endfor %}</select></form></div>
+{% if page.items %}<div class="table-wrap"><table class="table"><thead><tr><th>#</th><th>Borrower</th><th class="num">Requested</th><th>Product</th><th>Status</th><th>Date</th></tr></thead><tbody>
+{% for a in page.items %}<tr><td><a href="{{ url_for('applications.detail', app_id=a.id) }}">#{{ a.id }}</a></td><td>{{ a.borrower.name }}</td><td class="num">{{ money(a.amount) }}</td><td>{{ a.product.name if a.product else '-' }}</td><td><span class="pill {{ 'green' if a.status in ('APPROVED','CONVERTED') else ('red' if a.status == 'REJECTED' else 'amber') }}">{{ labels[a.status] }}</span></td><td>{{ a.created_at|ldt('%d %b %Y') }}</td></tr>{% endfor %}</tbody></table></div>{{ pager(page) }}
+{% else %}{{ empty('clipboard-list', 'No applications yet', 'Record a request here, appraise it, then create the loan from it.') }}{% endif %}</div>
+{% endblock %}

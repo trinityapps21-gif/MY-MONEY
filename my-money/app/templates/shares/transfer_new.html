@@ -1,0 +1,16 @@
+{% extends "shell_group.html" %}
+{% from "partials/macros.html" import csrf %}
+{% block title %}Transfer shares{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Transfer shares</h1><a class="btn" href="{{ url_for('shares.mine') }}">Back</a></div>
+<div class="card card-pad" style="max-width:720px"><form method="post">{{ csrf() }}
+<div class="form-grid">
+{% if is_official %}<div class="field full"><label>From (seller)</label><select name="seller_id" required><option value="">Select member</option>{% for m in members %}<option value="{{ m.id }}">{{ m.user.full_name }} ({{ held.get(m.id, 0) }} shares)</option>{% endfor %}</select></div>
+{% else %}<div class="field full"><label>From</label><input type="text" value="{{ current_user.full_name }} ({{ held.get(mine.id, 0) }} shares)" disabled></div>{% endif %}
+<div class="field full"><label>To (buyer, a member of this group)</label><select name="buyer_id" required><option value="">Select member</option>{% for m in members if m.id != mine.id or is_official %}<option value="{{ m.id }}">{{ m.user.full_name }}</option>{% endfor %}</select></div>
+<div class="field"><label>Number of shares</label><input type="text" inputmode="numeric" name="units" required></div>
+<div class="field"><label>Price per share ({{ current_group.currency }})</label><input type="text" inputmode="decimal" name="unit_price" placeholder="{{ money_plain(s.share_price) }}"></div>
+<div class="field full"><label>Notes</label><input type="text" name="note" maxlength="300"></div></div>
+<p class="muted">The price is agreed between the two members. An official reviews the request before the shares move.</p>
+<button class="btn btn-primary" type="submit">Send transfer request</button></form></div>
+{% endblock %}

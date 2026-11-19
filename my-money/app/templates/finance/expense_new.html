@@ -1,0 +1,23 @@
+{% extends "shell_group.html" %}
+{% from "partials/macros.html" import csrf %}
+{% block title %}New expense{% endblock %}
+{% block content %}
+<div class="page-head"><h1>New expense</h1><a class="btn" href="{{ url_for('finance.expenses') }}">Back</a></div>
+<div class="card card-pad" style="max-width:820px"><form method="post">{{ csrf() }}
+<div class="form-grid">
+<div class="field full"><label>Title (for example: Annual meeting 2026)</label><input type="text" name="title" maxlength="300" required></div>
+<div class="field"><label>Category</label><select name="category">{% for c in cats %}<option>{{ c.name }}</option>{% endfor %}</select></div>
+<div class="field"><label>Or create a new category</label><input type="text" name="new_category" maxlength="60"></div>
+<div class="field"><label>Date</label><input type="date" name="expense_date" value="{{ today.isoformat() }}" required></div>
+<div class="field"><label>Payment method</label><select name="payment_method">{% for m in methods %}<option>{{ m }}</option>{% endfor %}</select></div></div>
+<h3 class="mb2 mt2">Items</h3>
+<div class="table-wrap"><table class="table"><thead><tr><th>Item</th><th>Amount ({{ current_group.currency }})</th></tr></thead><tbody id="items">
+{% for _ in range(6) %}<tr><td><input type="text" name="item_name" maxlength="120" placeholder="e.g. Venue"></td><td><input type="text" inputmode="decimal" name="item_amount" class="item-amt"></td></tr>{% endfor %}
+<tr><td><b>Total</b></td><td><b id="total">0</b></td></tr></tbody></table></div>
+<button class="btn" type="button" id="addrow"><i data-lucide="plus"></i>Add another item</button>
+<div class="mt2"><button class="btn btn-primary" type="submit">Save expense</button></div></form></div>
+<script>
+(function(){var t=document.getElementById('items');function sum(){var s=0;document.querySelectorAll('.item-amt').forEach(function(i){var v=parseFloat((i.value||'').replace(/,/g,''));if(!isNaN(v))s+=v;});document.getElementById('total').textContent=s.toLocaleString();}
+t.addEventListener('input',sum);document.getElementById('addrow').addEventListener('click',function(){var tr=document.createElement('tr');tr.innerHTML='<td><input type="text" name="item_name" maxlength="120"></td><td><input type="text" inputmode="decimal" name="item_amount" class="item-amt"></td>';t.insertBefore(tr,t.lastElementChild);});})();
+</script>
+{% endblock %}

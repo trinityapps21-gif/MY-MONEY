@@ -24,7 +24,17 @@ REPORT_TITLES = {
     "monthly": "Monthly Financial Report",
     "annual": "Annual Financial Report",
     "statement": "Complete Group Financial Statement",
+    "fees_penalties": "Fees & Penalties Income Report",
+    "par_aging": "Portfolio at Risk & Ageing Report",
+    "officer_performance": "Loan Officer Performance Report",
 }
+SAVINGS_ONLY = {"savings", "member_contributions", "member_statement"}
+LENDER_ONLY = {"fees_penalties", "par_aging", "officer_performance"}
+
+
+def titles_for(group):
+    return {k: v for k, v in REPORT_TITLES.items()
+            if k not in (SAVINGS_ONLY if group.is_lender else LENDER_ONLY)}
 REPORT_HELP = {
     "savings": "Every contribution and savings deposit in the period.",
     "member_contributions": "Totals and ranking for every active member.",
@@ -37,11 +47,14 @@ REPORT_HELP = {
     "monthly": "Cash flow and position for a single month.",
     "annual": "Month-by-month cash flow for a year.",
     "statement": "Full ledger with position summary and reconciliation.",
+    "fees_penalties": "Processing/insurance fees and late-payment penalties collected.",
+    "par_aging": "Loans in arrears by age, with portfolio at risk (PAR) ratios.",
+    "officer_performance": "Loans, collections and arrears for each loan officer.",
 }
 TX_LABELS = {
     "CONTRIBUTION": "Contribution", "SAVINGS_ADDITIONAL": "Voluntary savings",
     "LOAN_DISBURSEMENT": "Loan disbursement", "PRINCIPAL_REPAYMENT": "Principal repayment",
-    "INTEREST_REPAYMENT": "Interest repayment", "PENALTY": "Penalty", "EXPENSE": "Expense",
+    "INTEREST_REPAYMENT": "Interest repayment", "PENALTY": "Penalty", "FEE": "Loan fee", "EXPENSE": "Expense",
     "ADJUSTMENT": "Adjustment",
 }
 MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October",
@@ -77,13 +90,18 @@ def _clip(q, col, start, end):
     return q
 
 
+def _extra():
+    from app.services import reports_extra
+    return reports_extra
+
+
 def build(key, group, today, start=None, end=None, member_id=None, month=None, year=None) -> Report:
     fn = {
         "savings": _savings, "member_contributions": _member_contributions, "member_statement": _member_statement,
         "loan_disbursements": _disbursements, "loan_repayments": _repayments, "outstanding_loans": _outstanding,
-        "overdue_loans": _overdue, "interest_income": _interest, "monthly": _monthly, "annual": _annual,
+        "overdue_loans": _overdue, "interest_income": _interest, "fees_penalties": _fees_penalties, "par_aging": _par_aging, "officer_performance": _officer_performance, "monthly": _monthly, "annual": _annual,
         "statement": _statement,
-    }.get(key)
+    }.get(key) or _extra().BUILDERS.get(key)
     if fn is None:
         raise KeyError(key)
     return fn(group, today, start, end, member_id=member_id, month=month, year=year)
@@ -249,6 +267,61 @@ def _tx_rows(group, start, end):
     return rows
 
 
+def _fees_penalties(group, today, start, end, **_):
+    q = _clip(Transaction.query.filter(Transaction.group_id == group.id,
+                                       Transaction.tx_type.in_(("FEE", "PENALTY"))), Transaction.tx_date, start, end)
+    rows = [[t.tx_date, t.reference, TX_LABELS.get(t.tx_type, t.tx_type), t.description or "",
+             t.amount if t.direction == "IN" else -t.amount] for t in q.order_by(Transaction.tx_date, Transaction.id)]
+    t = ledger.totals(group.id, start, end)
+    return Report("fees_penalties", REPORT_TITLES["fees_penalties"], _range_label(start, end),
+                  [("Date", "date"), ("Reference", "text"), ("Type", "text"), ("Description", "text"),
+                   ("Amount", "money")], rows,
+                  [("Loan fees collected", t["fees"], "money"), ("Penalties collected", t["penalties"], "money"),
+                   ("Total", t["fees"] + t["penalties"], "money")])
+
+
+def _par_aging(group, today, start, end, **_):
+    from app.services import collections as col
+    a = col.aging(group, today)
+    rows = [[r["loan"].reference, r["loan"].borrower.name, r["bucket"], r["days"], r["overdue"], r["principal"]]
+            for r in a["rows"]]
+    summary = [("Loan book (principal outstanding)", a["book"], "money")]
+    for x, label in ((0, "PAR 1+ days"), (30, "PAR 30+ days"), (60, "PAR 60+ days"), (90, "PAR 90+ days")):
+        summary.append((label + " (amount)", a["par"][x], "money"))
+        summary.append((label + " (% of book)", round(a["par_pct"][x], 2), "pct"))
+    for name, (count, principal) in a["totals"].items():
+        summary.append((f"{name}: {count} loan(s)", principal, "money"))
+    return Report("par_aging", REPORT_TITLES["par_aging"], f"As at {today:%d %b %Y}",
+                  [("Loan", "text"), ("Borrower", "text"), ("Age bucket", "text"), ("Days late", "int"),
+                   ("Overdue amount", "money"), ("Principal outstanding", "money")], rows, summary)
+
+
+def _officer_performance(group, today, start, end, **_):
+    from app.models import Loan, LoanRepayment, User
+    from app.services import collections as col, loans as loan_svc
+    names = {u.id: u.full_name for u in User.query.all()}
+    data = {}
+    for ln in Loan.query.filter(Loan.group_id == group.id, Loan.disbursement_tx_id.isnot(None)).all():
+        d = data.setdefault(ln.officer_id, {"loans": 0, "disbursed": 0, "out": 0, "arrears": 0, "collected": 0})
+        d["loans"] += 1
+        d["disbursed"] += ln.principal
+        if ln.status in loan_svc.ACTIVE_STATES:
+            p, _i = loan_svc.outstanding(ln)
+            d["out"] += p
+            if col.days_late(ln, today) > 30:
+                d["arrears"] += p
+        q = LoanRepayment.query.filter(LoanRepayment.loan_id == ln.id, LoanRepayment.status == "POSTED")
+        q = _clip(q, LoanRepayment.payment_date, start, end)
+        d["collected"] += sum(r.amount for r in q.all())
+    rows = [[names.get(oid, "Unassigned") if oid else "Unassigned", d["loans"], d["disbursed"], d["collected"], d["out"],
+             d["arrears"], round(d["arrears"] * 100.0 / d["out"], 2) if d["out"] else 0.0]
+            for oid, d in sorted(data.items(), key=lambda kv: -kv[1]["out"])]
+    return Report("officer_performance", REPORT_TITLES["officer_performance"], _range_label(start, end),
+                  [("Officer", "text"), ("Loans", "int"), ("Disbursed", "money"), ("Collected (period)", "money"),
+                   ("Outstanding", "money"), ("Principal 30+ days late", "money"), ("PAR 30 %", "pct")], rows,
+                  [("Officers", len(rows), "int")])
+
+
 def _monthly(group, today, start, end, month=None, **_):
     first, last = _month_bounds(month or f"{today:%Y-%m}")
     t = ledger.totals(group.id, first, last)
@@ -260,6 +333,7 @@ def _monthly(group, today, start, end, month=None, **_):
                   [("Opening cash", opening, "money"), ("Contributions & savings", t["total_savings"], "money"),
                    ("Loans disbursed", t["disbursed"], "money"), ("Principal repaid", t["principal_repaid"], "money"),
                    ("Interest collected", t["interest_collected"], "money"), ("Penalties", t["penalties"], "money"),
+                   ("Loan fees", t["fees"], "money"),
                    ("Expenses", t["expenses"], "money"), ("Closing cash", ledger.totals(group.id, None, last)["cash"],
                                                           "money")])
 
@@ -307,3 +381,10 @@ def _statement(group, today, start, end, **_):
                   f"As at {today:%d %b %Y}",
                   [("Date", "date"), ("Reference", "text"), ("Type", "text"), ("Description", "text"),
                    ("Money in", "money"), ("Money out", "money")], rows, summary, notes)
+
+
+# register the extra reports (officials only) in the shared title/help tables
+from app.services import reports_extra as _rx  # noqa: E402
+
+REPORT_TITLES.update(_rx.TITLES)
+REPORT_HELP.update(_rx.HELP)

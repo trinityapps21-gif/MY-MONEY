@@ -3,7 +3,7 @@
 {% from "savings/_rows.html" import rows %}
 {% block title %}Savings{% endblock %}
 {% block content %}
-<div class="page-head"><div><h1>Savings</h1><p>Member contributions</p></div><a class="btn btn-primary" href="{{ url_for('savings.new') }}"><i data-lucide="plus"></i>Record contribution</a></div>
+<div class="page-head"><div><h1>Savings</h1><p>Member contributions</p></div><div class="row gap1"><a class="btn" href="{{ url_for('savings.withdrawals') }}"><i data-lucide="arrow-up-from-line"></i>Withdrawals</a><a class="btn btn-primary" href="{{ url_for('savings.new') }}"><i data-lucide="plus"></i>Record contribution</a></div></div>
 <div class="grid g4 mb2">{{ stat('This month', money(month), 'calendar') }}{{ stat('This year', money(year), 'piggy-bank', 'green') }}{{ stat('Members contributed', contributed ~ ' / ' ~ total_members, 'users') }}{{ stat('Missed (expected vs actual)', money(missed), 'alert-triangle', 'amber') }}</div>
 <div class="card">
 <div class="card-head"><form class="filters" method="get" style="width:100%"><div class="search"><i data-lucide="search"></i><input type="search" name="q" value="{{ q }}" placeholder="Search member, receipt or reference"></div>

@@ -5,7 +5,7 @@
 <div class="page-head"><h1>Record transaction</h1></div>
 <form class="card card-pad" method="post" style="max-width:640px" data-once>{{ csrf() }}
 <div class="form-grid">
-<div class="field"><label>Type</label><select name="tx_type" id="txt"><option value="EXPENSE" {{ 'selected' if preselect == 'EXPENSE' }}>Expense (money out)</option><option value="PENALTY" {{ 'selected' if preselect == 'PENALTY' }}>Penalty (money in)</option><option value="ADJUSTMENT" {{ 'selected' if preselect == 'ADJUSTMENT' }}>Adjustment</option></select></div>
+<div class="field"><label>Type</label><select name="tx_type" id="txt"><option value="EXPENSE" {{ 'selected' if preselect == 'EXPENSE' }}>Expense (money out)</option><option value="PENALTY" {{ 'selected' if preselect == 'PENALTY' }}>Penalty (money in)</option><option value="ADJUSTMENT" {{ 'selected' if preselect == 'ADJUSTMENT' }}>{{ 'Capital in / adjustment' if current_group.is_lender else 'Adjustment' }}</option></select></div>
 <div class="field"><label>Amount ({{ current_group.currency }})</label><input type="number" name="amount" step="any" min="0" required></div>
 <div class="field"><label>Date</label><input type="date" name="tx_date" value="{{ today }}" required></div>
 <div class="field"><label>Direction (adjustments only)</label><select name="direction"><option value="IN">Money in</option><option value="OUT">Money out</option></select></div>

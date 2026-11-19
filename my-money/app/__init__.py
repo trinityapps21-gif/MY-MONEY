@@ -1,11 +1,14 @@
 """MY MONEY - multi-tenant savings group and lending platform.
 Developed and Powered by Emtrixz Technology Company."""
 import logging
+import os
+import time
 
 import click
-from flask import Flask, abort, g, jsonify, render_template, request, url_for
-from flask_login import current_user
-from sqlalchemy import event, text
+import json
+from flask import Flask, abort, flash, g, jsonify, redirect, render_template, request, session, url_for
+from flask_login import current_user, logout_user
+from sqlalchemy import event, inspect, text
 from sqlalchemy.engine import Engine
 from werkzeug.middleware.proxy_fix import ProxyFix
 
@@ -22,6 +25,70 @@ def _sqlite_fk_pragma(dbapi_conn, _):
         cur.close()
     except Exception:  # pragma: no cover
         pass
+
+
+def _sql_literal(value):
+    """Render a simple Python default as a SQL literal, or None if unsupported."""
+    if isinstance(value, bool):
+        return "1" if value else "0"
+    if isinstance(value, (int, float)):
+        return str(value)
+    if isinstance(value, str):
+        return "'" + value.replace("'", "''") + "'"
+    return None
+
+
+def sync_schema(app=None):
+    """Bring the live database in line with the models, additively.
+
+    1. Creates tables that do not exist yet (db.create_all never touches
+       existing tables).
+    2. Adds columns that exist in a model but not in the database.
+
+    It never drops, renames or retypes anything, so it is safe to run
+    repeatedly. Returns (added_columns, errors) and never raises.
+    Must be called inside an app context.
+    """
+    log = logging.getLogger("app.schema")
+    added, errors = [], []
+    try:
+        db.create_all()
+    except Exception as exc:
+        log.exception("create_all failed")
+        errors.append(f"create_all: {exc}")
+        return added, errors
+
+    try:
+        engine = db.engine
+        insp = inspect(engine)
+        prep = engine.dialect.identifier_preparer
+        existing_tables = set(insp.get_table_names())
+        for table in db.metadata.sorted_tables:
+            if table.name not in existing_tables:
+                continue
+            live = {c["name"] for c in insp.get_columns(table.name)}
+            for col in table.columns:
+                if col.name in live or col.primary_key:
+                    continue
+                ddl_type = col.type.compile(dialect=engine.dialect)
+                default_sql = None
+                if col.default is not None and getattr(col.default, "is_scalar", False):
+                    default_sql = _sql_literal(col.default.arg)
+                stmt = f"ALTER TABLE {prep.quote(table.name)} ADD COLUMN {prep.quote(col.name)} {ddl_type}"
+                if default_sql is not None:
+                    stmt += f" DEFAULT {default_sql}"
+                try:
+                    with engine.begin() as conn:
+                        conn.execute(text(stmt))
+                    added.append(f"{table.name}.{col.name}")
+                    log.warning("Added missing column %s.%s", table.name, col.name)
+                except Exception as exc:
+                    log.exception("Could not add column %s.%s", table.name, col.name)
+                    errors.append(f"{table.name}.{col.name}: {exc}")
+    except Exception as exc:
+        log.exception("Column sync failed")
+        errors.append(f"column sync: {exc}")
+    return added, errors
 
 
 def create_app(overrides=None):
@@ -41,9 +108,19 @@ def create_app(overrides=None):
     login_manager.init_app(app)
     csrf.init_app(app)
     limiter.init_app(app)
+    if not app.config.get("TESTING"):
+        from flask_compress import Compress
+        Compress(app)  # gzip/brotli: HTML, JSON, CSS and JS are 3-5x smaller on a phone connection
 
     from app import models  # noqa: F401  (register tables)
     from app.models import User
+
+    # Startup sync is OFF by default because every check is a network round
+    # trip to Turso and can make boot exceed the worker timeout (502s).
+    # Prefer `flask sync-schema`. Set AUTO_SCHEMA_SYNC=1 only to force it.
+    if overrides is None and os.environ.get("AUTO_SCHEMA_SYNC", "0") == "1":
+        with app.app_context():
+            sync_schema(app)
 
     @login_manager.user_loader
     def load_user(user_id):
@@ -59,8 +136,14 @@ def create_app(overrides=None):
 
 
 def register_blueprints(app):
+    from app.products import bp as products_bp
+    from app.collections import bp as collections_bp
+    from app.applications import bp as applications_bp
+    from app.portal import bp as portal_bp
+    from app.capital import bp as capital_bp
     from app.announcements import bp as announcements_bp
     from app.auth import bp as auth_bp
+    from app.biometric import bp as biometric_bp
     from app.borrowers import bp as borrowers_bp
     from app.community import bp as community_bp
     from app.feed import bp as feed_bp
@@ -75,9 +158,16 @@ def register_blueprints(app):
     from app.repayments import bp as repayments_bp
     from app.reports import bp as reports_bp
     from app.savings import bp as savings_bp
+    from app.shares import bp as shares_bp
+    from app.rules import bp as rules_bp
+    from app.fines import bp as fines_bp
+    from app.schedules import bp as schedules_bp
+    from app.finance import bp as finance_bp
 
     for bp in (main_bp, auth_bp, groups_bp, members_bp, savings_bp, borrowers_bp, lending_bp, repayments_bp,
-               feed_bp, community_bp, announcements_bp, reports_bp, notifications_bp, files_bp, platform_bp, imports_bp):
+               feed_bp, community_bp, announcements_bp, reports_bp, notifications_bp, files_bp, platform_bp, imports_bp,
+               shares_bp, rules_bp, fines_bp, schedules_bp, finance_bp, products_bp,
+               collections_bp, applications_bp, portal_bp, capital_bp, biometric_bp):
         app.register_blueprint(bp)
 
 
@@ -108,6 +198,14 @@ def register_template_helpers(app):
     def money_plain(v):
         c, d = _cur()
         return m.fmt(v, c, d, prefix=False)
+
+    @app.template_filter("inp")
+    def _inp(minor, decimals=0):
+        """Minor units -> plain editable number for a form field (no trailing .0)."""
+        if minor is None:
+            return ""
+        d = int(decimals or 0)
+        return f"{minor / (10 ** d):.{d}f}"
 
     @app.template_filter("pct")
     def pct(bp):
@@ -170,24 +268,53 @@ def register_template_helpers(app):
     def inject():
         unread, group_count, pending, resets = 0, 0, 0, 0
         if current_user.is_authenticated:
-            from app.models import GroupMember, MemberApplication, Notification
-            unread = Notification.query.filter_by(user_id=current_user.id, is_read=False).count()
-            group_count = GroupMember.query.filter_by(user_id=current_user.id, status="ACTIVE").count()
-            if g.get("group") is not None and g.get("is_official"):
-                pending = MemberApplication.query.filter_by(group_id=g.group.id, status="PENDING").count()
-                from app.models import PasswordResetRequest
-                ids = db.session.query(GroupMember.user_id).filter(GroupMember.group_id == g.group.id,
-                                                                  GroupMember.status == "ACTIVE")
-                resets = PasswordResetRequest.query.filter(PasswordResetRequest.status == "PENDING",
-                                                           PasswordResetRequest.user_id.in_(ids.scalar_subquery()),
-                                                           PasswordResetRequest.user_id != current_user.id).count()
+            from sqlalchemy import func, select
+            from app.models import GroupMember, MemberApplication, Notification, PasswordResetRequest
+            uid = current_user.id
+            official = g.get("group") is not None and g.get("is_official")
+            cols = [
+                select(func.count(Notification.id)).where(Notification.user_id == uid, Notification.is_read.is_(False)).scalar_subquery(),
+                select(func.count(GroupMember.id)).where(GroupMember.user_id == uid, GroupMember.status == "ACTIVE").scalar_subquery(),
+            ]
+            if official:
+                gid = g.group.id
+                members = select(GroupMember.user_id).where(GroupMember.group_id == gid, GroupMember.status == "ACTIVE")
+                cols.append(select(func.count(MemberApplication.id)).where(
+                    MemberApplication.group_id == gid, MemberApplication.status == "PENDING").scalar_subquery())
+                cols.append(select(func.count(PasswordResetRequest.id)).where(
+                    PasswordResetRequest.status == "PENDING", PasswordResetRequest.user_id.in_(members.scalar_subquery()),
+                    PasswordResetRequest.user_id != uid).scalar_subquery())
+            # ONE round trip to the database for all four menu counters (was four).
+            row = db.session.execute(select(*cols)).one()
+            unread, group_count = row[0] or 0, row[1] or 0
+            if official:
+                pending, resets = row[2] or 0, row[3] or 0
         return {
             "platform_name": get_setting("platform_name", "MY MONEY"),
             "company_line": "Developed and Powered by Emtrixz Technology Company.",
             "current_group": g.get("group"), "membership": g.get("membership"),
             "is_official": g.get("is_official", False), "unread_count": unread, "my_group_count": group_count,
             "pending_count_nav": pending, "reset_count_nav": resets, "ROLE_LABELS": ROLE_LABELS, "STATUS_LABELS": STATUS_LABELS,
+            "turnstile_site_key": app.config.get("TURNSTILE_SITE_KEY", "") if app.config.get("TURNSTILE_SECRET_KEY") else "",
+            "idle_timeout_seconds": int(app.config["IDLE_TIMEOUT_MINUTES"]) * 60,
+            "idle_warning_seconds": int(app.config["IDLE_WARNING_SECONDS"]),
+            "biometric_installed_only": bool(app.config.get("BIOMETRIC_INSTALLED_APP_ONLY", True)),
         }
+
+
+_static_versions: dict = {}
+
+
+def _static_version(app, filename):
+    """File modification time, cached: lets /static files be cached for a year and refresh the moment they change."""
+    v = _static_versions.get(filename)
+    if v is None:
+        try:
+            v = str(int(os.path.getmtime(os.path.join(app.static_folder, filename))))
+        except OSError:
+            v = "0"
+        _static_versions[filename] = v
+    return v
 
 
 def register_hooks(app):
@@ -200,9 +327,39 @@ def register_hooks(app):
         if app.url_map.is_endpoint_expecting(endpoint, "group_id"):
             values["group_id"] = g.group.id
 
+    @app.url_defaults
+    def version_static(endpoint, values):
+        if endpoint == "static" and "v" not in values and values.get("filename"):
+            values["v"] = _static_version(app, values["filename"])
+
+    @app.before_request
+    def enforce_idle_timeout():
+        """Sign out after IDLE_TIMEOUT_MINUTES (default 30) without activity. Enforced here on the server, so it
+        holds for the website and the installed phone app alike, whatever the browser's own timers do."""
+        if request.endpoint in (None, "static") or not current_user.is_authenticated:
+            if "last_activity" in session:
+                session.pop("last_activity", None)
+            return
+        now, limit = int(time.time()), int(app.config["IDLE_TIMEOUT_MINUTES"]) * 60
+        last = session.get("last_activity")
+        if last is not None and now - int(last) > limit:
+            logout_user()
+            session.clear()
+            msg = f"You were signed out after {int(app.config['IDLE_TIMEOUT_MINUTES'])} minutes of inactivity. Please sign in again."
+            if request.path.startswith("/api/") or request.headers.get("X-Requested-With") == "fetch" \
+                    or request.accept_mimetypes.best == "application/json":
+                return jsonify(error=msg, code="idle_timeout"), 401
+            flash(msg, "info")
+            nxt = request.full_path.rstrip("?") if request.method == "GET" else None
+            return redirect(url_for("auth.login", next=nxt) if nxt else url_for("auth.login"))
+        if request.headers.get("X-Mm-Passive") != "1":  # background checks must not keep a session alive
+            session["last_activity"] = now
+            session.permanent = True
+
     @app.before_request
     def maintenance_mode():
-        if request.endpoint in (None, "static", "main.health", "auth.login", "auth.logout"):
+        if request.endpoint in (None, "static", "main.health", "auth.login",
+                            "auth.logout"):
             return
         try:
             from app.services.seed import get_setting
@@ -217,11 +374,13 @@ def register_hooks(app):
         resp.headers.setdefault("X-Content-Type-Options", "nosniff")
         resp.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
         resp.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
-        resp.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+        resp.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=(), publickey-credentials-get=(self), publickey-credentials-create=(self)")
         if app.config.get("IS_PRODUCTION"):
             resp.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
         if request.endpoint and request.endpoint != "static" and "files." not in request.endpoint:
             resp.headers.setdefault("Cache-Control", "no-store")
+        elif request.endpoint == "static" and request.args.get("v"):
+            resp.headers["Cache-Control"] = f"public, max-age={app.config.get('STATIC_MAX_AGE', 31536000)}, immutable"
         return resp
 
 
@@ -251,6 +410,21 @@ def register_errors(app):
 
 def register_cli(app):
     from app.services.seed import seed_defaults
+
+    @app.cli.command("sync-schema")
+    def sync_schema_cmd():
+        """Create missing tables and add missing columns (additive, idempotent)."""
+        added, errors = sync_schema(app)
+        if added:
+            click.echo("Added columns: " + ", ".join(added))
+        else:
+            click.echo("No missing columns.")
+        if errors:
+            click.echo("Problems:")
+            for err in errors:
+                click.echo(f"  - {err}")
+        else:
+            click.echo("Schema is in sync.")
 
     @app.cli.command("seed")
     def seed_cmd():
@@ -290,7 +464,6 @@ def register_cli(app):
     @app.cli.command("bootstrap-platform-admin")
     def bootstrap_admin():
         """Non-interactive, idempotent admin creation from environment variables."""
-        import os
         from app.auth import validate_password, normalize_phone
         from app.models import User
         from app.services.audit import audit

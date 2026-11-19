@@ -1,9 +1,11 @@
 {% extends "shell_group.html" %}
-{% from "partials/macros.html" import stat, empty, pager %}
+{% from "partials/macros.html" import stat, empty, pager, csrf %}
 {% from "savings/_rows.html" import rows %}
 {% block title %}My contributions{% endblock %}
 {% block content %}
-<div class="page-head"><h1>My contributions</h1></div>
+<div class="page-head"><h1>My contributions</h1><a class="btn btn-primary" href="{{ url_for('savings.withdraw') }}"><i data-lucide="arrow-up-from-line"></i>Withdraw savings</a></div>
+<div class="card card-pad mb2"><b>Available to withdraw: {{ money(available) }}</b><div class="muted small">The group keeps a minimum balance of {{ money(minimum) }}.</div>
+{% for w in withdrawals if w.status == 'PENDING' %}<div class="list-row"><div class="grow">Pending request: {{ money(w.amount) }}</div><form method="post" action="{{ url_for('savings.withdrawal_cancel', wid=w.id) }}">{{ csrf() }}<button class="btn btn-sm">Cancel</button></form></div>{% endfor %}</div>
 <div class="grid g3 mb2">{{ stat('My total savings', money(total), 'piggy-bank', 'green') }}{{ stat('Expected to date', money(expected), 'target') }}{{ stat('Difference', money(total - expected), 'scale', 'amber') }}</div>
 <div class="card">{% if page.items %}<div class="table-wrap"><table class="table"><thead><tr><th>Date</th><th>Type</th><th class="num">Amount</th><th>Method</th><th>Receipt</th><th></th></tr></thead><tbody>{{ rows(page.items, reversed_ids, {'WEEKLY':'Weekly','MONTHLY':'Monthly','CUSTOM':'Custom','VOLUNTARY':'Voluntary savings'}, False, False) }}</tbody></table></div>{{ pager(page) }}
 {% else %}{{ empty('piggy-bank', 'No contributions yet') }}{% endif %}</div>

@@ -2,23 +2,17 @@
    Privacy first: pages (HTML), group data, uploaded files and every POST always go straight to the network and are NEVER stored.
    Only the app's own CSS/JS/images and the icon/font libraries are cached, so the app opens fast and shows a friendly page offline.
    Bump VERSION whenever this file changes. */
-const VERSION = "mm-v1";
+const VERSION = "mm-v3";
 const STATIC_CACHE = "mm-static-" + VERSION;
 const OFFLINE_URL = "/static/offline.html";
 const PRECACHE = [
   OFFLINE_URL,
   "/static/img/icon-192.png",
   "/static/img/logo.png",
-  "/static/img/favicon.png",
-  "/static/css/app.css",
-  "/static/css/responsive.css",
-  "/static/css/icons.css",
-  "/static/css/pwa.css",
-  "/static/js/app.js",
-  "/static/js/responsive.js",
-  "/static/js/pwa.js"
+  "/static/img/favicon.png"
 ];
-const CDN_HOSTS = ["unpkg.com", "cdn.jsdelivr.net", "fonts.googleapis.com", "fonts.gstatic.com"];
+// Icons and charts are now served from this site (static/vendor); only the web font still comes from a CDN.
+const CDN_HOSTS = ["fonts.googleapis.com", "fonts.gstatic.com"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil((async () => {
@@ -41,7 +35,7 @@ async function networkFirst(request) {
   const cache = await caches.open(STATIC_CACHE);
   try {
     const fresh = await fetch(request);
-    if (fresh && fresh.ok) cache.put(request, fresh.clone());
+    if (fresh && fresh.status === 200) cache.put(request, fresh.clone());
     return fresh;
   } catch (err) {
     const hit = await cache.match(request);
@@ -55,13 +49,15 @@ async function cacheFirst(request) {
   const hit = await cache.match(request);
   if (hit) return hit;
   const fresh = await fetch(request);
-  if (fresh && (fresh.ok || fresh.type === "opaque")) cache.put(request, fresh.clone());
+  if (fresh && (fresh.status === 200 || fresh.type === "opaque")) cache.put(request, fresh.clone());
   return fresh;
 }
 
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET") return;                       // never touch forms or API writes
+  // Video/audio use Range requests (needed by Safari/iPhone). Let the browser fetch them directly, never cache them.
+  if (req.headers.has("range") || req.destination === "video" || req.destination === "audio") return;
   const url = new URL(req.url);
 
   // Page navigations: always live; if the phone is offline show the offline page.
@@ -75,8 +71,11 @@ self.addEventListener("fetch", (event) => {
 
   if (url.origin === self.location.origin) {
     if (url.pathname.startsWith("/static/")) {
+      // Pages ask for /static files with ?v=<file-timestamp>: a changed file has a new URL, so a cached copy is
+      // always correct and can be used instantly. Un-versioned code files still check the network first.
+      const versioned = url.searchParams.has("v");
       const isCode = /\.(css|js)$/.test(url.pathname);
-      event.respondWith(isCode ? networkFirst(req) : cacheFirst(req)); // fresh code after a deploy, instant images
+      event.respondWith(isCode && !versioned ? networkFirst(req) : cacheFirst(req));
     }
     return;                                                // everything else (data, files, pages) is not cached
   }

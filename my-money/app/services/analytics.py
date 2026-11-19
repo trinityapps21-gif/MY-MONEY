@@ -42,6 +42,10 @@ def group_summary(group, today, start=None, end=None):
         "period_interest": window["interest_collected"],
         "period_disbursed": window["disbursed"],
         "expenses": all_time["expenses"],
+        "fees_collected": all_time["fees"],
+        "penalties_collected": all_time["penalties"],
+        "period_fees": window["fees"],
+        "period_penalties": window["penalties"],
     }
 
 

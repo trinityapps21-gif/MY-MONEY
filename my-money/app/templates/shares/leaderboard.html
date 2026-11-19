@@ -1,0 +1,10 @@
+{% extends "shell_group.html" %}
+{% from "partials/macros.html" import avatar, empty %}
+{% block title %}Leaderboard{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Share leaderboard</h1><p>Ranks are earned by the value of shares. Amounts stay private.</p></div></div>
+<div class="card card-pad mb2"><div class="row gap1" style="flex-wrap:wrap">{% for r in ladder %}<span class="pill"><i data-lucide="{{ r.icon }}"></i> {{ r.name }}</span>{% endfor %}</div></div>
+<div class="card">{% if off %}{{ empty('eye-off', 'The leaderboard is switched off', 'Group officials can turn it on in Group rules.') }}
+{% elif rows %}{% for r in rows %}<div class="list-row"><b style="width:28px">{{ loop.index }}</b>{{ avatar(r.user) }}<div class="grow">{{ r.name }}{% if r.member_id == me %} <span class="pill">You</span>{% endif %}</div><span class="pill"><i data-lucide="{{ r.icon }}"></i> {{ r.rank or 'No rank yet' }}</span></div>{% endfor %}
+{% else %}{{ empty('medal', 'No members yet') }}{% endif %}</div>
+{% endblock %}
