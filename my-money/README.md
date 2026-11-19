@@ -58,7 +58,7 @@ Group officials open **Import Data**, download an Excel/CSV template (or use the
 - By default it is offered only inside the installed home-screen app (`BIOMETRIC_INSTALLED_APP_ONLY=0` also allows browsers). Requires HTTPS.
 - Credentials belong to one website address. If you use a custom domain, set `WEBAUTHN_RP_ID` (e.g. `joinmymoney.com`) and `WEBAUTHN_ORIGIN` (e.g. `https://joinmymoney.com`) before users enrol.
 - A password reset (recovery code or reset link) removes the person's enrolled phones.
-- After deploying run `flask db upgrade` (or `flask sync-schema`) to create the new table.
+- The new table is created by `flask sync-schema`, which the start command runs before gunicorn (`flask --app run sync-schema && gunicorn run:app ...`). Do NOT use `flask db upgrade` on this project's live database: it was built with `create_all`, has no Alembic version record, and the migration fails with "table already exists", which stops the app from starting.
 
 ## Interest page and "total interest" rule
 - **Interest** (left menu, officials only) shows four figures: **Received** (collected so far), **Expected** (still to collect on running loans), **Incoming** (expected interest whose date has not arrived; the next 30 days are called out) and **Overdue** (date passed, unpaid). Tabs list every interest date by loan and borrower: Coming in, Overdue, Received, All dates, and By loan.
