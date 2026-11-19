@@ -457,7 +457,9 @@ def portfolio(group, today):
         "principal_outstanding": p_out,
         "principal_written_off": written_off,
         "principal_repaid": t["principal_repaid"],
-        "interest_earned": sum(l.total_interest - (l.interest_rebate or 0) for l in loans if l.status != "WRITTEN_OFF"),
+        # Full-term interest counts as EARNED only once the borrower has finished the loan. For loans still
+        # running, see "interest_collected" (received so far) and the Interest page (expected / incoming).
+        "interest_earned": sum(l.total_interest - (l.interest_rebate or 0) for l in loans if l.status == "FULLY_REPAID"),
         "interest_collected": t["interest_collected"],
         "interest_receivable": i_out,
         "total_repayments": t["total_repayments"],
