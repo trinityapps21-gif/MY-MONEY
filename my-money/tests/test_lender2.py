@@ -157,7 +157,7 @@ def test_refinance_settles_old_loan_and_waives_future_interest(app, biz):
     assert new.status == "ACTIVE" and old.status == "FULLY_REPAID" and old.interest_rebate == 75_000
     assert ledger.cash_balance(biz.biz.id) == cash0 + 1_000_000 - 1_500_000         # payoff in, new loan out
     assert loan_svc.outstanding(old) == (0, 0)
-    assert loan_svc.portfolio(biz.biz, date.today())["interest_earned"] == new.total_interest   # rebate not counted
+    assert loan_svc.portfolio(biz.biz, date.today())["interest_earned"] == 0   # old loan: interest all rebated; new loan still running, so not "earned" yet
     biz.cl.post(f"{biz.bp}/loans/{new.id}/action", data={"action": "reverse_disbursement", "reason": "x"})
     assert db.session.get(Loan, new.id).status == "ACTIVE"                           # refinancing loans cannot be reversed
 
