@@ -8,6 +8,12 @@ from app.services.seed import get_setting
 
 bp = Blueprint("main", __name__)
 
+# Used only if no real sw.js file can be found, so the browser never gets a 404.
+_FALLBACK_SW = (
+    "self.addEventListener('install', function () { self.skipWaiting(); });\n"
+    "self.addEventListener('activate', function (e) { e.waitUntil(self.clients.claim()); });\n"
+)
+
 
 @bp.route("/")
 def index():
@@ -74,4 +80,30 @@ def favicon():
     """Google and browsers ask for /favicon.ico by default."""
     resp = send_from_directory(os.path.join(current_app.static_folder, "img"), "favicon.ico", mimetype="image/x-icon")
     resp.headers["Cache-Control"] = "public, max-age=86400"
+    return resp
+
+
+@bp.route("/sw.js")
+def service_worker():
+    """Serve the PWA service worker from the site root so it can control every page.
+    Looks for the real file in a few likely places; falls back to a minimal worker."""
+    static = current_app.static_folder
+    app_dir = current_app.root_path
+    candidates = (
+        static,
+        os.path.join(static, "js"),
+        app_dir,
+        os.path.dirname(app_dir),
+    )
+    resp = None
+    for directory in candidates:
+        if os.path.isfile(os.path.join(directory, "sw.js")):
+            resp = send_from_directory(directory, "sw.js", mimetype="application/javascript")
+            break
+    if resp is None:
+        current_app.logger.warning("sw.js file not found; serving minimal fallback service worker")
+        resp = Response(_FALLBACK_SW, mimetype="application/javascript")
+    # A service worker must always be re-checked by the browser so updates roll out.
+    resp.headers["Cache-Control"] = "no-cache"
+    resp.headers["Service-Worker-Allowed"] = "/"
     return resp
