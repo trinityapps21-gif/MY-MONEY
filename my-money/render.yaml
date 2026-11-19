@@ -4,7 +4,7 @@ services:
     runtime: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn run:app --workers 2 --threads 4 --timeout 60
+    startCommand: flask --app run sync-schema && gunicorn run:app --workers 2 --threads 4 --timeout 60
     healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
