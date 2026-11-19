@@ -12,11 +12,11 @@
 <span class="{{ cls }}">{% if u %}<img src="{{ u }}" alt="{{ group.name }} logo">{% else %}{{ brand_mark('#101C36', '#1F5FD6') }}{% endif %}</span>
 {% endmacro %}
 
-{% macro stat(label, value, icon='', tone='', sub='') %}
-<div class="stat {{ tone }}">
+{% macro stat(label, value, icon='', tone='', sub='', href='') %}
+<{{ 'a href="' ~ href ~ '"' if href else 'div' }} class="stat {{ tone }}{{ ' stat-link' if href }}">
   {% if icon %}<div class="ico-box"><i data-lucide="{{ icon }}"></i></div>{% endif %}
   <div class="grow"><div class="lbl">{{ label }}</div><div class="val">{{ value }}</div>{% if sub %}<div class="sub">{{ sub }}</div>{% endif %}</div>
-</div>
+</{{ 'a' if href else 'div' }}>
 {% endmacro %}
 
 {% macro pill(text, tone='') %}<span class="pill {{ tone }}">{{ text }}</span>{% endmacro %}
