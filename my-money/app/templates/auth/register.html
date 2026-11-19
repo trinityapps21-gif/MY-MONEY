@@ -10,5 +10,6 @@
 <div class="field"><label>Confirm password</label><input type="password" name="confirm_password" required></div></div>{% endif %}
 <h3 class="mt2 mb2">Group details</h3>{% include "groups/_group_fields.html" %}
 <div class="field"><label>Group logo (optional, max 2 MB)</label><input type="file" name="logo" accept="image/png,image/jpeg,image/webp"></div>
+{% if not current_user.is_authenticated %}{% set ts_action = 'register' %}{% include "auth/_turnstile.html" %}{% endif %}
 <button class="btn btn-primary btn-lg" type="submit">Create group</button></form>
 <p class="center small mt2"><a href="{{ url_for('auth.login') }}">Already have an account? Login</a></p>{% include "auth/_foot.html" %}</div></div></div>{% endblock %}
