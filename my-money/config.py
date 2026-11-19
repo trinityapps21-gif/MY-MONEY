@@ -84,6 +84,8 @@ class Config:
     # ---- Speed ----
     DB_POOL_PRE_PING = os.environ.get("DB_POOL_PRE_PING", "1") == "1"
     STATIC_MAX_AGE = 31536000
+    # Late-fee policy: COMPLETED = charge when a 7-day block is finished (floor), STARTED = at the start of each block (ceil)
+    LATE_FEE_BLOCK_MODE = os.environ.get("LATE_FEE_BLOCK_MODE", "COMPLETED").strip().upper()
     TESTING = False
 
     @classmethod
