@@ -8,7 +8,7 @@
 {% if unpaid_members %}<div class="alert warn">{{ unpaid_members }} member(s) have not paid their contribution. <a href="{{ url_for('schedules.index') }}">See who</a></div>{% endif %}
 {% if unpaid_fines[1] %}<div class="alert info">{{ unpaid_fines[1] }} loan fine(s) waiting to be collected. <a href="{{ url_for('fines.index') }}">Open fines</a></div>{% endif %}
 <div class="grid g4">
-{{ stat('Total Savings', money(s.total_savings), 'piggy-bank') }}
+{{ stat('Total Savings', money(s.total_savings), 'piggy-bank', '', 'See everyone\'s savings', url_for('savings.overview')) }}
 {{ stat('Available Cash', money(s.available_cash), 'wallet', 'green') }}
 {{ stat('Principal Outstanding', money(s.principal_outstanding), 'hand-coins', 'amber') }}
 {{ stat('Interest Earned', money(s.interest_earned), 'percent', '', 'Completed loans only') }}
