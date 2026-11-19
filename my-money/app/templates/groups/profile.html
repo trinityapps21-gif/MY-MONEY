@@ -11,5 +11,10 @@
 <h3 class="mt3 mb2">Recovery code</h3>
 <p class="muted small">{% if current_user.recovery_code_created_at %}Active since {{ current_user.recovery_code_created_at|ld }}. Use it at <a href="{{ url_for('auth.recover') }}">Reset with recovery code</a> if you forget your password. Generating a new code replaces the old one.{% else %}No recovery code yet.{% endif %}</p>
 <form method="post" action="{{ url_for('auth.new_recovery_code_request') }}" class="input-group">{{ csrf() }}<input type="password" name="current_password" placeholder="Current password" required><button class="btn">Get new code</button></form>
+<div id="bio-card" class="hide"><h3 class="mt3 mb2">Fingerprint / face sign-in</h3>
+<p class="muted small">Sign in on this phone with your fingerprint or face instead of typing your password. Your password still works, and the biometric data never leaves your phone.</p>
+{% for c in current_user.webauthn_credentials %}<div class="list-row"><div class="grow">{{ c.label or 'Device' }}<div class="muted small">Added {{ c.created_at|ld }}{% if c.last_used_at %} &middot; last used {{ c.last_used_at|ago }}{% endif %}</div></div>
+<form method="post" action="{{ url_for('biometric.delete', cred_id=c.id) }}" data-confirm="Remove biometric sign-in for this device?" data-confirm-label="Remove" data-danger="1">{{ csrf() }}<button class="btn btn-sm btn-danger">Remove</button></form></div>{% endfor %}
+<form id="bio-enable" class="input-group mt1" autocomplete="off"><input type="password" id="bio-pw" placeholder="Current password" required><button class="btn" type="submit"><i data-lucide="fingerprint"></i> Enable on this device</button></form></div>
 <h3 class="mt3 mb2">My groups</h3>{% for m in memberships %}<div class="list-row"><div class="grow">{{ m.group.name }}</div><span class="pill">{{ ROLE_LABELS.get(m.role, m.role) }}</span></div>{% endfor %}</div></div>
 {% endblock %}
