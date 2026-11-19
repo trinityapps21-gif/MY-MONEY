@@ -60,6 +60,11 @@ Group officials open **Import Data**, download an Excel/CSV template (or use the
 - A password reset (recovery code or reset link) removes the person's enrolled phones.
 - After deploying run `flask db upgrade` (or `flask sync-schema`) to create the new table.
 
+## Interest page and "total interest" rule
+- **Interest** (left menu, officials only) shows four figures: **Received** (collected so far), **Expected** (still to collect on running loans), **Incoming** (expected interest whose date has not arrived; the next 30 days are called out) and **Overdue** (date passed, unpaid). Tabs list every interest date by loan and borrower: Coming in, Overdue, Received, All dates, and By loan.
+- A loan's full-term interest is only shown, and only counted as *earned*, once the loan is **fully repaid**. Until then the loan page shows "Interest received so far", the dashboard / Loans / Interest-income report count completed loans only, and the Loan disbursements report shows interest received so far.
+- Not changed: the payment schedule and agreement PDFs given to the borrower still list each instalment's interest, and the loan page's schedule table still shows interest per instalment (needed to collect payments).
+
 ## Speed notes
 Icons and charts are now served from this site, `/static` files carry a version stamp and are cached for a year, pages are compressed, `/sw.js` is actually served (it was registered but returned 404, so the service worker never ran), and per-page database round trips were cut (menu counters 4 -> 1, platform settings cached 30 s, group settings once per request, group loaded with the membership). Set `DB_POOL_PRE_PING=0` to save one more round trip per request if you see no stale-connection errors on Turso.
 
