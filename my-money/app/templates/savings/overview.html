@@ -1,0 +1,42 @@
+{% extends "shell_group.html" %}
+{% from "partials/macros.html" import stat, empty, pager %}
+{% block title %}Group savings{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Group savings</h1><p>{{ current_group.name }} &middot; as at {{ today|ld }}</p></div>
+<div class="flex gap1 wrap"><a class="btn" href="{{ url_for('savings.mine') }}"><i data-lucide="piggy-bank"></i>My contributions</a>{% if is_official %}<a class="btn btn-primary" href="{{ url_for('savings.new') }}"><i data-lucide="plus"></i>Record contribution</a><a class="btn" href="{{ url_for('savings.index') }}"><i data-lucide="settings-2"></i>Manage contributions</a>{% endif %}</div></div>
+
+<div class="grid g4 mb2">
+{{ stat('Group total savings', money(data.total), 'wallet', 'green', 'Everything members have saved') }}
+{{ stat('Saved this month', money(month), 'calendar-days', '', contributed ~ ' of ' ~ active_members ~ ' members contributed') }}
+{{ stat('Members saving', data.rows|selectattr('active')|list|length, 'users') }}
+{{ stat('My savings', money(mine.total) if mine else money(0), 'piggy-bank', 'amber', ('Rank ' ~ mine.rank ~ ' of ' ~ data.rows|length) if mine else '') }}
+</div>
+
+<div class="tabs"><a class="{{ 'on' if view == 'members' }}" href="{{ url_for('savings.overview', view='members') }}"><i data-lucide="users"></i>Everyone's savings</a><a class="{{ 'on' if view == 'all' }}" href="{{ url_for('savings.overview', view='all') }}"><i data-lucide="list"></i>All contributions</a></div>
+
+{% if view == 'members' %}
+<div class="card">{% if data.rows %}<div class="table-wrap"><table class="table"><thead><tr><th>#</th><th>Member</th><th class="num">Total saved</th><th class="num">Share of group</th><th>Last contribution</th><th></th></tr></thead><tbody>
+{% for r in data.rows %}<tr class="{{ 'is-me' if r.member.id == membership.id }}"><td>{{ r.rank }}</td>
+<td><b>{{ r.name }}</b>{% if r.member.id == membership.id %} <span class="pill blue">You</span>{% endif %}{% if not r.active %} <span class="pill">{{ r.member.status|title }}</span>{% endif %}</td>
+<td class="num"><b>{{ money(r.total) }}</b></td>
+<td class="num">{{ '%.1f'|format(r.share) }}%<div class="bar-track"><div class="bar-fill" style="width:{{ [r.share, 100]|min }}%"></div></div></td>
+<td>{{ r.last|ld if r.last else 'No contributions yet' }}</td>
+<td class="right nowrap"><a class="btn btn-sm btn-ghost" href="{{ url_for('savings.overview', view='all', member=r.member.id) }}">View contributions</a></td></tr>{% endfor %}
+{% if data.other %}<tr><td></td><td class="muted">Other savings (not linked to a member)</td><td class="num">{{ money(data.other) }}</td><td></td><td></td><td></td></tr>{% endif %}
+</tbody><tfoot><tr><td></td><td><b>Group total</b></td><td class="num"><b>{{ money(data.total) }}</b></td><td class="num">100%</td><td></td><td></td></tr></tfoot></table></div>
+{% else %}{{ empty('piggy-bank', 'No savings yet', 'Contributions will appear here as they are recorded.') }}{% endif %}</div>
+
+{% else %}
+<div class="card"><div class="card-head"><form class="filters" method="get" style="width:100%"><input type="hidden" name="view" value="all">
+<div class="search"><i data-lucide="search"></i><input type="search" name="q" value="{{ q }}" placeholder="Search by member name"></div>
+<select name="member" onchange="this.form.submit()"><option value="">All members</option>{% for r in data.rows %}<option value="{{ r.member.id }}" {{ 'selected' if selected and selected.member.id == r.member.id }}>{{ r.name }}</option>{% endfor %}</select></form></div>
+{% if selected %}<div class="card-pad"><b>{{ selected.name }}</b> has saved <b>{{ money(selected.total) }}</b> in total.</div>{% endif %}
+{% if page.items %}<div class="table-wrap"><table class="table"><thead><tr><th>Date</th><th>Member</th><th>Type</th><th class="num">Amount</th>{% if is_official %}<th>Receipt</th>{% endif %}<th></th></tr></thead><tbody>
+{% for c in page.items %}{% set rv = c.tx_id in reversed_ids %}<tr class="{{ 'reversed' if rv }}"><td>{{ c.contribution_date|ld }}</td>
+<td><a href="{{ url_for('savings.overview', view='all', member=c.member_id) }}">{{ c.member.user.full_name }}</a></td>
+<td>{{ categories.get(c.category, c.category) }}</td><td class="num">{{ money(c.amount) }}</td>{% if is_official %}<td class="keep">{{ c.receipt_no }}</td>{% endif %}
+<td>{% if rv %}<span class="pill">Reversed</span>{% endif %}</td></tr>{% endfor %}
+</tbody></table></div>{{ pager(page) }}
+{% else %}{{ empty('piggy-bank', 'No contributions found') }}{% endif %}</div>
+{% endif %}
+{% endblock %}
