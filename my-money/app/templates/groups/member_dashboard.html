@@ -5,10 +5,10 @@
 <div class="page-head"><div><h1>Welcome, {{ current_user.first_name }}</h1><p>{{ current_group.name }}</p></div></div>
 <div class="card card-pad mb2" style="border-left:4px solid #101C36"><div class="row gap1" style="align-items:center;justify-content:space-between;flex-wrap:wrap"><div><div class="muted small">Next contribution</div><h2 class="mb0"><i data-lucide="calendar-clock"></i> {{ countdown.label }}</h2>{% if countdown.next_due %}<div class="muted small">{{ countdown.next_due|ld }}</div>{% endif %}</div><a class="btn btn-sm" href="{{ url_for('schedules.mine') }}">{{ 'Change my day' if countdown.state != 'NO_DAY' else 'Choose my day' }}</a></div></div>
 <div class="grid g4">
-{{ stat('My Savings', money(total_mine), 'piggy-bank') }}
+{{ stat('My Savings', money(total_mine), 'piggy-bank', '', '', url_for('savings.mine')) }}
 {{ stat('My Share Rank', my_share_rank.name if my_share_rank else 'No shares yet', my_share_rank.icon if my_share_rank else 'trophy', '', '{:,} share(s)'.format(share_units)) }}
 {{ stat('Group Members', members_count, 'users') }}
-{{ stat('Group Savings', money(s.total_savings), 'wallet', 'green') }}
+{{ stat('Group Savings', money(s.total_savings), 'wallet', 'green', 'See everyone\'s savings', url_for('savings.overview')) }}
 </div>
 <div class="grid g2 mt2">
 <div class="card card-pad"><h2 class="mb2">Group savings growth</h2><div class="chart-box"><canvas data-chart="c-sav"></canvas></div></div>
