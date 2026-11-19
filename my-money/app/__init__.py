@@ -27,39 +27,6 @@ def _sqlite_fk_pragma(dbapi_conn, _):
         pass
 
 
-def _heal_stale_turso_connections(engine):
-    """Turso closes idle connections. The libsql driver reports that as a plain ValueError
-    ("Hrana: connection closed before message completed"), which SQLAlchemy's pre-ping does not
-    recognise as a dead connection, so the request crashed with a 500. Treat it as a disconnect:
-    the pool then discards the dead connection and opens a fresh one transparently."""
-    dialect = engine.dialect
-    if getattr(dialect, "_hrana_healed", False):
-        return
-    dialect._hrana_healed = True
-    dbapi_error = dialect.dbapi.Error if hasattr(dialect.dbapi, "Error") else Exception
-
-    def _is_dead(exc):
-        msg = str(exc).lower()
-        return "hrana" in msg or "connection closed" in msg or "stream expired" in msg
-
-    orig_ping = dialect.do_ping
-    orig_disc = dialect.is_disconnect
-
-    def do_ping(dbapi_connection):
-        try:
-            return orig_ping(dbapi_connection)
-        except ValueError as exc:
-            if _is_dead(exc):
-                raise dbapi_error(str(exc)) from exc
-            raise
-
-    def is_disconnect(e, connection, cursor):
-        return _is_dead(e) or orig_disc(e, connection, cursor)
-
-    dialect.do_ping = do_ping
-    dialect.is_disconnect = is_disconnect
-
-
 def _sql_literal(value):
     """Render a simple Python default as a SQL literal, or None if unsupported."""
     if isinstance(value, bool):
@@ -137,9 +104,6 @@ def create_app(overrides=None):
     logging.basicConfig(level=logging.INFO)
 
     db.init_app(app)
-    if app.config["IS_PRODUCTION"]:
-        with app.app_context():
-            _heal_stale_turso_connections(db.engine)
     migrate.init_app(app, db)
     login_manager.init_app(app)
     csrf.init_app(app)
@@ -180,6 +144,7 @@ def register_blueprints(app):
     from app.announcements import bp as announcements_bp
     from app.auth import bp as auth_bp
     from app.biometric import bp as biometric_bp
+    from app.interest import bp as interest_bp
     from app.borrowers import bp as borrowers_bp
     from app.community import bp as community_bp
     from app.feed import bp as feed_bp
@@ -203,7 +168,7 @@ def register_blueprints(app):
     for bp in (main_bp, auth_bp, groups_bp, members_bp, savings_bp, borrowers_bp, lending_bp, repayments_bp,
                feed_bp, community_bp, announcements_bp, reports_bp, notifications_bp, files_bp, platform_bp, imports_bp,
                shares_bp, rules_bp, fines_bp, schedules_bp, finance_bp, products_bp,
-               collections_bp, applications_bp, portal_bp, capital_bp, biometric_bp):
+               collections_bp, applications_bp, portal_bp, capital_bp, biometric_bp, interest_bp):
         app.register_blueprint(bp)
 
 
