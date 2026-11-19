@@ -345,3 +345,19 @@ class StoredFile(db.Model):
     @property
     def is_image(self):
         return self.content_type.startswith("image/")
+
+
+class WebAuthnCredential(db.Model):
+    """A fingerprint / face / device-unlock credential (passkey) a user enrolled on one phone.
+    Only the PUBLIC key is stored; the private key never leaves the phone."""
+    __tablename__ = "webauthn_credentials"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    credential_id = db.Column(db.String(512), nullable=False, unique=True)  # base64url
+    public_key = db.Column(db.Text, nullable=False)  # base64url COSE key
+    sign_count = db.Column(db.BigInteger, nullable=False, default=0)
+    label = db.Column(db.String(80))
+    created_at = db.Column(db.DateTime, nullable=False, default=utcnow)
+    last_used_at = db.Column(db.DateTime)
+
+    user = db.relationship("User", backref=db.backref("webauthn_credentials", lazy="select"))
