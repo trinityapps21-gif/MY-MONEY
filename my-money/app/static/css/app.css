@@ -239,3 +239,5 @@ dialog { border: 0; border-radius: 12px; padding: 0; width: min(440px, calc(100v
 a.stat-link{color:inherit;text-decoration:none;transition:box-shadow .15s,transform .15s} a.stat-link:hover{box-shadow:0 6px 18px rgba(16,28,54,.12);transform:translateY(-1px);text-decoration:none}
 tr.is-me td{background:#F3F7FF}
 .bar-track{height:5px;background:#E6ECF5;border-radius:3px;margin-top:4px;overflow:hidden;min-width:70px} .bar-fill{height:100%;background:#1F5FD6;border-radius:3px}
+
+.nitem span, .list-row .muted.small{white-space:pre-line}
