@@ -10,6 +10,7 @@ from functools import wraps
 
 from flask import abort, g, render_template
 from flask_login import current_user, login_required
+from sqlalchemy.orm import joinedload
 
 from app.models import GroupMember, OFFICIAL_ROLES
 
@@ -20,9 +21,9 @@ def tenant_route(official=False, kind=None):
         @login_required
         def wrapper(*args, **kwargs):
             group_id = kwargs.pop("group_id")
-            membership = GroupMember.query.filter_by(
+            membership = GroupMember.query.options(joinedload(GroupMember.group)).filter_by(
                 group_id=group_id, user_id=current_user.id, status="ACTIVE"
-            ).first()
+            ).first()  # group loaded in the same query (one database round trip, not two)
             if membership is None:
                 abort(404)
             if membership.group.status != "ACTIVE":
