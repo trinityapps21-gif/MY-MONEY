@@ -18,7 +18,8 @@
       {{ nav_item(url_for('groups.dashboard'), 'layout-dashboard', 'Dashboard', ep == 'groups.dashboard') }}
       {{ nav_item(url_for('members.index'), 'users', 'Staff' if current_group.is_lender else 'Members', bpn == 'members' and ep != 'members.password_resets', pending_count_nav) }}
       {{ nav_item(url_for('members.password_resets'), 'key-round', 'Password Resets', ep == 'members.password_resets', reset_count_nav) }}
-      {% if not current_group.is_lender %}{{ nav_item(url_for('savings.index'), 'piggy-bank', 'Savings', bpn == 'savings') }}
+      {% if not current_group.is_lender %}{{ nav_item(url_for('savings.overview'), 'piggy-bank', 'Savings', ep == 'savings.overview') }}
+      {{ nav_item(url_for('savings.index'), 'hand-coins', 'Record Contributions', bpn == 'savings' and ep != 'savings.overview') }}
       {{ nav_item(url_for('shares.index'), 'pie-chart', 'Shares', bpn == 'shares') }}
       {{ nav_item(url_for('schedules.index'), 'calendar-clock', 'Who Has Not Paid', bpn == 'schedules') }}{% endif %}
       {{ nav_item(url_for('borrowers.index'), 'user-round-check', 'Borrowers', bpn == 'borrowers') }}
@@ -43,7 +44,8 @@
       {{ nav_item(url_for('groups.settings'), 'settings', 'Settings', ep.startswith('groups.settings')) }}
     {% else %}
       {% if not current_group.is_lender %}{{ nav_item(url_for('groups.dashboard'), 'layout-dashboard', 'Dashboard', ep == 'groups.dashboard') }}
-      {{ nav_item(url_for('savings.mine'), 'piggy-bank', 'My Contributions', ep == 'savings.mine') }}
+      {{ nav_item(url_for('savings.overview'), 'piggy-bank', 'Savings', ep == 'savings.overview') }}
+      {{ nav_item(url_for('savings.mine'), 'wallet', 'My Contributions', ep == 'savings.mine') }}
       {{ nav_item(url_for('shares.mine'), 'pie-chart', 'My Shares', ep == 'shares.mine') }}
       {{ nav_item(url_for('shares.leaderboard'), 'medal', 'Leaderboard', ep == 'shares.leaderboard') }}
       {{ nav_item(url_for('schedules.mine'), 'calendar-clock', 'My Contribution Day', bpn == 'schedules') }}
@@ -96,7 +98,7 @@
   {% if is_official or not current_group.is_lender %}<a href="{{ url_for('groups.dashboard') }}" class="{{ 'on' if ep == 'groups.dashboard' }}"><i data-lucide="home"></i>Home</a>{% endif %}
   {% if is_official %}<a href="{{ url_for('borrowers.index') if current_group.is_lender else url_for('members.index') }}" class="{{ 'on' if bpn in ('members', 'borrowers') }}"><i data-lucide="users"></i>{{ 'Borrowers' if current_group.is_lender else 'Members' }}</a>
   {% elif current_group.is_lender %}<a href="{{ url_for('announcements.index') }}"><i data-lucide="megaphone"></i>News</a>
-  {% else %}<a href="{{ url_for('savings.mine') }}" class="{{ 'on' if ep == 'savings.mine' }}"><i data-lucide="piggy-bank"></i>Savings</a>{% endif %}
+  {% else %}<a href="{{ url_for('savings.overview') }}" class="{{ 'on' if ep in ('savings.overview', 'savings.mine') }}"><i data-lucide="piggy-bank"></i>Savings</a>{% endif %}
   <a href="{{ url_for('community.index') }}" class="{{ 'on' if bpn in ('community', 'feed') }}"><i data-lucide="messages-square"></i>Feed</a>
   <button type="button" data-drawer><i data-lucide="menu"></i>More</button>
 </nav>
