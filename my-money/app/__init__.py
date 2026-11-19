@@ -2,11 +2,12 @@
 Developed and Powered by Emtrixz Technology Company."""
 import logging
 import os
+import time
 
 import click
 import json
-from flask import Flask, abort, g, jsonify, render_template, request, url_for
-from flask_login import current_user
+from flask import Flask, abort, flash, g, jsonify, redirect, render_template, request, session, url_for
+from flask_login import current_user, logout_user
 from sqlalchemy import event, inspect, text
 from sqlalchemy.engine import Engine
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -107,6 +108,9 @@ def create_app(overrides=None):
     login_manager.init_app(app)
     csrf.init_app(app)
     limiter.init_app(app)
+    if not app.config.get("TESTING"):
+        from flask_compress import Compress
+        Compress(app)  # gzip/brotli: HTML, JSON, CSS and JS are 3-5x smaller on a phone connection
 
     from app import models  # noqa: F401  (register tables)
     from app.models import User
@@ -139,6 +143,7 @@ def register_blueprints(app):
     from app.capital import bp as capital_bp
     from app.announcements import bp as announcements_bp
     from app.auth import bp as auth_bp
+    from app.biometric import bp as biometric_bp
     from app.borrowers import bp as borrowers_bp
     from app.community import bp as community_bp
     from app.feed import bp as feed_bp
@@ -162,7 +167,7 @@ def register_blueprints(app):
     for bp in (main_bp, auth_bp, groups_bp, members_bp, savings_bp, borrowers_bp, lending_bp, repayments_bp,
                feed_bp, community_bp, announcements_bp, reports_bp, notifications_bp, files_bp, platform_bp, imports_bp,
                shares_bp, rules_bp, fines_bp, schedules_bp, finance_bp, products_bp,
-               collections_bp, applications_bp, portal_bp, capital_bp):
+               collections_bp, applications_bp, portal_bp, capital_bp, biometric_bp):
         app.register_blueprint(bp)
 
 
@@ -263,24 +268,53 @@ def register_template_helpers(app):
     def inject():
         unread, group_count, pending, resets = 0, 0, 0, 0
         if current_user.is_authenticated:
-            from app.models import GroupMember, MemberApplication, Notification
-            unread = Notification.query.filter_by(user_id=current_user.id, is_read=False).count()
-            group_count = GroupMember.query.filter_by(user_id=current_user.id, status="ACTIVE").count()
-            if g.get("group") is not None and g.get("is_official"):
-                pending = MemberApplication.query.filter_by(group_id=g.group.id, status="PENDING").count()
-                from app.models import PasswordResetRequest
-                ids = db.session.query(GroupMember.user_id).filter(GroupMember.group_id == g.group.id,
-                                                                  GroupMember.status == "ACTIVE")
-                resets = PasswordResetRequest.query.filter(PasswordResetRequest.status == "PENDING",
-                                                           PasswordResetRequest.user_id.in_(ids.scalar_subquery()),
-                                                           PasswordResetRequest.user_id != current_user.id).count()
+            from sqlalchemy import func, select
+            from app.models import GroupMember, MemberApplication, Notification, PasswordResetRequest
+            uid = current_user.id
+            official = g.get("group") is not None and g.get("is_official")
+            cols = [
+                select(func.count(Notification.id)).where(Notification.user_id == uid, Notification.is_read.is_(False)).scalar_subquery(),
+                select(func.count(GroupMember.id)).where(GroupMember.user_id == uid, GroupMember.status == "ACTIVE").scalar_subquery(),
+            ]
+            if official:
+                gid = g.group.id
+                members = select(GroupMember.user_id).where(GroupMember.group_id == gid, GroupMember.status == "ACTIVE")
+                cols.append(select(func.count(MemberApplication.id)).where(
+                    MemberApplication.group_id == gid, MemberApplication.status == "PENDING").scalar_subquery())
+                cols.append(select(func.count(PasswordResetRequest.id)).where(
+                    PasswordResetRequest.status == "PENDING", PasswordResetRequest.user_id.in_(members.scalar_subquery()),
+                    PasswordResetRequest.user_id != uid).scalar_subquery())
+            # ONE round trip to the database for all four menu counters (was four).
+            row = db.session.execute(select(*cols)).one()
+            unread, group_count = row[0] or 0, row[1] or 0
+            if official:
+                pending, resets = row[2] or 0, row[3] or 0
         return {
             "platform_name": get_setting("platform_name", "MY MONEY"),
             "company_line": "Developed and Powered by Emtrixz Technology Company.",
             "current_group": g.get("group"), "membership": g.get("membership"),
             "is_official": g.get("is_official", False), "unread_count": unread, "my_group_count": group_count,
             "pending_count_nav": pending, "reset_count_nav": resets, "ROLE_LABELS": ROLE_LABELS, "STATUS_LABELS": STATUS_LABELS,
+            "turnstile_site_key": app.config.get("TURNSTILE_SITE_KEY", "") if app.config.get("TURNSTILE_SECRET_KEY") else "",
+            "idle_timeout_seconds": int(app.config["IDLE_TIMEOUT_MINUTES"]) * 60,
+            "idle_warning_seconds": int(app.config["IDLE_WARNING_SECONDS"]),
+            "biometric_installed_only": bool(app.config.get("BIOMETRIC_INSTALLED_APP_ONLY", True)),
         }
+
+
+_static_versions: dict = {}
+
+
+def _static_version(app, filename):
+    """File modification time, cached: lets /static files be cached for a year and refresh the moment they change."""
+    v = _static_versions.get(filename)
+    if v is None:
+        try:
+            v = str(int(os.path.getmtime(os.path.join(app.static_folder, filename))))
+        except OSError:
+            v = "0"
+        _static_versions[filename] = v
+    return v
 
 
 def register_hooks(app):
@@ -292,6 +326,35 @@ def register_hooks(app):
             return
         if app.url_map.is_endpoint_expecting(endpoint, "group_id"):
             values["group_id"] = g.group.id
+
+    @app.url_defaults
+    def version_static(endpoint, values):
+        if endpoint == "static" and "v" not in values and values.get("filename"):
+            values["v"] = _static_version(app, values["filename"])
+
+    @app.before_request
+    def enforce_idle_timeout():
+        """Sign out after IDLE_TIMEOUT_MINUTES (default 30) without activity. Enforced here on the server, so it
+        holds for the website and the installed phone app alike, whatever the browser's own timers do."""
+        if request.endpoint in (None, "static") or not current_user.is_authenticated:
+            if "last_activity" in session:
+                session.pop("last_activity", None)
+            return
+        now, limit = int(time.time()), int(app.config["IDLE_TIMEOUT_MINUTES"]) * 60
+        last = session.get("last_activity")
+        if last is not None and now - int(last) > limit:
+            logout_user()
+            session.clear()
+            msg = f"You were signed out after {int(app.config['IDLE_TIMEOUT_MINUTES'])} minutes of inactivity. Please sign in again."
+            if request.path.startswith("/api/") or request.headers.get("X-Requested-With") == "fetch" \
+                    or request.accept_mimetypes.best == "application/json":
+                return jsonify(error=msg, code="idle_timeout"), 401
+            flash(msg, "info")
+            nxt = request.full_path.rstrip("?") if request.method == "GET" else None
+            return redirect(url_for("auth.login", next=nxt) if nxt else url_for("auth.login"))
+        if request.headers.get("X-Mm-Passive") != "1":  # background checks must not keep a session alive
+            session["last_activity"] = now
+            session.permanent = True
 
     @app.before_request
     def maintenance_mode():
@@ -311,11 +374,13 @@ def register_hooks(app):
         resp.headers.setdefault("X-Content-Type-Options", "nosniff")
         resp.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
         resp.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
-        resp.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+        resp.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=(), publickey-credentials-get=(self), publickey-credentials-create=(self)")
         if app.config.get("IS_PRODUCTION"):
             resp.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
         if request.endpoint and request.endpoint != "static" and "files." not in request.endpoint:
             resp.headers.setdefault("Cache-Control", "no-store")
+        elif request.endpoint == "static" and request.args.get("v"):
+            resp.headers["Cache-Control"] = f"public, max-age={app.config.get('STATIC_MAX_AGE', 31536000)}, immutable"
         return resp
 
 
