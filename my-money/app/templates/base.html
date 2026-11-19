@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <meta name="theme-color" content="#101C36">
+  {% if current_user.is_authenticated %}<meta name="idle-timeout" content="{{ idle_timeout_seconds }}"><meta name="idle-warning" content="{{ idle_warning_seconds }}">{% endif %}
+  <meta name="biometric-installed-only" content="{{ '1' if biometric_installed_only else '0' }}">
   <meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="MY MONEY"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>{% block title %}{{ platform_name }}{% endblock %} - {{ platform_name }}</title>
@@ -28,7 +30,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="format-detection" content="telephone=no">
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"></noscript>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
   {% block head %}{% endblock %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
@@ -39,11 +42,14 @@
   {% block body %}{% endblock %}
   <div id="toasts" aria-live="polite"></div>
   {% for category, message in get_flashed_messages(with_categories=true) %}<span class="hide" data-flash="{{ message }}" data-kind="{{ category if category in ('success','error','info') else 'info' }}"></span>{% endfor %}
-  <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
-  {% if use_charts %}<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>{% endif %}
+  {# Icons and charts are served from this site (cached for a year, no third-party lookup) and use defer so pages paint first. #}
+  <script defer src="{{ url_for('static', filename='vendor/lucide-0.469.0.min.js') }}"></script>
+  {% if use_charts %}<script defer src="{{ url_for('static', filename='vendor/chart-4.4.7.umd.js') }}"></script>{% endif %}
   <script src="{{ url_for('static', filename='js/app.js') }}"></script>
   <script src="{{ url_for('static', filename='js/responsive.js') }}"></script>
   <script src="{{ url_for('static', filename='js/pwa.js') }}"></script>
+  {% if current_user.is_authenticated %}<script src="{{ url_for('static', filename='js/idle.js') }}"></script>{% endif %}
+  <script src="{{ url_for('static', filename='js/biometric.js') }}"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>
