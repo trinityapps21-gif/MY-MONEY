@@ -145,6 +145,7 @@ def register_blueprints(app):
     from app.auth import bp as auth_bp
     from app.biometric import bp as biometric_bp
     from app.interest import bp as interest_bp
+    from app.overdue import bp as overdue_bp
     from app.borrowers import bp as borrowers_bp
     from app.community import bp as community_bp
     from app.feed import bp as feed_bp
@@ -168,7 +169,7 @@ def register_blueprints(app):
     for bp in (main_bp, auth_bp, groups_bp, members_bp, savings_bp, borrowers_bp, lending_bp, repayments_bp,
                feed_bp, community_bp, announcements_bp, reports_bp, notifications_bp, files_bp, platform_bp, imports_bp,
                shares_bp, rules_bp, fines_bp, schedules_bp, finance_bp, products_bp,
-               collections_bp, applications_bp, portal_bp, capital_bp, biometric_bp, interest_bp):
+               collections_bp, applications_bp, portal_bp, capital_bp, biometric_bp, interest_bp, overdue_bp):
         app.register_blueprint(bp)
 
 
@@ -411,6 +412,18 @@ def register_errors(app):
 
 def register_cli(app):
     from app.services.seed import seed_defaults
+
+    @app.cli.command("late-fees")
+    def late_fees_cmd():
+        """Alert administrators about borrowers who entered a new late-fee block. Run daily (e.g. a Render cron job)."""
+        from app.models import Group
+        from app.services import late_fees
+        from app.services.timeutil import local_today
+        sent = 0
+        for grp in Group.query.filter_by(status="ACTIVE").all():
+            sent += late_fees.run_daily(grp, local_today(grp.timezone))
+            db.session.commit()
+        click.echo(f"Late-fee alerts sent: {sent}")
 
     @app.cli.command("sync-schema")
     def sync_schema_cmd():
