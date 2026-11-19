@@ -228,3 +228,17 @@ class ExpenseItem(db.Model):
     name = db.Column(db.String(120), nullable=False)
     amount = db.Column(db.BigInteger, nullable=False)
     __table_args__ = (CheckConstraint("amount > 0", name="ck_item_amount"),)
+
+
+class LateFeeTracker(db.Model):
+    """Remembers, per overdue instalment, the last penalty block an administrator was alerted about,
+    so a new alert is sent exactly once each time a borrower enters a new 7-day penalty block."""
+    __tablename__ = "late_fee_tracker"
+    id = db.Column(db.Integer, primary_key=True)
+    group_id = db.Column(db.Integer, db.ForeignKey("groups.id"), nullable=False, index=True)
+    loan_id = db.Column(db.Integer, db.ForeignKey("loans.id"), nullable=False, index=True)
+    schedule_id = db.Column(db.Integer, db.ForeignKey("loan_repayment_schedules.id"), nullable=False, unique=True)
+    last_block = db.Column(db.Integer, nullable=False, default=0)
+    last_fine = db.Column(db.BigInteger, nullable=False, default=0)
+    last_notified_at = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime, nullable=False, default=utcnow)
