@@ -99,71 +99,8 @@ def _save_logo(group, file_storage, user_id, square=True):
         storage.delete_file(old, user_id, reason="replaced")
 
 
-LENDER_KINDS = ["Money lender", "Microfinance institution", "SACCO", "Shop / trade credit", "Other"]
-
-
-def create_lending_from_form(user, form, id_photo, logo_file=None):
-    """Register a money-lending business. It waits for the platform administrator's approval before it goes online
-    (kept SUSPENDED + approval_status PENDING, so nothing in the app opens until it is approved)."""
-    seed_defaults()
-    nid = (form.get("national_id") or "").strip().upper()
-    if len(nid) < 8 or not nid.isalnum():
-        return None, "Enter the owner's National ID number (letters and numbers only)."
-    if id_photo is None or not id_photo.filename:
-        return None, "Upload a clear photo of the owner's National ID."
-    kind = (form.get("business_kind") or "").strip()
-    if kind not in LENDER_KINDS:
-        return None, "Select the type of lending business."
-    district = (form.get("district") or "").strip()
-    if len(district) < 2:
-        return None, "Enter the district where the business is located."
-    address = (form.get("address") or "").strip()
-    if len(address) < 3:
-        return None, "Enter the business's physical address."
-    f = form.copy()
-    f["business_type"] = "LENDING"
-    f["group_name"] = form.get("business_name") or ""
-    f["location"] = address
-    f["group_phone"] = form.get("business_phone") or ""
-    f["group_email"] = form.get("business_email") or ""
-    group = Group(owner_id=user.id, name="x")
-    err = _apply_group_fields(group, f, creating=True)
-    if err:
-        return None, err.replace("group name", "business name")
-    try:
-        cap = (form.get("rate_cap") or "").strip()
-        group.rate_cap_bp = parse_rate_bp(cap) if cap else None
-        if group.rate_cap_bp is not None and group.rate_cap_bp <= 0:
-            raise ValueError("Enter an interest rate above zero, or leave it empty.")
-        appr = int(form.get("loan_approvals_required") or 1)
-        if not 1 <= appr <= 3:
-            raise ValueError("Approvals needed must be between 1 and 3.")
-    except ValueError as e:
-        return None, str(e) or "Check the interest rate and approvals."
-    group.loan_approvals_required = appr
-    group.business_kind, group.district, group.owner_national_id = kind, district[:80], nid[:40]
-    group.status, group.approval_status = "SUSPENDED", "PENDING"
-    db.session.add(group)
-    db.session.flush()
-    db.session.add(GroupMember(group_id=group.id, user_id=user.id, role="ADMIN", status="ACTIVE",
-                               approved_by=user.id, joined_at=utcnow()))
-    try:
-        sf = storage.store_upload(id_photo, group_id=group.id, user_id=user.id, kind="owner_id",
-                                  related=("group", group.id))
-        group.owner_id_file_id = sf.id
-        if logo_file and logo_file.filename:
-            _save_logo(group, logo_file, user.id)
-    except storage.UploadError as e:
-        return None, str(e)
-    audit("group.lender_submitted", "group", group.id, {"name": group.name}, group_id=group.id, user_id=user.id)
-    return group, None
-
-
 def create_group_from_form(user, form, logo_file=None):
-    """Savings groups only. Lending businesses register through create_lending_from_form (needs approval)."""
     seed_defaults()
-    form = form.copy()
-    form["business_type"] = "SAVINGS_GROUP"
     group = Group(owner_id=user.id, name="x")
     err = _apply_group_fields(group, form, creating=True)
     if err:
@@ -171,7 +108,8 @@ def create_group_from_form(user, form, logo_file=None):
     db.session.add(group)
     db.session.flush()
     db.session.add(GroupMember(group_id=group.id, user_id=user.id, role="ADMIN", status="ACTIVE",
-                               approved_by=user.id, joined_at=utcnow()))
+                               approved_by=user.id, joined_at=utcnow(),
+                               onboarding_pending=group.business_type == "SAVINGS_GROUP"))   # founder welcome, once
     if logo_file and logo_file.filename:
         try:
             _save_logo(group, logo_file, user.id)
@@ -190,10 +128,9 @@ def select():
     active = GroupMember.query.filter_by(user_id=current_user.id, status="ACTIVE").all()
     active = [m for m in active if m.group.status == "ACTIVE"]
     pending = GroupMember.query.filter_by(user_id=current_user.id, status="PENDING").all()
-    awaiting = Group.query.filter(Group.owner_id == current_user.id, Group.approval_status.in_(["PENDING", "REJECTED"])).all()
-    if len(active) == 1 and not pending and not awaiting and not request.args.get("all"):
+    if len(active) == 1 and not pending and not request.args.get("all"):
         return redirect(url_for("groups.dashboard", group_id=active[0].group_id))
-    return render_template("groups/select.html", memberships=active, pending=pending, awaiting=awaiting)
+    return render_template("groups/select.html", memberships=active, pending=pending)
 
 
 @bp.route("/groups/new", methods=["GET", "POST"])
