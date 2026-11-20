@@ -1,0 +1,30 @@
+{% extends "shell_group.html" %}
+{% from "partials/macros.html" import csrf, empty, action_form %}
+{% block title %}{{ b.name }} - documents{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>{{ b.name }}</h1><p>Documents and photos &middot; <a href="{{ url_for('borrowers.detail', borrower_id=b.id) }}">Back to client profile</a></p></div></div>
+<div class="split"><div>
+<div class="card card-pad mb2"><h3 class="mb2">Checklist</h3>
+{% for label, ok in checks %}<div class="list-row"><div class="grow">{{ label }}</div><span class="pill {{ 'green' if ok else 'red' }}">{{ 'On file' if ok else 'Missing' }}</span></div>{% endfor %}
+<p class="muted xs mt1">A photo of the security asset is requested for each loan that has collateral (see below).</p></div>
+
+<div class="card mb2"><div class="card-head"><h2>Add documents or photos</h2></div>
+<form class="card-body" method="post" action="{{ url_for('media.upload', borrower_id=b.id) }}" enctype="multipart/form-data">{{ csrf() }}
+<div class="form-grid"><div class="field"><label>What is it?</label><select name="category" id="mm-cat">{% for k, v in categories.items() %}<option value="{{ k }}">{{ v }}</option>{% endfor %}</select></div>
+<div class="field"><label>Photos or PDF (up to 10)</label><input type="file" name="files" accept="image/png,image/jpeg,image/webp,application/pdf" multiple required><div class="hint">On a phone this opens the camera or your gallery.</div></div>
+<div class="field" id="mm-loanbox" style="display:none"><label>For which loan?</label><select name="loan_id"><option value="">Choose a loan</option>{% for l in loans %}<option value="{{ l.id }}">{{ l.reference }}</option>{% endfor %}</select></div>
+<div class="field" id="mm-collbox" style="display:none"><label>Which asset (optional)</label><select name="collateral_id"><option value="">Any / not listed</option>{% for l in loans %}{% for c in collaterals[l.id] %}<option value="{{ c.id }}">{{ l.reference }}: {{ c.kind }}</option>{% endfor %}{% endfor %}</select></div>
+<div class="field full"><label>Note (optional)</label><input type="text" name="caption" maxlength="200" placeholder="e.g. Toyota Premio UBA 123X, front and back"></div></div>
+<button class="btn btn-primary btn-sm"><i data-lucide="upload"></i> Upload</button></form></div>
+<script>(function(){var s=document.getElementById('mm-cat');function f(){var a=s.value==='ASSET_PHOTO';document.getElementById('mm-loanbox').style.display=a?'':'none';document.getElementById('mm-collbox').style.display=a?'':'none';}s.addEventListener('change',f);f();})();</script>
+</div><div>
+<div class="card"><div class="card-head"><h2>Saved files</h2></div>
+{% if items %}<div class="card-body" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px">
+{% for m in items %}<div style="border:1px solid var(--line,#e5e7eb);border-radius:10px;overflow:hidden">
+{% if m.file.is_image %}<a href="{{ url_for('files.serve', file_id=m.file_id) }}" target="_blank" rel="noopener"><img src="{{ url_for('files.serve', file_id=m.file_id) }}" alt="{{ categories[m.category] }}" loading="lazy" style="width:100%;height:120px;object-fit:cover;display:block"></a>
+{% else %}<a href="{{ url_for('files.serve', file_id=m.file_id) }}" target="_blank" rel="noopener" class="flex items-center" style="height:120px;justify-content:center"><i data-lucide="file-text"></i>&nbsp;PDF</a>{% endif %}
+<div style="padding:8px"><div class="small"><b>{{ categories[m.category] }}</b></div>{% if m.caption %}<div class="muted xs">{{ m.caption }}</div>{% endif %}<div class="muted xs">{{ m.created_at|ldt('%d %b %Y') }}</div>
+{{ action_form(url_for('media.delete', borrower_id=b.id, media_id=m.id), 'Remove', 'Remove this file?', danger=true, cls='btn btn-sm btn-danger') }}</div></div>{% endfor %}</div>
+{% else %}{{ empty('image', 'Nothing uploaded yet', 'Add the ID card, passport photo and asset pictures with the form.') }}{% endif %}</div>
+</div></div>
+{% endblock %}
