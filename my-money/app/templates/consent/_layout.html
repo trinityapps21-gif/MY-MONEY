@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+{% block robots %}{% endblock %}
+<title>{% block title %}Loan consent{% endblock %}</title>
+<style>
+:root{--bg:#f4f6f8;--card:#fff;--ink:#111827;--muted:#6b7280;--line:#d1d5db;--brand:#0f766e;--brand-ink:#fff;--tint:#e6f4f1;--bad:#b91c1c;--ok:#166534}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1417;--card:#182026;--ink:#e5e7eb;--muted:#9ca3af;--line:#334155;--brand:#14b8a6;--brand-ink:#04211e;--tint:rgba(20,184,166,.14);--bad:#f87171;--ok:#4ade80}}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:760px;margin:0 auto;padding:16px}
+.nav a{color:var(--brand);text-decoration:none;font-weight:600}
+.nav:empty{display:none}
+h1{font-size:1.5rem;margin:.3em 0}
+h2{font-size:1.1rem;margin:1.2em 0 .4em}
+h2.first{margin-top:0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin:14px 0}
+.muted{color:var(--muted);font-size:.92rem}
+label{display:block;font-weight:600;margin:12px 0 4px}
+input[type=text],input[type=number],input[type=date],select,textarea{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font:inherit}
+label.chk,label.opt{display:flex;gap:8px;align-items:flex-start;font-weight:400;margin:8px 0}
+label.chk input,label.opt input{margin-top:5px;width:auto;accent-color:var(--brand)}
+.btn{display:inline-block;border:0;border-radius:8px;padding:10px 16px;background:var(--brand);color:var(--brand-ink);font:inherit;font-weight:600;cursor:pointer;text-decoration:none}
+.btn.alt{background:transparent;color:var(--brand);border:1px solid var(--brand)}
+.btn.bad{background:transparent;color:var(--bad);border:1px solid var(--bad)}
+.btn:focus-visible,a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.between{display:flex;justify-content:space-between;gap:8px;align-items:center}
+.pill{padding:2px 10px;border-radius:99px;font-size:.8rem;border:1px solid var(--line)}
+.pill.on{color:var(--ok);border-color:var(--ok)}.pill.off{color:var(--muted)}
+.flash{padding:10px 14px;border-radius:8px;margin:10px 0;border:1px solid var(--line);background:var(--card)}
+.flash.error{border-color:var(--bad);color:var(--bad)}
+.flash.success{border-color:var(--ok);color:var(--ok)}
+.q{margin:18px 0}
+.q .ql{font-weight:600;display:block;margin-bottom:6px}
+.q.err input,.q.err select,.q.err textarea{border-color:var(--bad)}
+.errmsg{color:var(--bad);font-size:.88rem;margin-top:4px}
+.req{color:var(--bad)}
+.intro{white-space:pre-wrap}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);font-size:.92rem}
+</style>
+{% block head %}{% endblock %}
+</head>
+<body>
+<div class="wrap">
+<div class="nav">{% block nav %}{% endblock %}</div>
+{% with messages = get_flashed_messages(with_categories=true) %}{% for cat, msg in messages %}<div class="flash {{ cat }}">{{ msg }}</div>{% endfor %}{% endwith %}
+{% block body %}{% endblock %}
+</div>
+</body>
+</html>
