@@ -22,6 +22,9 @@ def can_view(f: StoredFile) -> bool:
         return bool(grp and grp.logo_file_id == f.id and grp.status == "ACTIVE")
     if not current_user.is_authenticated:
         return False
+    if f.kind == "owner_id":  # the owner's ID photo: the platform administrator (to approve) and the owner only
+        grp = db.session.get(Group, f.group_id) if f.group_id else None
+        return bool(current_user.is_platform_admin or (grp and grp.owner_id == current_user.id))
     if f.kind == "avatar":
         owner_id = f.related_id
         if owner_id == current_user.id:
