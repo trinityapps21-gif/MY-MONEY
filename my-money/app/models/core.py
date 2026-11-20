@@ -144,6 +144,7 @@ class Group(db.Model):
     loan_approvals_required = db.Column(db.Integer, nullable=False, default=1)
     # Business type is chosen once at creation and never changes: SAVINGS_GROUP or LENDING.
     business_type = db.Column(db.String(20), nullable=False, default="SAVINGS_GROUP", server_default="SAVINGS_GROUP")
+    require_client_media = db.Column(db.Boolean, nullable=False, default=False, server_default="0")  # lenders: ID + photos before disbursing
     rate_cap_bp = db.Column(db.Integer)  # optional own cap, % per month x100 (stricter than the platform cap)
     penalty_type = db.Column(db.String(10), nullable=False, default="NONE", server_default="NONE")
     penalty_value = db.Column(db.BigInteger, nullable=False, default=0, server_default="0")
