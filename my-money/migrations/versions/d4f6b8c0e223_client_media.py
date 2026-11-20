@@ -41,7 +41,7 @@ def upgrade():
         op.create_index('ix_client_media_loan_id', 'client_media', ['loan_id'])
     cols = {c['name'] for c in insp.get_columns('groups')}
     if 'require_client_media' not in cols:
-        op.add_column('groups', sa.Column('require_client_media', sa.Boolean(), nullable=False, server_default='0'))
+        op.add_column('groups', sa.Column('require_client_media', sa.Boolean(), nullable=False, server_default='1'))
 
 
 def downgrade():
