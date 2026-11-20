@@ -10,6 +10,13 @@ DOC_TYPES = {
     "ADDRESS": "Proof of address / LC letter", "INCOME": "Proof of income", "AGREEMENT": "Loan agreement",
     "OTHER": "Other document",
 }
+MEDIA_CATEGORIES = {
+    "ID_FRONT": "National ID card (front)", "ID_BACK": "National ID card (back)",
+    "DRIVE_PERMIT": "Driving permit", "PASSPORT": "Passport",
+    "CLIENT_PHOTO": "Client photo (passport-size)", "ASSET_PHOTO": "Security / collateral asset photo",
+    "OTHER": "Other document",
+}
+IDENTITY_CATEGORIES = ("ID_FRONT", "DRIVE_PERMIT", "PASSPORT")  # any one of these proves who the client is
 COLLATERAL_STATUS = {"HELD": "Held", "RELEASED": "Released", "SEIZED": "Seized / sold"}
 FEE_TYPES = ("NONE", "FLAT", "PERCENT")
 
@@ -220,3 +227,21 @@ class CapitalEntry(db.Model):
 
     __table_args__ = (CheckConstraint("kind IN ('CAPITAL_IN','WITHDRAWAL')", name="ck_capital_kind"),
                       CheckConstraint("amount > 0", name="ck_capital_amount"))
+
+
+class ClientMedia(db.Model):
+    """Pictures and scans a lender keeps about a client: ID card, driving permit, passport, the client's photo,
+    and photos of the asset held as security. Files live at ImageKit; only the reference is stored here."""
+    __tablename__ = "client_media"
+    id = db.Column(db.Integer, primary_key=True)
+    group_id = db.Column(db.Integer, db.ForeignKey("groups.id"), nullable=False, index=True)
+    borrower_id = db.Column(db.Integer, db.ForeignKey("borrowers.id"), nullable=False, index=True)
+    loan_id = db.Column(db.Integer, db.ForeignKey("loans.id"), index=True)          # set for asset photos of a loan
+    collateral_id = db.Column(db.Integer, db.ForeignKey("collaterals.id"))           # optional: which asset
+    category = db.Column(db.String(20), nullable=False)
+    file_id = db.Column(db.Integer, db.ForeignKey("stored_files.id"), nullable=False)
+    caption = db.Column(db.String(200))
+    created_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=utcnow)
+
+    file = db.relationship("StoredFile")
