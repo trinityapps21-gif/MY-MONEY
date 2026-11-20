@@ -37,8 +37,9 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/icons.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/pwa.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/lender.css') }}">
 </head>
-<body>
+<body class="{% block body_class %}{{ 'theme-lender' if current_group and current_group.is_lender }}{% endblock %}">
   {% block body %}{% endblock %}
   <div id="toasts" aria-live="polite"></div>
   {% for category, message in get_flashed_messages(with_categories=true) %}<span class="hide" data-flash="{{ message }}" data-kind="{{ category if category in ('success','error','info') else 'info' }}"></span>{% endfor %}
