@@ -144,15 +144,6 @@ class Group(db.Model):
     loan_approvals_required = db.Column(db.Integer, nullable=False, default=1)
     # Business type is chosen once at creation and never changes: SAVINGS_GROUP or LENDING.
     business_type = db.Column(db.String(20), nullable=False, default="SAVINGS_GROUP", server_default="SAVINGS_GROUP")
-    # Lending businesses are checked by the platform administrator before they go online.
-    # Waiting/rejected businesses are kept at status SUSPENDED, so every existing access check already blocks them.
-    approval_status = db.Column(db.String(12), nullable=False, default="APPROVED", server_default="APPROVED")  # APPROVED|PENDING|REJECTED
-    business_kind = db.Column(db.String(40))
-    district = db.Column(db.String(80))
-    owner_national_id = db.Column(db.String(40))
-    owner_id_file_id = db.Column(db.Integer, db.ForeignKey("stored_files.id", use_alter=True, name="fk_group_owner_id"))
-    rejection_reason = db.Column(db.String(300))
-    require_client_media = db.Column(db.Boolean, nullable=False, default=True, server_default="1")  # lenders: ID + photos needed before disbursing (on by default; only applies to lending businesses)
     rate_cap_bp = db.Column(db.Integer)  # optional own cap, % per month x100 (stricter than the platform cap)
     penalty_type = db.Column(db.String(10), nullable=False, default="NONE", server_default="NONE")
     penalty_value = db.Column(db.BigInteger, nullable=False, default=0, server_default="0")
@@ -195,6 +186,10 @@ class GroupMember(db.Model):
     approved_by = db.Column(db.Integer, db.ForeignKey("users.id"))
     joined_at = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, nullable=False, default=utcnow)
+    # One-time welcome sequence: switched on when a group is created or a member is approved, switched off for good
+    # (with a timestamp) the first time the person's welcome screen is shown. Existing members default to off.
+    onboarding_pending = db.Column(db.Boolean, nullable=False, default=False, server_default="0")
+    onboarding_completed_at = db.Column(db.DateTime)
 
     group = db.relationship("Group", backref="memberships")
     user = db.relationship("User", foreign_keys=[user_id], backref="memberships")
