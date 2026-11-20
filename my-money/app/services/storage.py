@@ -1,8 +1,8 @@
 """File storage facade used by the rest of MY MONEY.
 
 Routing (the only place that knows which vendor stores what):
-    image/*                 -> Uploadcare   (logos, avatars, community and announcement images)
-    everything else (docs)  -> ImageKit     (PDF, Word, Excel, TXT/CSV, receipts, statements)
+    every new file          -> ImageKit     (images, PDF, Word, Excel, TXT/CSV, receipts, statements)
+    files uploaded earlier  -> stay on Uploadcare and are still read from there (their rows say provider="uploadcare")
 Metadata for every file is stored in Turso (``stored_files``). Nothing is written to
 the application filesystem. To replace a vendor, add a module implementing
 ``StorageProvider`` and change ``provider()`` below.
@@ -54,7 +54,8 @@ def provider(name):
 
 
 def provider_name_for(content_type: str) -> str:
-    return "uploadcare" if (content_type or "").startswith("image/") else "imagekit"
+    """Everything new goes to ImageKit. Old Uploadcare files keep working: reads and deletes use the row's own provider."""
+    return "imagekit"
 
 
 def storage_status() -> dict:
