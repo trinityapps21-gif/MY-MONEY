@@ -87,10 +87,21 @@ def _login(user):
 @bp.route("/login", methods=["GET", "POST"])
 @limiter.limit("10 per minute; 60 per hour", methods=["POST"])
 def login():
+    return _login_view("auth/login.html")
+
+
+@bp.route("/login/lending", methods=["GET", "POST"])
+@limiter.limit("10 per minute; 60 per hour", methods=["POST"])
+def login_lending():
+    """Same account system and security as /login, with the lending-business look and wording."""
+    return _login_view("auth/login_lending.html")
+
+
+def _login_view(template):
     if current_user.is_authenticated:
         return redirect(home_for(current_user))
     if request.method == "POST" and not turnstile.check_request():
-        return render_template("auth/login.html"), 400
+        return render_template(template), 400
     if request.method == "POST":
         ident = (request.form.get("identifier") or "").strip()
         password = request.form.get("password") or ""
@@ -107,7 +118,7 @@ def login():
             flash("Incorrect phone/email or password.", "error")
     if request.method == "GET" and request.args.get("idle") == "1":
         flash(f"You were signed out after {current_app.config['IDLE_TIMEOUT_MINUTES']} minutes of inactivity. Please sign in again.", "info")
-    return render_template("auth/login.html")
+    return render_template(template)
 
 
 @bp.route("/logout", methods=["POST"])
@@ -153,6 +164,43 @@ def register():
             flash("Your group has been created. You are the Group Administrator.", "success")
             return redirect(url_for("groups.dashboard", group_id=group.id))
     return render_template("auth/register.html", **group_form_context())
+
+
+@bp.route("/register/lending", methods=["GET", "POST"])
+@limiter.limit("10 per hour", methods=["POST"])
+def register_lending():
+    """Lending-business registration. Different details from a savings group (owner's National ID and photo,
+    licence, address) and the business goes online only after the platform administrator approves it."""
+    from app.groups import LENDER_KINDS, create_lending_from_form, group_form_context
+
+    if get_setting("allow_group_registration", "1") != "1":
+        flash("New registration is currently closed.", "error")
+        return redirect(url_for("main.index"))
+    ctx = {**group_form_context(), "kinds": LENDER_KINDS}
+    if request.method == "POST" and not current_user.is_authenticated and not turnstile.check_request():
+        return render_template("auth/register_lending.html", **ctx), 400
+    if request.method == "POST":
+        seed_defaults()
+        user = current_user if current_user.is_authenticated else None
+        err = None
+        if user is None:
+            user, err = register_user(request.form.get("full_name"), request.form.get("phone"),
+                                      request.form.get("email"), request.form.get("password") or "",
+                                      request.form.get("confirm_password") or "")
+        if not err:
+            group, err = create_lending_from_form(user, request.form, request.files.get("owner_id_photo"),
+                                                  request.files.get("logo"))
+        if err:
+            db.session.rollback()
+            flash(err, "error")
+        else:
+            db.session.commit()
+            if not current_user.is_authenticated:
+                _login(user)
+            flash("Thank you. Your business has been sent for approval. You will be able to use it as soon as the "
+                  "platform administrator approves it.", "success")
+            return redirect(url_for("groups.select"))
+    return render_template("auth/register_lending.html", **ctx)
 
 
 # ---------------------------------------------------------------- password reset
