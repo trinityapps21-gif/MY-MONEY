@@ -1,0 +1,50 @@
+{# One-time welcome sequence. Founders: splash then Founding Billionaire modal. Joined members: splash only. #}
+{% if onboarding %}
+{% if onboarding.ceo_image %}<link rel="preload" as="image" href="{{ url_for('static', filename=onboarding.ceo_image) }}">{% endif %}
+<noscript><style>#ob-root{display:none!important}</style></noscript>
+<div id="ob-root" class="ob" data-kind="{{ onboarding.kind }}" data-seconds="5"
+     data-complete-url="{{ url_for('onboarding.complete') }}" data-dashboard-url="{{ url_for('groups.dashboard') }}">
+
+  <section class="ob-splash" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="ob-title" aria-describedby="ob-sub">
+    <button type="button" class="ob-skip" data-ob-skip>Skip</button>
+    <div class="ob-splash-inner">
+      <div class="ob-brand">{% if onboarding.logo %}<img src="{{ url_for('static', filename=onboarding.logo) }}" alt="Emtrixz Technology" height="44" style="height:44px;width:auto">{% else %}<span class="ob-wordmark">EMTRIXZ <b>TECHNOLOGY</b></span>{% endif %}</div>
+      <div class="ob-portrait">
+        {% if onboarding.ceo_image %}<img src="{{ url_for('static', filename=onboarding.ceo_image) }}" alt="Chief Executive Officer, Emtrixz Technology" width="132" height="132" decoding="async" data-ob-portrait>{% endif %}
+        <span class="ob-portrait-fallback {{ '' if not onboarding.ceo_image else 'hide' }}"><i data-lucide="user-round"></i></span>
+      </div>
+      <h1 id="ob-title">Welcome, Future Billionaires!<span>You have officially joined Emtrixz Technology.</span></h1>
+      <p id="ob-sub" class="ob-sub">Preparing your group vault...</p>
+      <div class="ob-bar" role="progressbar" aria-label="Preparing your group vault" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i data-ob-fill></i></div>
+      <div class="ob-count" aria-hidden="true"><span data-ob-count>5</span>s</div>
+    </div>
+  </section>
+
+  {% if onboarding.kind == 'FOUNDER' %}
+  <div class="ob-modal hide" data-ob-modal>
+    <div class="ob-card" role="dialog" aria-modal="true" aria-labelledby="ob-mtitle">
+      <button type="button" class="ob-close" data-ob-close aria-label="Close"><i data-lucide="x"></i></button>
+      <header class="ob-head">
+        <div class="ob-badge"><i data-lucide="crown"></i><span>Founding Billionaire</span></div>
+        <h2 id="ob-mtitle">{{ current_group.name }} is open for business</h2>
+      </header>
+      <div class="ob-body">
+        <h3>Getting started</h3>
+        <ol class="ob-steps">
+          <li><span class="ob-num">1</span><div><a href="{{ url_for('members.invitations') }}"><b>Invite Members</b></a><p>Share your unique group link to bring everyone on board.</p></div></li>
+          <li><span class="ob-num">2</span><div><a href="{{ url_for('groups.settings') }}"><b>Configure Group Rules</b></a><p>Set your savings target, contribution frequency, and payout schedule.</p></div></li>
+          <li><span class="ob-num">3</span><div><a href="{{ url_for('savings.new') }}"><b>Make Your First Deposit</b></a><p>Record or submit your initial contribution to activate the group.</p></div></li>
+        </ol>
+        <h3>Platform advantages</h3>
+        <ul class="ob-adv">
+          <li><i data-lucide="eye"></i><div><b>Full Transparency</b><p>Real-time visibility into group balances and transaction logs for all members.</p></div></li>
+          <li><i data-lucide="bell-ring"></i><div><b>Automated Reminders</b><p>Scheduled payment alerts that eliminate manual follow-ups.</p></div></li>
+          <li><i data-lucide="shield-check"></i><div><b>Centralized Record-Keeping</b><p>Secure, auditable group tracking without scattered spreadsheets or chat threads.</p></div></li>
+        </ul>
+        <button type="button" class="btn btn-accent btn-lg ob-go" data-ob-done>Let&rsquo;s Build Wealth</button>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
