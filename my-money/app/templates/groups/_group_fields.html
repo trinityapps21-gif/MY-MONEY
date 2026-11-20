@@ -1,8 +1,5 @@
 <div class="form-grid">
-{% if not group %}<div class="field full"><label>What are you setting up?</label>
-<div class="choice-row"><label class="check"><input type="radio" name="business_type" value="SAVINGS_GROUP" checked onchange="mmBtype(this.value)"> <span><b>Savings group</b><br><span class="muted small">Members save together and borrow from the pool.</span></span></label>
-<label class="check"><input type="radio" name="business_type" value="LENDING" onchange="mmBtype(this.value)"> <span><b>Lending business</b><br><span class="muted small">Money lender or microfinance: borrowers, products, fees and collections.</span></span></label></div>
-<div class="hint">This cannot be changed later.</div></div>{% endif %}
+{% if not group %}<input type="hidden" name="business_type" value="SAVINGS_GROUP"><div class="field full"><div class="hint">Starting a money-lending business? <a href="{{ url_for('auth.register_lending') }}">Register it here</a> instead: it has its own form and is approved before it goes online.</div></div>{% endif %}
 <div class="field full"><label>{{ 'Business' if group and group.is_lender else 'Group' }} name</label><input type="text" name="group_name" required minlength="3" value="{{ group.name if group }}"></div>
 <div class="field full"><label>Description</label><textarea name="description" maxlength="1000">{{ group.description or '' if group }}</textarea></div>
 <div class="field"><label>Location</label><input type="text" name="location" value="{{ group.location or '' if group }}"></div>
