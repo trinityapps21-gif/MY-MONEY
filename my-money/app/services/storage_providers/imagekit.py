@@ -1,4 +1,4 @@
-"""ImageKit provider - used for documents and other non-image attachments.
+"""ImageKit provider - stores every new file: images (logos, avatars, post pictures) and documents.
 
 * Upload:  POST {IMAGEKIT_UPLOAD_URL} multipart, HTTP Basic auth (private key as
            username, empty password). Files are uploaded with isPrivateFile=true so
@@ -32,7 +32,7 @@ class ImageKitProvider(StorageProvider):
 
     def _require(self):
         if not self.configured():
-            raise NotConfigured("Document storage (ImageKit) is not configured.")
+            raise NotConfigured("File storage (ImageKit) is not configured.")
 
     def _auth(self):
         return (self._cfg("IMAGEKIT_PRIVATE_KEY"), "")
@@ -51,7 +51,7 @@ class ImageKitProvider(StorageProvider):
             return UploadResult(body["fileId"], body["url"], len(data), content_type)
         except (requests.RequestException, KeyError, ValueError) as e:
             current_app.logger.error("ImageKit upload failed: %s", e)
-            raise StorageError("The document could not be uploaded. Please try again.")
+            raise StorageError("The file could not be uploaded. Please try again.")
 
     def signed_url(self, provider_file_id, file_url, *, expires_in=300):
         self._require()
