@@ -3,6 +3,7 @@ Developed and Powered by Emtrixz Technology Company."""
 import logging
 import os
 import time
+from urllib.parse import urlparse
 
 import click
 import json
@@ -400,6 +401,20 @@ def register_errors(app):
                 return jsonify(error=msg), code
             return render_template("errors/error.html", code=code, title=title, message=msg), code
         app.register_error_handler(code, handler)
+
+    from flask_wtf.csrf import CSRFError
+
+    @app.errorhandler(CSRFError)
+    def csrf_failed(e):
+        """A form was sent with a missing or expired security token. This happens when a page sits open longer
+        than the 30-minute session (a phone app left in the background, a login form left half-filled).
+        Show a friendly message and a fresh page instead of a raw "Bad Request"."""
+        if wants_json():
+            return jsonify(error="Your session expired. Please reload the page and try again.", code="csrf"), 400
+        flash("Your page was open for too long, so for your security it was refreshed. Please try again.", "info")
+        if request.endpoint in ("auth.login", "auth.register", "auth.forgot_password", "auth.recover", "auth.reset_password"):
+            return redirect(request.full_path.rstrip("?") if request.method == "POST" else url_for("auth.login"))
+        return redirect(url_for("auth.login", next=request.referrer and urlparse(request.referrer).path or None))
 
     @app.errorhandler(500)
     def server_error(e):
