@@ -1,0 +1,18 @@
+{% extends "shell_group.html" %}
+{% from "partials/macros.html" import csrf, empty %}
+{% block title %}Client Documents{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Client Documents</h1><p>ID cards, driving permits, passports, client photos and pictures of the assets held as security.</p></div></div>
+<div class="card card-pad mb2">
+<form method="post" action="{{ url_for('media.settings') }}" class="flex gap2 items-center wrap">{{ csrf() }}
+<label class="flex gap1 items-center"><input type="checkbox" name="require_client_media" value="1" {{ 'checked' if current_group.require_client_media }} onchange="this.form.submit()"> <b>Require documents before a loan is paid out</b></label>
+<span class="muted small">When on, a loan cannot be disbursed until the client has an ID card, driving permit or passport on file, a client photo, and a photo of any asset held as security.</span></form></div>
+<form method="get" class="input-group mb2"><input type="search" name="q" value="{{ q }}" placeholder="Search client name"><button class="btn" type="submit"><i data-lucide="search"></i> Search</button></form>
+{% if borrowers %}
+<div class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Client</th><th>Phone</th><th>Basic documents</th><th></th></tr></thead><tbody>
+{% for b in borrowers %}{% set s = summary[b.id] %}<tr><td><a href="{{ url_for('media.borrower', borrower_id=b.id) }}"><b>{{ b.name }}</b></a></td><td>{{ b.phone or '-' }}</td>
+<td><span class="pill {{ 'green' if s[0] == s[1] else ('amber' if s[0] else 'red') }}">{{ s[0] }} of {{ s[1] }} on file</span></td>
+<td class="right"><a class="btn btn-sm" href="{{ url_for('media.borrower', borrower_id=b.id) }}"><i data-lucide="folder-open"></i> Open</a></td></tr>{% endfor %}
+</tbody></table></div></div>
+{% else %}{{ empty('folder-open', 'No clients yet', 'Add a borrower first, then upload their documents here.') }}{% endif %}
+{% endblock %}
