@@ -29,9 +29,9 @@ def checklist(group_id, borrower_id, loan=None):
 
 
 def missing_for_loan(group, loan):
-    """Names of what is still missing, only when the lender switched the requirement on."""
-    if not getattr(group, "require_client_media", False):
-        return []
+    """Names of what is still missing. Applies to lending businesses only, and is on unless the lender turned it off."""
+    if not group.is_lender or not getattr(group, "require_client_media", True):
+        return []  # savings groups are never affected
     return [label for label, ok in checklist(group.id, loan.borrower_id, loan) if not ok]
 
 
