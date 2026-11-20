@@ -3,7 +3,6 @@ Developed and Powered by Emtrixz Technology Company."""
 import logging
 import os
 import time
-from urllib.parse import urlparse
 
 import click
 import json
@@ -147,6 +146,7 @@ def register_blueprints(app):
     from app.biometric import bp as biometric_bp
     from app.interest import bp as interest_bp
     from app.overdue import bp as overdue_bp
+    from app.onboarding import bp as onboarding_bp
     from app.borrowers import bp as borrowers_bp
     from app.community import bp as community_bp
     from app.feed import bp as feed_bp
@@ -155,7 +155,6 @@ def register_blueprints(app):
     from app.imports import bp as imports_bp
     from app.lending import bp as lending_bp
     from app.main import bp as main_bp
-    from app.media import bp as media_bp
     from app.members import bp as members_bp
     from app.notifications import bp as notifications_bp
     from app.platform_admin import bp as platform_bp
@@ -171,7 +170,7 @@ def register_blueprints(app):
     for bp in (main_bp, auth_bp, groups_bp, members_bp, savings_bp, borrowers_bp, lending_bp, repayments_bp,
                feed_bp, community_bp, announcements_bp, reports_bp, notifications_bp, files_bp, platform_bp, imports_bp,
                shares_bp, rules_bp, fines_bp, schedules_bp, finance_bp, products_bp,
-               collections_bp, applications_bp, portal_bp, capital_bp, biometric_bp, interest_bp, overdue_bp, media_bp):
+               collections_bp, applications_bp, portal_bp, capital_bp, biometric_bp, interest_bp, overdue_bp, onboarding_bp):
         app.register_blueprint(bp)
 
 
@@ -270,6 +269,7 @@ def register_template_helpers(app):
 
     @app.context_processor
     def inject():
+        from app.onboarding import context as onboarding_context
         unread, group_count, pending, resets = 0, 0, 0, 0
         if current_user.is_authenticated:
             from sqlalchemy import func, select
@@ -303,6 +303,7 @@ def register_template_helpers(app):
             "idle_timeout_seconds": int(app.config["IDLE_TIMEOUT_MINUTES"]) * 60,
             "idle_warning_seconds": int(app.config["IDLE_WARNING_SECONDS"]),
             "biometric_installed_only": bool(app.config.get("BIOMETRIC_INSTALLED_APP_ONLY", True)),
+            "onboarding": onboarding_context(),
         }
 
 
@@ -402,20 +403,6 @@ def register_errors(app):
                 return jsonify(error=msg), code
             return render_template("errors/error.html", code=code, title=title, message=msg), code
         app.register_error_handler(code, handler)
-
-    from flask_wtf.csrf import CSRFError
-
-    @app.errorhandler(CSRFError)
-    def csrf_failed(e):
-        """A form was sent with a missing or expired security token. This happens when a page sits open longer
-        than the 30-minute session (a phone app left in the background, a login form left half-filled).
-        Show a friendly message and a fresh page instead of a raw "Bad Request"."""
-        if wants_json():
-            return jsonify(error="Your session expired. Please reload the page and try again.", code="csrf"), 400
-        flash("Your page was open for too long, so for your security it was refreshed. Please try again.", "info")
-        if request.endpoint in ("auth.login", "auth.register", "auth.forgot_password", "auth.recover", "auth.reset_password"):
-            return redirect(request.full_path.rstrip("?") if request.method == "POST" else url_for("auth.login"))
-        return redirect(url_for("auth.login", next=request.referrer and urlparse(request.referrer).path or None))
 
     @app.errorhandler(500)
     def server_error(e):
