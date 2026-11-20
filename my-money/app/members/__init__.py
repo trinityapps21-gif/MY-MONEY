@@ -122,6 +122,8 @@ def decide(member_id, group_id=None):
         flash("This application has already been decided.", "error")
     elif action == "approve":
         m.status, m.approved_by, m.joined_at = "ACTIVE", current_user.id, utcnow()
+        if g.group.business_type == "SAVINGS_GROUP" and not m.onboarding_completed_at:
+            m.onboarding_pending = True                      # welcome message from the CEO, shown once
         if app_row:
             app_row.status, app_row.decided_by, app_row.decided_at = "APPROVED", current_user.id, utcnow()
         feedlog.emit(g.group.id, "MEMBER_APPROVED", "New member approved",
