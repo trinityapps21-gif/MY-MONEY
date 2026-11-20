@@ -46,6 +46,14 @@ def serve(file_id):
         abort(404)
     download = request.args.get("download") == "1"
     try:
+        if f.is_image and f.provider == "imagekit" and not download:
+            # Let the browser load the picture straight from ImageKit's fast CDN through a short-lived signed link
+            # (the access check above already passed), instead of this server downloading and re-sending every image.
+            link = storage.signed_url(f, seconds=900)
+            if link:
+                resp = redirect(link)
+                resp.headers["Cache-Control"] = "private, max-age=300" if f.kind != "logo" else "public, max-age=300"
+                return resp
         if f.is_image:
             data = storage.read_bytes(f)
             resp = Response(data, mimetype=f.content_type)
