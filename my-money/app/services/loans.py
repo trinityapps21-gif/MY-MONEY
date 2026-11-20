@@ -205,6 +205,11 @@ def disburse(group, loan, user, disbursed_on):
         raise LoanError("Only approved loans can be disbursed.")
     if loan.disbursement_tx_id:
         raise LoanError("This loan has already been disbursed.")
+    from app.services import media as media_svc
+    missing = media_svc.missing_for_loan(group, loan)
+    if missing and not importctx.active():
+        raise LoanError("Before lending, add the client's documents on the Client Documents page. Still missing: "
+                        + "; ".join(missing) + ".")
     if loan.refinance_of_id:  # settle the old loan first: its payoff is cash coming in
         old = db.session.get(Loan, loan.refinance_of_id)
         quote = settlement_quote(old, disbursed_on)
