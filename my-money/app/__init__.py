@@ -155,6 +155,7 @@ def register_blueprints(app):
     from app.imports import bp as imports_bp
     from app.lending import bp as lending_bp
     from app.main import bp as main_bp
+    from app.media import bp as media_bp
     from app.members import bp as members_bp
     from app.notifications import bp as notifications_bp
     from app.platform_admin import bp as platform_bp
@@ -170,7 +171,7 @@ def register_blueprints(app):
     for bp in (main_bp, auth_bp, groups_bp, members_bp, savings_bp, borrowers_bp, lending_bp, repayments_bp,
                feed_bp, community_bp, announcements_bp, reports_bp, notifications_bp, files_bp, platform_bp, imports_bp,
                shares_bp, rules_bp, fines_bp, schedules_bp, finance_bp, products_bp,
-               collections_bp, applications_bp, portal_bp, capital_bp, biometric_bp, interest_bp, overdue_bp):
+               collections_bp, applications_bp, portal_bp, capital_bp, biometric_bp, interest_bp, overdue_bp, media_bp):
         app.register_blueprint(bp)
 
 
