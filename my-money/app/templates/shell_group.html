@@ -6,6 +6,7 @@
 <li><a href="{{ href }}" class="{{ 'on' if on }}" {% if on %}aria-current="page"{% endif %}><i data-lucide="{{ icon }}"></i><span>{{ label }}</span>{% if count %}<span class="count">{{ count }}</span>{% endif %}</a></li>
 {% endmacro %}
 {% block body %}
+{% include "partials/onboarding.html" %}
 <aside class="sidebar" id="sidebar" aria-label="Main navigation">
   <div class="side-brand">
     {{ group_mark(current_group, 'side-logo') }}
@@ -23,7 +24,6 @@
       {{ nav_item(url_for('shares.index'), 'pie-chart', 'Shares', bpn == 'shares') }}
       {{ nav_item(url_for('schedules.index'), 'calendar-clock', 'Who Has Not Paid', bpn == 'schedules') }}{% endif %}
       {{ nav_item(url_for('borrowers.index'), 'user-round-check', 'Borrowers', bpn == 'borrowers') }}
-      {% if current_group.is_lender %}{{ nav_item(url_for('media.index'), 'folder-open', 'Client Documents', bpn == 'media') }}{% endif %}
       {% if current_group.is_lender %}{{ nav_item(url_for('products.index'), 'package', 'Loan Products', bpn == 'products') }}
       {{ nav_item(url_for('applications.index'), 'clipboard-list', 'Applications', bpn == 'applications') }}{% endif %}
       {{ nav_item(url_for('lending.index'), 'hand-coins', 'Loans', bpn == 'lending') }}
