@@ -2,7 +2,7 @@
 {% from "partials/macros.html" import csrf, loan_pill, empty, action_form %}
 {% block title %}{{ b.name }}{% endblock %}
 {% block content %}
-<div class="page-head"><div class="flex gap2 items-center">{% if photo %}<img src="{{ url_for('files.serve', file_id=photo.file_id) }}" alt="" width="64" height="64" style="border-radius:50%;object-fit:cover">{% endif %}<div><h1>{{ b.name }}</h1><p>{{ b.category }} &middot; registered {{ b.registered_on|ld }}{% if b.phone %} &middot; {{ b.phone }}{% endif %}</p></div></div><a class="btn btn-primary" href="{{ url_for('lending.new', borrower=b.id) }}"><i data-lucide="plus"></i>New loan</a></div>
+<div class="page-head"><div class="flex gap2 items-center">{% if photo %}<img src="{{ url_for('files.serve', file_id=photo.file_id) }}" alt="" width="64" height="64" style="border-radius:50%;object-fit:cover">{% endif %}<div><h1>{{ b.name }}</h1><p>{{ b.category }} &middot; registered {{ b.registered_on|ld }}{% if b.phone %} &middot; {{ b.phone }}{% endif %}</p></div></div>{% if current_group.is_lender %}<a class="btn" href="{{ url_for('media.borrower', borrower_id=b.id) }}"><i data-lucide="folder-open"></i>Documents &amp; photos</a>{% endif %}<a class="btn btn-primary" href="{{ url_for('lending.new', borrower=b.id) }}"><i data-lucide="plus"></i>New loan</a></div>
 <div class="split">
 <div>
 <div class="card mb2"><div class="card-head"><h2>Loans</h2></div>{% if loans %}<div class="table-wrap"><table class="table"><thead><tr><th>Reference</th><th class="num">Principal</th><th class="num">Outstanding</th><th>Status</th></tr></thead><tbody>
