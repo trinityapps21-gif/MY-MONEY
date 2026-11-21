@@ -4,7 +4,7 @@ from sqlalchemy import func
 
 from app.extensions import db
 from app.models import Borrower, Loan, LoanRepayment, LoanRepaymentSchedule
-from app.services import ledger, lender as lender_svc, loans as loan_svc
+from app.services import ledger, lender as lender_svc, loans as loan_svc, receipts as receipts_svc
 from app.services.audit import audit
 from app.services.forms import form_amount, form_date, form_text, new_idem_key
 from app.services.loans import ACTIVE_STATES, LoanError
@@ -89,6 +89,8 @@ def new(group_id=None):
             if fine and rep:
                 msg += f" {fmt(fine, g.group.currency, g.group.currency_decimals)} cleared the late fine first."
             flash(msg, "success")
+            if rep:
+                receipts_svc.offer(g.group, "repayment", rep.id)
             late = getattr(rep, "assessed_fine", None) if rep else None
             if late is not None:
                 flash(f"Paid {late.days_late} day(s) late: a fine of {money_text(late.amount)} was added. "
