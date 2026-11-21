@@ -1,5 +1,5 @@
 {% extends "shell_group.html" %}
-{% from "partials/macros.html" import pager, action_form, pill %}
+{% from "partials/macros.html" import pager, action_form, pill, receipt_buttons %}
 {% block title %}Transactions{% endblock %}
 {% block content %}
 <div class="page-head"><div><h1>Transactions</h1><p>Append-only ledger. Corrections are posted as reversals.</p></div>
@@ -15,7 +15,7 @@
 <td>{{ t.tx_date|ld }}</td><td>{{ t.reference }}</td><td>{{ labels.get(t.tx_type, t.tx_type) }}</td><td>{{ t.description or '' }}{% if t.reverses_id %} <span class="pill amber">Reversal</span>{% endif %}</td>
 <td class="num keep" style="color:{{ 'var(--green)' if t.direction == 'IN' else 'var(--red)' }}">{{ '+' if t.direction == 'IN' else '-' }}{{ money(t.amount) }}</td>
 <td class="keep">{% if t.tx_type in reversible and not rev and not t.kind %}{{ action_form(url_for('reports.transaction_reverse', tx_id=t.id), 'Reverse', 'Reverse this transaction?', 'undo-2', 'btn btn-sm btn-danger', reason='Reason for reversal', danger=true) }}{% endif %}
-<a class="btn btn-sm btn-ghost" href="{{ url_for('reports.receipt', kind='transaction', obj_id=t.id) }}" title="Receipt"><i data-lucide="file-text"></i></a></td></tr>
+{{ receipt_buttons('transaction', t.id, t.reference) }}</td></tr>
 {% else %}<tr><td colspan="6"><div class="empty">No transactions found.</div></td></tr>{% endfor %}
 </tbody></table></div>{{ pager(page) }}</div>
 {% endblock %}
