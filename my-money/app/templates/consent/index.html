@@ -1,0 +1,26 @@
+{% extends "consent/_layout.html" %}
+{% block title %}Loan consent forms{% endblock %}
+{% block nav %}<a href="{{ url_for('groups.dashboard') }}">&larr; Back to dashboard</a>{% endblock %}
+{% block body %}
+<h1>Loan consent forms</h1>
+<p class="muted">Build a consent form, share its link on WhatsApp or email, and download each person's answers as a PDF.</p>
+<form method="post" action="{{ url_for('consent.new') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <button class="btn" type="submit">New consent form</button>
+</form>
+{% for f in forms %}
+<div class="card">
+  <div class="between">
+    <strong>{{ f.title }}</strong>
+    <span class="pill {{ 'on' if f.is_open else 'off' }}">{{ 'Open' if f.is_open else 'Closed' }}</span>
+  </div>
+  <p class="muted">{{ counts.get(f.id, 0) }} response{{ '' if counts.get(f.id, 0) == 1 else 's' }}, {{ f.fields|length }} questions</p>
+  <div class="actions">
+    <a class="btn" href="{{ url_for('consent.edit', form_id=f.id) }}">Edit and share</a>
+    <a class="btn alt" href="{{ url_for('consent.responses', form_id=f.id) }}">Responses</a>
+  </div>
+</div>
+{% else %}
+<p class="muted">No forms yet. Create your first one above.</p>
+{% endfor %}
+{% endblock %}
