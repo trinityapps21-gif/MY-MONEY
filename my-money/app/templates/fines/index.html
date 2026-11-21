@@ -1,5 +1,5 @@
 {% extends "shell_group.html" %}
-{% from "partials/macros.html" import stat, empty, pager, chart_cfg, csrf %}
+{% from "partials/macros.html" import stat, empty, pager, chart_cfg, csrf, receipt_buttons %}
 {% set use_charts = true %}
 {% block title %}Loan fines{% endblock %}
 {% block content %}
@@ -40,7 +40,7 @@
 {% for f in page.items %}<tr><td>{{ f.paid_on|ld }}</td><td><a href="{{ url_for('lending.detail', loan_id=f.loan_id) }}">{{ f.loan.reference }}</a></td><td>{{ f.borrower.name }}</td><td class="num">{{ f.days_late }}</td><td class="num">{{ money(f.amount) }}</td>
 <td><span class="pill {{ 'green' if f.status == 'PAID' else ('amber' if f.status == 'UNPAID' else '') }}">{{ f.status.title() }}</span></td>
 <td>{% if f.status == 'UNPAID' %}<form method="post" action="{{ url_for('fines.settle', fine_id=f.id) }}" style="display:inline">{{ csrf() }}<select name="payment_method" style="width:auto">{% for m in methods %}<option>{{ m }}</option>{% endfor %}</select> <button class="btn btn-sm btn-primary">Collect</button></form>
-<details style="display:inline-block"><summary class="btn btn-sm">Waive / reduce</summary><form method="post" action="{{ url_for('fines.waive', fine_id=f.id) }}">{{ csrf() }}<input type="text" name="new_amount" inputmode="decimal" placeholder="New amount (empty = waive)"><input type="text" name="reason" placeholder="Reason" required><button class="btn btn-sm">Save</button></form></details>{% endif %}</td></tr>
+<details style="display:inline-block"><summary class="btn btn-sm">Waive / reduce</summary><form method="post" action="{{ url_for('fines.waive', fine_id=f.id) }}">{{ csrf() }}<input type="text" name="new_amount" inputmode="decimal" placeholder="New amount (empty = waive)"><input type="text" name="reason" placeholder="Reason" required><button class="btn btn-sm">Save</button></form></details>{% elif f.status == 'PAID' and f.tx_id %}{{ receipt_buttons('fine', f.id, f.id) }}{% endif %}</td></tr>
 {% if f.reason %}<tr><td></td><td colspan="6" class="muted small">{{ f.reason }}</td></tr>{% endif %}{% endfor %}
 </tbody></table></div>{{ pager(page) }}{% else %}{{ empty('alarm-clock', 'No fines yet', 'Fines appear here when a borrower pays after the deadline plus the grace period.') }}{% endif %}</div>
 {% endblock %}
