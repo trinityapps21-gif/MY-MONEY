@@ -1,0 +1,36 @@
+{% extends "consent/_layout.html" %}
+{% block robots %}<meta name="robots" content="noindex, nofollow">{% endblock %}
+{% block title %}Thank you{% endblock %}
+{% block body %}
+<div class="card">
+  <h1>Thank you, your response was received</h1>
+  <p class="muted">{{ group.name }}: {{ form.title }}</p>
+  <p>Reference: <strong>{{ resp.reference }}</strong></p>
+  <p>Download a PDF copy of your answers to keep, or share it with the group.</p>
+  <div class="actions">
+    <a class="btn" href="{{ url_for('consent.public_pdf', resp_token=resp.token) }}">Download PDF</a>
+    <button class="btn alt" id="shareBtn" type="button">Share PDF</button>
+  </div>
+</div>
+<script>
+var pdfUrl = {{ url_for('consent.public_pdf', resp_token=resp.token)|tojson }};
+var pdfName = {{ ('consent-' ~ resp.reference ~ '.pdf')|tojson }};
+var shareBtn = document.getElementById('shareBtn');
+if (!navigator.share) { shareBtn.style.display = 'none'; }
+shareBtn.addEventListener('click', async function(){
+  try {
+    var res = await fetch(pdfUrl);
+    var blob = await res.blob();
+    var file = new File([blob], pdfName, {type: 'application/pdf'});
+    if (navigator.canShare && navigator.canShare({files: [file]})) {
+      await navigator.share({files: [file], title: pdfName});
+    } else {
+      window.location = pdfUrl;
+    }
+  } catch (e) {
+    if (e && e.name === 'AbortError') { return; }
+    window.location = pdfUrl;
+  }
+});
+</script>
+{% endblock %}
