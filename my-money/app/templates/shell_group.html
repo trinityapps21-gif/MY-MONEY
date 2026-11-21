@@ -27,6 +27,7 @@
       {% if current_group.is_lender %}{{ nav_item(url_for('products.index'), 'package', 'Loan Products', bpn == 'products') }}
       {{ nav_item(url_for('applications.index'), 'clipboard-list', 'Applications', bpn == 'applications') }}{% endif %}
       {{ nav_item(url_for('lending.index'), 'hand-coins', 'Loans', bpn == 'lending') }}
+      {{ nav_item(url_for('consent.index'), 'file-signature', 'Loan Consent Forms', bpn == 'consent') }}
       {% if current_group.is_lender %}{{ nav_item(url_for('collections.index'), 'phone-call', 'Collections', bpn == 'collections') }}{% endif %}
       {{ nav_item(url_for('overdue.index'), 'alert-triangle', 'Overdue & Late Fees', bpn == 'overdue') }}
       {{ nav_item(url_for('repayments.index'), 'receipt', 'Repayments', bpn == 'repayments') }}
