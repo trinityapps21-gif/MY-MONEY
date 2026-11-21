@@ -59,3 +59,6 @@
 {% macro chart_cfg(id, cfg) %}<script type="application/json" id="{{ id }}">{{ cfg|tojson }}</script>{% endmacro %}
 
 {% macro tx_form_hidden() %}{% endmacro %}
+
+{# Receipt actions for any money movement: download the PDF, or share it on WhatsApp (opens the share sheet). #}
+{% macro receipt_buttons(kind, obj_id, number='') %}<span class="rcpt"><a class="btn btn-sm btn-ghost" href="{{ url_for('reports.receipt', kind=kind, obj_id=obj_id, download=1) }}" title="Download PDF receipt" aria-label="Download PDF receipt"><i data-lucide="file-down"></i></a><button type="button" class="btn btn-sm btn-ghost rcpt-wa" data-rcpt-share="{{ url_for('receipts.share', kind=kind, obj_id=obj_id) }}" data-rcpt-pdf="{{ url_for('reports.receipt', kind=kind, obj_id=obj_id) }}" data-rcpt-number="{{ number }}" title="Share receipt on WhatsApp" aria-label="Share receipt on WhatsApp">{% include "public/_wa_icon.html" %}</button></span>{% endmacro %}
