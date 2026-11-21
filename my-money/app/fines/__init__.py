@@ -6,7 +6,7 @@ from sqlalchemy import func
 
 from app.extensions import db
 from app.models import Borrower, Loan, LoanFine, LoanPromise
-from app.services import fines as fine_svc
+from app.services import fines as fine_svc, receipts as receipts_svc
 from app.services.audit import audit
 from app.services.forms import form_amount, form_date, form_text
 from app.services.groupcfg import get_settings
@@ -67,6 +67,7 @@ def settle(fine_id, group_id=None):
         audit("fine.collected", "loan_fine", f.id, {"amount": f.amount}, group_id=g.group.id)
         db.session.commit()
         flash("Fine collected and added to group income.", "success")
+        receipts_svc.offer(g.group, "fine", f.id)
     except ValueError as e:
         db.session.rollback()
         flash(str(e), "error")
