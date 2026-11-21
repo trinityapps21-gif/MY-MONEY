@@ -141,13 +141,14 @@ def register_blueprints(app):
     from app.applications import bp as applications_bp
     from app.portal import bp as portal_bp
     from app.capital import bp as capital_bp
-    from app.consent import bp as consent_bp
     from app.announcements import bp as announcements_bp
     from app.auth import bp as auth_bp
     from app.biometric import bp as biometric_bp
     from app.interest import bp as interest_bp
     from app.overdue import bp as overdue_bp
     from app.onboarding import bp as onboarding_bp
+    from app.receipts import bp as receipts_bp
+    from app.consent import bp as consent_bp
     from app.borrowers import bp as borrowers_bp
     from app.community import bp as community_bp
     from app.feed import bp as feed_bp
@@ -171,7 +172,7 @@ def register_blueprints(app):
     for bp in (main_bp, auth_bp, groups_bp, members_bp, savings_bp, borrowers_bp, lending_bp, repayments_bp,
                feed_bp, community_bp, announcements_bp, reports_bp, notifications_bp, files_bp, platform_bp, imports_bp,
                shares_bp, rules_bp, fines_bp, schedules_bp, finance_bp, products_bp,
-               collections_bp, applications_bp, portal_bp, capital_bp, biometric_bp, interest_bp, overdue_bp, onboarding_bp, consent_bp):
+               collections_bp, applications_bp, portal_bp, capital_bp, biometric_bp, interest_bp, overdue_bp, onboarding_bp, receipts_bp, consent_bp):
         app.register_blueprint(bp)
 
 
@@ -268,6 +269,17 @@ def register_template_helpers(app):
     def avatar_url(user):
         return url_for("files.serve", file_id=user.avatar_file_id) if user and user.avatar_file_id else None
 
+    def _receipt_offer():
+        """The receipt created by the action that just happened, shown once as a 'Download / WhatsApp' prompt."""
+        if not current_user.is_authenticated or g.get("group") is None or g.get("membership") is None:
+            return None
+        from app.services import receipts as receipts_svc
+        try:
+            return receipts_svc.pop_offer(g.group, bool(g.get("is_official")), g.membership.id)
+        except Exception:                                            # a prompt must never break a page
+            app.logger.exception("receipt offer failed")
+            return None
+
     @app.context_processor
     def inject():
         from app.onboarding import context as onboarding_context
@@ -305,6 +317,7 @@ def register_template_helpers(app):
             "idle_warning_seconds": int(app.config["IDLE_WARNING_SECONDS"]),
             "biometric_installed_only": bool(app.config.get("BIOMETRIC_INSTALLED_APP_ONLY", True)),
             "onboarding": onboarding_context(),
+            "receipt_offer": _receipt_offer(),
         }
 
 
