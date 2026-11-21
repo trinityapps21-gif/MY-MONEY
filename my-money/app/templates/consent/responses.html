@@ -1,0 +1,29 @@
+{% extends "consent/_layout.html" %}
+{% block title %}Responses{% endblock %}
+{% block nav %}<a href="{{ url_for('consent.edit', form_id=form.id) }}">&larr; Back to form</a>{% endblock %}
+{% block body %}
+<h1>{{ form.title }}: responses</h1>
+<div class="card table-wrap">
+  {% if page.items %}
+  <table>
+    <thead><tr><th>Reference</th><th>Respondent</th><th>Submitted</th><th></th></tr></thead>
+    <tbody>
+      {% for r in page.items %}
+      <tr>
+        <td>{{ r.reference }}</td>
+        <td>{{ r.respondent or '-' }}</td>
+        <td>{{ r.submitted_at|ldt }}</td>
+        <td><a href="{{ url_for('consent.response_pdf', form_id=form.id, response_id=r.id) }}">Download PDF</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div class="actions">
+    {% if page.has_prev %}<a class="btn alt" href="{{ url_for('consent.responses', form_id=form.id, page=page.prev_num) }}">&larr; Newer</a>{% endif %}
+    {% if page.has_next %}<a class="btn alt" href="{{ url_for('consent.responses', form_id=form.id, page=page.next_num) }}">Older &rarr;</a>{% endif %}
+  </div>
+  {% else %}
+  <p class="muted">No responses yet. Share the form link to start collecting them.</p>
+  {% endif %}
+</div>
+{% endblock %}
