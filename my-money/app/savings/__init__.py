@@ -6,7 +6,7 @@ from sqlalchemy import func
 
 from app.extensions import db
 from app.models import Contribution, GroupMember, SavingsWithdrawal, Transaction, User
-from app.services import analytics, group_savings, ledger, savings as savings_svc
+from app.services import analytics, group_savings, ledger, receipts as receipts_svc, savings as savings_svc
 from app.services.audit import audit
 from app.services.forms import form_amount, form_choice, form_date, form_text, new_idem_key
 from app.services.savings import CATEGORY_LABELS, PAYMENT_METHODS, DuplicateError
@@ -86,6 +86,7 @@ def new(group_id=None):
             audit("contribution.recorded", "contribution", c.id, {"amount": c.amount}, group_id=g.group.id)
             db.session.commit()
             flash(f"Contribution recorded. Receipt {c.receipt_no}.", "success")
+            receipts_svc.offer(g.group, "contribution", c.id)
             return redirect(url_for("savings.index"))
         except DuplicateError as e:
             db.session.rollback()
@@ -233,6 +234,8 @@ def withdrawal_decide(wid, group_id=None):
         audit(f"savings.withdrawal_{action}", "savings_withdrawal", w.id, group_id=g.group.id)
         db.session.commit()
         flash("Done.", "success")
+        if action == "approve":
+            receipts_svc.offer(g.group, "withdrawal", w.id)
     except ValueError as e:
         db.session.rollback()
         flash(str(e), "error")
