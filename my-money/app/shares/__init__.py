@@ -4,7 +4,7 @@ from sqlalchemy import func
 
 from app.extensions import db
 from app.models import GroupMember, ShareEntry, ShareRank, ShareTransfer, User
-from app.services import shares as share_svc
+from app.services import receipts as receipts_svc, shares as share_svc
 from app.services.audit import audit
 from app.services.forms import form_amount, form_date, form_text
 from app.services.groupcfg import get_settings
@@ -79,6 +79,7 @@ def new(group_id=None):
             audit("shares.purchased", "share_entry", e.id, {"units": e.units, "amount": e.amount}, group_id=g.group.id)
             db.session.commit()
             flash(f"{e.units} share(s) recorded. Receipt {e.receipt_no}.", "success")
+            receipts_svc.offer(g.group, "share", e.id)
             return redirect(url_for("shares.index"))
         except ValueError as e:
             db.session.rollback()
@@ -181,6 +182,8 @@ def transfer_decide(transfer_id, group_id=None):
               group_id=g.group.id)
         db.session.commit()
         flash("Transfer approved." if approve else "Transfer declined.", "success")
+        if approve:
+            receipts_svc.offer(g.group, "share_transfer", t.id)
     except ValueError as err:
         db.session.rollback()
         flash(str(err), "error")
