@@ -296,3 +296,24 @@ html.ob-lock, html.ob-lock body { overflow: hidden; }
 .ob-go { width: 100%; margin-top: 4px; }
 @media (max-width: 480px) { .ob-splash h1 { font-size: 22px; } .ob-body { padding: 16px 16px 18px; } }
 @media (prefers-reduced-motion: reduce) { .ob-splash, .ob-modal, .ob-card { transition: none; } .ob-head::before, .ob-head::after { animation: none; display: none; } }
+
+/* ---- receipts: buttons, share sheet, "receipt ready" prompt ---- */
+.rcpt { display: inline-flex; align-items: center; gap: 2px; white-space: nowrap; }
+.rcpt-wa svg { width: 17px; height: 17px; color: #25D366; }
+.rcpt-offer { display: flex; align-items: center; gap: 12px; padding: 10px 14px; margin-bottom: 14px; border: 1px solid #BFE5CC; background: var(--green-bg); border-radius: 12px; }
+.rcpt-offer > [data-lucide] { color: var(--green); flex: none; } .rcpt-offer b { color: var(--navy); }
+.rc-lock, .rc-lock body { overflow: hidden; }
+.rc-sheet { position: fixed; inset: 0; z-index: 9995; background: rgba(16, 28, 54, .55); display: flex; align-items: center; justify-content: center; padding: 14px; }
+.rc-card { position: relative; width: 100%; max-width: 400px; background: #fff; border-radius: 16px; padding: 20px 18px 16px; box-shadow: 0 24px 60px rgba(0, 0, 0, .35); }
+.rc-card h3 { margin: 0 28px 2px 0; font-size: 17px; color: var(--navy); } .rc-sub { margin: 0 0 14px; font-size: 13px; color: var(--muted); }
+.rc-x { position: absolute; top: 8px; right: 10px; width: 32px; height: 32px; border: 0; background: transparent; font-size: 24px; line-height: 1; cursor: pointer; color: var(--muted); border-radius: 50%; }
+.rc-x:hover { background: var(--blue-bg); }
+.rc-actions { display: flex; flex-direction: column; gap: 8px; }
+.rc-btn { width: 100%; justify-content: center; height: 44px; gap: 8px; }
+.rc-btn svg, .rc-btn [data-lucide] { width: 18px; height: 18px; flex: none; }
+.rc-btn.hide { display: none; } .rc-btn.disabled, .rc-btn:disabled { opacity: .55; pointer-events: none; }
+.rc-note { margin: 12px 2px 0; font-size: 12px; color: var(--muted); }
+.btn-wa { background: #25D366; border-color: #25D366; color: #fff; } .btn-wa:hover { background: #1DA851; border-color: #1DA851; color: #fff; }
+@media (max-width: 560px) { .rc-sheet { align-items: flex-end; padding: 0; } .rc-card { max-width: none; border-radius: 18px 18px 0 0; padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px)); } }
+.rcpt .rcpt-wa .wa-svg, .rcpt-wa .wa-svg { color: #25D366 !important; fill: currentColor; width: 17px; height: 17px; }
+.btn-wa .wa-svg { color: #fff !important; }
