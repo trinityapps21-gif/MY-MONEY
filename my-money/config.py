@@ -84,6 +84,9 @@ class Config:
     # ---- Speed ----
     DB_POOL_PRE_PING = os.environ.get("DB_POOL_PRE_PING", "1") == "1"
     STATIC_MAX_AGE = 31536000
+    # Receipts shared on WhatsApp as a link stay valid this long; phone numbers starting with 0 get this country code
+    RECEIPT_LINK_DAYS = int(os.environ.get("RECEIPT_LINK_DAYS", "30") or 30)
+    DEFAULT_COUNTRY_CODE = os.environ.get("DEFAULT_COUNTRY_CODE", "256").strip() or "256"
     # Welcome sequence images, paths relative to app/static/. A missing file falls back gracefully (initials / text logo).
     ONBOARDING_CEO_IMAGE = os.environ.get("ONBOARDING_CEO_IMAGE", "img/ceo-portrait.png").strip()
     ONBOARDING_BRAND_LOGO = os.environ.get("ONBOARDING_BRAND_LOGO", "img/emtrixz-logo.png").strip()
