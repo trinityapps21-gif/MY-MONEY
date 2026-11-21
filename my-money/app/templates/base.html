@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="csrf-token" content="{{ csrf_token() }}">
-  <meta name="theme-color" content="#101C36">
+  <meta name="theme-color" content="{{ '#111111' if current_group and current_group.is_lender else '#101C36' }}">
   {% if current_user.is_authenticated %}<meta name="idle-timeout" content="{{ idle_timeout_seconds }}"><meta name="idle-warning" content="{{ idle_warning_seconds }}">{% endif %}
   <meta name="biometric-installed-only" content="{{ '1' if biometric_installed_only else '0' }}">
   <meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes">
@@ -37,8 +37,9 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/icons.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/pwa.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/lender.css') }}">
 </head>
-<body>
+<body class="{% block body_class %}{{ 'theme-lender' if current_group and current_group.is_lender }}{% endblock %}">
   {% block body %}{% endblock %}
   <div id="toasts" aria-live="polite"></div>
   {% for category, message in get_flashed_messages(with_categories=true) %}<span class="hide" data-flash="{{ message }}" data-kind="{{ category if category in ('success','error','info') else 'info' }}"></span>{% endfor %}
