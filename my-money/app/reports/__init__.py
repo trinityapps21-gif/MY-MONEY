@@ -6,7 +6,7 @@ from flask_login import current_user
 
 from app.extensions import db
 from app.models import (Borrower, Contribution, Expense, GroupMember, Loan, LoanRepayment, Transaction, User, utcnow)
-from app.services import documents, ledger, reports as report_svc, storage
+from app.services import documents, ledger, receipts as receipts_svc, reports as report_svc, storage
 from app.services.audit import audit
 from app.services.forms import form_amount, form_choice, form_date, form_text
 from app.services.report_helpers import member_options
@@ -74,65 +74,22 @@ def run(key, group_id=None):
 @bp.route("/receipts/<kind>/<int:obj_id>")
 @tenant_route()
 def receipt(kind, obj_id, group_id=None):
-    grp, now = g.group, utcnow()
-    if kind == "contribution":
-        c = get_scoped_or_404(Contribution, obj_id)
-        if not g.is_official and c.member_id != g.membership.id:
-            abort(404)
-        fields = [("Received from", c.member.user.full_name), ("Category", report_svc.TX_LABELS.get(c.tx.tx_type)),
-                  ("Contribution type", c.category.title()), ("Date", f"{c.contribution_date:%d %b %Y}"),
-                  ("Payment method", c.payment_method), ("Payment reference", c.payment_reference),
-                  ("Transaction reference", c.tx.reference), ("Recorded by", c.recorder.full_name)]
-        pdf = documents.receipt_pdf(grp, "Contribution Receipt", c.receipt_no, fields, c.amount, now,
-                                    "Reversed" if ledger.is_reversed(c.tx_id) else None)
-        number, related = c.receipt_no, ("contribution", c.id)
-    elif kind in ("repayment", "disbursement", "transaction"):
-        if not g.is_official:
-            abort(404)  # borrower information is never shown to ordinary members
-        if kind == "repayment":
-            r = get_scoped_or_404(LoanRepayment, obj_id)
-            fields = [("Received from", r.borrower.name), ("Loan", r.loan.reference), ("Category", "Loan repayment"),
-                      ("Principal portion", f"{r.principal_part:,}" if not grp.currency_decimals else
-                       documents.fmt(r.principal_part, grp.currency, grp.currency_decimals, False)),
-                      ("Interest portion", f"{r.interest_part:,}" if not grp.currency_decimals else
-                       documents.fmt(r.interest_part, grp.currency, grp.currency_decimals, False)),
-                      ("Date", f"{r.payment_date:%d %b %Y}"), ("Payment method", r.payment_method),
-                      ("Payment reference", r.payment_reference), ("Recorded by", r.recorder.full_name)]
-            pdf = documents.receipt_pdf(grp, "Loan Repayment Receipt", r.receipt_no, fields, r.amount, now,
-                                        "This repayment has been REVERSED." if r.status == "REVERSED" else None)
-            number, related = r.receipt_no, ("repayment", r.id)
-        elif kind == "disbursement":
-            loan = get_scoped_or_404(Loan, obj_id)
-            if not loan.disbursement_tx_id:
-                abort(404)
-            tx = db.session.get(Transaction, loan.disbursement_tx_id)
-            fields = [("Paid to", loan.borrower.name), ("Loan", loan.reference), ("Category", "Loan disbursement"),
-                      ("Interest rate", f"{loan.rate_bp / 100:g}% per {loan.rate_period.lower()} "
-                                        f"({'flat' if loan.method == 'FLAT' else 'reducing balance'})"),
-                      ("Term", f"{loan.duration} {loan.duration_unit.lower()}(s), {loan.frequency.lower()} repayments"),
-                      ("Total repayable", documents.fmt(loan.total_repayable, grp.currency, grp.currency_decimals)),
-                      ("Date", f"{tx.tx_date:%d %b %Y}"), ("Transaction reference", tx.reference),
-                      ("Recorded by", tx.recorder.full_name)]
-            pdf = documents.receipt_pdf(grp, "Loan Disbursement Receipt", tx.reference, fields, loan.principal, now)
-            number, related = tx.reference, ("loan", loan.id)
-        else:
-            tx = get_scoped_or_404(Transaction, obj_id)
-            who = tx.member.user.full_name if tx.member else (tx.borrower.name if tx.borrower else "")
-            fields = [("Party", who), ("Category", report_svc.TX_LABELS.get(tx.tx_type, tx.tx_type)),
-                      ("Direction", "Money in" if tx.direction == "IN" else "Money out"),
-                      ("Description", tx.description), ("Date", f"{tx.tx_date:%d %b %Y}"),
-                      ("Payment method", tx.payment_method), ("Payment reference", tx.payment_reference),
-                      ("Recorded by", tx.recorder.full_name)]
-            pdf = documents.receipt_pdf(grp, "Transaction Receipt", tx.reference, fields, tx.amount, now)
-            number, related = tx.reference, ("transaction", tx.id)
-    else:
+    """PDF receipt for any money movement: contributions, share purchases and transfers, loan instalment payments,
+    disbursements, withdrawals, fines and other ledger entries. Officials see all; members only their own."""
+    grp = g.group
+    try:
+        r = receipts_svc.describe(grp, kind, obj_id)
+    except receipts_svc.ReceiptError:
         abort(404)
-    storage.archive_generated(pdf, f"receipt_{number}.pdf", "application/pdf", group_id=grp.id,
-                              user_id=current_user.id, kind="receipt", related=related)
+    if not r.allowed(g.is_official, g.membership.id):
+        abort(404)
+    pdf = receipts_svc.render_pdf(grp, r, utcnow())
+    storage.archive_generated(pdf, f"receipt_{r.number}.pdf", "application/pdf", group_id=grp.id,
+                              user_id=current_user.id, kind="receipt", related=(kind, r.obj_id))
     db.session.commit()
     resp = Response(pdf, mimetype="application/pdf")
     disp = "attachment" if request.args.get("download") == "1" else "inline"
-    resp.headers["Content-Disposition"] = f'{disp}; filename="receipt_{number}.pdf"'
+    resp.headers["Content-Disposition"] = f'{disp}; filename="receipt_{r.number}.pdf"'
     resp.headers["Cache-Control"] = "private, no-store"
     return resp
 
