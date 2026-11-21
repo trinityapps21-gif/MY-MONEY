@@ -153,7 +153,9 @@ def register():
                                       request.form.get("email"), request.form.get("password") or "",
                                       request.form.get("confirm_password") or "")
         if not err:
-            group, err = create_group_from_form(user, request.form, request.files.get("logo"))
+            form = request.form.copy()
+            form["business_type"] = "SAVINGS_GROUP"      # lending businesses register at /register/lending (needs approval)
+            group, err = create_group_from_form(user, form, request.files.get("logo"))
         if err:
             db.session.rollback()
             flash(err, "error")
