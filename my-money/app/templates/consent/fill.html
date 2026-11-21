@@ -1,0 +1,52 @@
+{% extends "consent/_layout.html" %}
+{% block robots %}<meta name="robots" content="noindex, nofollow">{% endblock %}
+{% block title %}{{ form.title }}{% endblock %}
+{% block body %}
+<div class="card">
+  <div class="muted">{{ group.name }}</div>
+  <h1>{{ form.title }}</h1>
+  {% if form.intro %}<div class="intro">{{ form.intro }}</div>{% endif %}
+</div>
+
+{% if not form.is_open %}
+<div class="card"><strong>This form is no longer accepting responses.</strong></div>
+{% else %}
+<form method="post" class="card" autocomplete="off" novalidate>
+  <div style="position:absolute;left:-9999px" aria-hidden="true"><input type="text" name="website" tabindex="-1" autocomplete="off"></div>
+  {% for f in form.fields %}
+  {% set key = 'q_' ~ f.id %}
+  <div class="q {{ 'err' if errors.get(key) else '' }}">
+    {% if f.field_type == 'agree' %}
+      <label class="opt"><input type="checkbox" name="{{ key }}" value="1" {{ 'checked' if values.get(key) else '' }}> <span>{{ f.label }}{% if f.required %} <span class="req">*</span>{% endif %}</span></label>
+    {% else %}
+      <label class="ql" for="{{ key }}">{{ f.label }}{% if f.required %} <span class="req">*</span>{% endif %}</label>
+      {% if f.field_type == 'short_text' %}
+        <input type="text" id="{{ key }}" name="{{ key }}" maxlength="300" value="{{ values.get(key, '') }}">
+      {% elif f.field_type == 'long_text' %}
+        <textarea id="{{ key }}" name="{{ key }}" rows="4" maxlength="2000">{{ values.get(key, '') }}</textarea>
+      {% elif f.field_type == 'number' %}
+        <input type="number" step="any" id="{{ key }}" name="{{ key }}" value="{{ values.get(key, '') }}">
+      {% elif f.field_type == 'date' %}
+        <input type="date" id="{{ key }}" name="{{ key }}" value="{{ values.get(key, '') }}">
+      {% elif f.field_type == 'dropdown' %}
+        <select id="{{ key }}" name="{{ key }}">
+          <option value="">Choose...</option>
+          {% for o in f.option_list %}<option value="{{ o }}" {{ 'selected' if values.get(key) == o else '' }}>{{ o }}</option>{% endfor %}
+        </select>
+      {% elif f.field_type == 'single_choice' %}
+        {% for o in f.option_list %}
+        <label class="opt"><input type="radio" name="{{ key }}" value="{{ o }}" {{ 'checked' if values.get(key) == o else '' }}> <span>{{ o }}</span></label>
+        {% endfor %}
+      {% elif f.field_type == 'multi_choice' %}
+        {% for o in f.option_list %}
+        <label class="opt"><input type="checkbox" name="{{ key }}" value="{{ o }}" {{ 'checked' if o in values.get(key, []) else '' }}> <span>{{ o }}</span></label>
+        {% endfor %}
+      {% endif %}
+    {% endif %}
+    {% if errors.get(key) %}<div class="errmsg">{{ errors[key] }}</div>{% endif %}
+  </div>
+  {% endfor %}
+  <button class="btn" type="submit">Send my consent</button>
+</form>
+{% endif %}
+{% endblock %}
