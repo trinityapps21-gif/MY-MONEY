@@ -1,5 +1,5 @@
 {% extends "shell_group.html" %}
-{% from "partials/macros.html" import stat, empty, chart_cfg, action_form %}
+{% from "partials/macros.html" import stat, empty, chart_cfg, action_form, receipt_buttons %}
 {% set use_charts = true %}
 {% block title %}Shares{% endblock %}
 {% block content %}
@@ -27,6 +27,6 @@
 </tbody></table></div>{% else %}{{ empty('pie-chart', 'No members yet') }}{% endif %}</div>
 <div class="card"><div class="card-head"><h2>Recent share purchases</h2></div>
 {% for e in recent %}<div class="list-row"><div class="grow"><b>{{ e.member.user.full_name }}</b> &middot; {{ e.units }} share(s) &middot; {{ e.entry_date|ld }}{% if e.reversed_at %} <span class="pill red">Reversed</span>{% endif %}<div class="muted small">{{ e.receipt_no }}</div></div><b>{{ money(e.amount) }}</b>
-{% if not e.reversed_at %}{{ action_form(url_for('shares.reverse', entry_id=e.id), 'Reverse', 'Reverse this share purchase?', 'undo-2', 'btn btn-sm', reason='Reason') }}{% endif %}</div>
+{% if e.kind == 'PURCHASE' %}{{ receipt_buttons('share', e.id, e.receipt_no) }}{% endif %}{% if not e.reversed_at %}{{ action_form(url_for('shares.reverse', entry_id=e.id), 'Reverse', 'Reverse this share purchase?', 'undo-2', 'btn btn-sm', reason='Reason') }}{% endif %}</div>
 {% else %}<div class="empty"><p class="mb0">No share purchases yet.</p></div>{% endfor %}</div>
 {% endblock %}
