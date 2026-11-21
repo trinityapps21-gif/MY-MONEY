@@ -73,6 +73,22 @@ Menu -> **Overdue & Late Fees** (officials only). Rules: no fine from the due da
 - These figures are informational: nothing is posted to the ledger here. The older per-group "Loan fines" (Group rules) and lender product penalties are separate and unchanged.
 - New table `late_fee_tracker`: created by `flask sync-schema` on deploy.
 
+## Welcome sequence (one-time)
+- **Founders** (who created a savings group): a 5-second branded splash (Emtrixz logo, CEO portrait, "Welcome, Future Billionaires!", progress bar, Skip) followed by the "Founding Billionaire" onboarding modal (3 getting-started steps, 3 platform advantages, "Let's Build Wealth").
+- **Members who joined by invitation**: the CEO welcome splash only, shown the first time they open the group after an official approves them.
+- Shown on the first group page opened. For a brand-new account that is right after the recovery-code step, because new accounts must save their recovery code first.
+- Stored per person and per group in `group_members.onboarding_pending` / `onboarding_completed_at` (created by `flask sync-schema`). Existing members default to off, so only newly created groups and newly approved members see it. Founders are marked done when the modal first opens, members when their splash first appears, so it never repeats. Savings groups only.
+- **Images** (put in `app/static/img/`): `ceo-portrait.png` (square, 400x400 or larger) and `emtrixz-logo.png` (transparent background). Paths are configurable: `ONBOARDING_CEO_IMAGE` and `ONBOARDING_BRAND_LOGO` (relative to `app/static/`). A missing file falls back to a silhouette / text wordmark, so nothing breaks before you add them.
+- The script is `static/js/onboarding.js`; every timer, animation frame and listener is released on finish or `pagehide`.
+
+## PDF receipts (download or WhatsApp)
+Every activity that moves money or shares has a PDF receipt: **contributions, share purchases, share transfers, loan instalment payments, loan disbursements, savings withdrawals, late fines and any other ledger transaction** (Transactions page).
+- Each row has a **download** icon and a green **WhatsApp** icon. WhatsApp opens a small sheet: *Send PDF on WhatsApp* (phones that allow sharing files, the PDF itself goes to the chosen chat), *Send link on WhatsApp* (works everywhere; opens a chat with the member's own number when it is on file, numbers starting with 0 get `DEFAULT_COUNTRY_CODE`), *Copy link*, *Download PDF*.
+- Right after an official records a contribution, share purchase, approved transfer, repayment, withdrawal or fine, a **"Receipt ready"** prompt appears with the same buttons.
+- Officials can open every receipt; ordinary members only their own (contributions, shares, transfers they are part of, withdrawals). Borrower-related receipts (loan payments, disbursements, fines) are officials-only.
+- Links are signed and expire after `RECEIPT_LINK_DAYS` (30). They open the PDF without logging in, are not indexed by search engines, and always show the current state, so a reversed payment is marked **REVERSED**. Anyone who is sent the link can open it, so share it only with the person concerned.
+- Share transfers carry a number like `ST-000001` (units only, no money moves); every other receipt uses the number already on the record.
+
 ## Speed notes
 Icons and charts are now served from this site, `/static` files carry a version stamp and are cached for a year, pages are compressed, `/sw.js` is actually served (it was registered but returned 404, so the service worker never ran), and per-page database round trips were cut (menu counters 4 -> 1, platform settings cached 30 s, group settings once per request, group loaded with the membership). Set `DB_POOL_PRE_PING=0` to save one more round trip per request if you see no stale-connection errors on Turso.
 
