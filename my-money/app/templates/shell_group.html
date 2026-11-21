@@ -5,6 +5,7 @@
 {% macro nav_item(href, icon, label, on, count=0) %}
 <li><a href="{{ href }}" class="{{ 'on' if on }}" {% if on %}aria-current="page"{% endif %}><i data-lucide="{{ icon }}"></i><span>{{ label }}</span>{% if count %}<span class="count">{{ count }}</span>{% endif %}</a></li>
 {% endmacro %}
+{% from "partials/macros.html" import receipt_buttons %}
 {% block body %}
 {% include "partials/onboarding.html" %}
 <aside class="sidebar" id="sidebar" aria-label="Main navigation">
@@ -93,7 +94,9 @@
       </div>
     </div>
   </header>
-  <main class="content" id="main">{% block content %}{% endblock %}</main>
+  <main class="content" id="main">
+    {% if receipt_offer %}<div class="rcpt-offer" role="status"><i data-lucide="file-check-2"></i><div class="grow"><b>Receipt ready</b><div class="muted small">{{ receipt_offer.title }} &middot; {{ receipt_offer.number }} &middot; {{ money(receipt_offer.amount) }}{% if receipt_offer.party %} &middot; {{ receipt_offer.party }}{% endif %}</div></div>{{ receipt_buttons(receipt_offer.kind, receipt_offer.obj_id, receipt_offer.number) }}</div>{% endif %}
+    {% block content %}{% endblock %}</main>
   <footer class="app-foot">MY MONEY &middot; Developed and Powered by Emtrixz Technology Company.</footer>
 </div>
 
