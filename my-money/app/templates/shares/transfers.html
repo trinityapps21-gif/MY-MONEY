@@ -1,5 +1,5 @@
 {% extends "shell_group.html" %}
-{% from "partials/macros.html" import empty, pager, csrf %}
+{% from "partials/macros.html" import empty, pager, csrf, receipt_buttons %}
 {% block title %}Share transfers{% endblock %}
 {% block content %}
 <div class="page-head"><div><h1>Share transfers</h1><p>Shares can only move between members of this group</p></div><a class="btn btn-primary" href="{{ url_for('shares.transfer_new') }}"><i data-lucide="plus"></i>New transfer</a></div>
@@ -7,6 +7,6 @@
 {% for t in page.items %}<tr><td>{{ t.created_at|ld }}</td><td>{{ t.seller.user.full_name }}</td><td>{{ t.buyer.user.full_name }}</td><td class="num">{{ t.units }}</td><td class="num">{{ money(t.unit_price * t.units) }}</td>
 <td><span class="pill {{ 'green' if t.status == 'APPROVED' else ('amber' if t.status == 'PENDING' else 'red') }}">{{ t.status.title() }}</span></td>
 <td>{% if t.status == 'PENDING' %}<form method="post" action="{{ url_for('shares.transfer_decide', transfer_id=t.id) }}" style="display:inline">{{ csrf() }}<input type="hidden" name="decision" value="approve"><button class="btn btn-sm btn-primary">Approve</button></form>
-<form method="post" action="{{ url_for('shares.transfer_decide', transfer_id=t.id) }}" style="display:inline">{{ csrf() }}<input type="hidden" name="decision" value="reject"><button class="btn btn-sm">Decline</button></form>{% endif %}</td></tr>{% endfor %}
+<form method="post" action="{{ url_for('shares.transfer_decide', transfer_id=t.id) }}" style="display:inline">{{ csrf() }}<input type="hidden" name="decision" value="reject"><button class="btn btn-sm">Decline</button></form>{% elif t.status == 'APPROVED' %}{{ receipt_buttons('share_transfer', t.id, 'ST-%06d'|format(t.id)) }}{% endif %}</td></tr>{% endfor %}
 </tbody></table></div>{{ pager(page) }}{% else %}{{ empty('arrow-left-right', 'No transfers yet') }}{% endif %}</div>
 {% endblock %}
