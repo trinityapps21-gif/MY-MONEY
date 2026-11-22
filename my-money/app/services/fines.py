@@ -1,6 +1,7 @@
 """Late fines on EXTERNAL loans (borrowers, never group members).
 
-Rule (set by the group's officials in Group rules):
+Rule (set by the group's officials in Group rules, then FROZEN on each loan when the loan is created, so a later change
+to the rules never touches loans that already exist - see services/fine_terms.py):
   * the deadline is the borrower's promised date (if an open promise exists and
     is not earlier than the instalment's due date) or the instalment due date;
   * nothing is charged until ``fine_grace_days`` after the deadline;
@@ -22,7 +23,8 @@ class FineError(ValueError):
 
 
 def compute(settings, late_amount, days_late) -> int:
-    """Fine for ``late_amount`` that is ``days_late`` days past its deadline."""
+    """Fine for ``late_amount`` that is ``days_late`` days past its deadline. ``settings`` is anything carrying the
+    fine_* terms: normally the LOAN being charged (its own frozen terms), or a GroupSettings row for a preview."""
     if days_late <= settings.fine_grace_days or late_amount <= 0:
         return 0
     periods = math.ceil((days_late - settings.fine_grace_days) / max(1, settings.fine_period_days))
@@ -50,13 +52,12 @@ def assess_on_repayment(group, loan, user, rep, alloc, paid_on):
     from app.services import importctx
     if importctx.active():  # historical bulk imports never create fines
         return None
-    s = get_settings(group.id)
     total, late_total, worst_days, worst_deadline = 0, 0, 0, None
     for sched, p_pay, i_pay in alloc:
         late_amount = p_pay + i_pay
         dl = deadline_for(loan, sched)
         days = (paid_on - dl).days
-        fine = compute(s, late_amount, days)
+        fine = compute(loan, late_amount, days)           # the loan's own terms, not the group's current rules
         if fine > 0:
             total += fine
             late_total += late_amount
@@ -119,7 +120,6 @@ def void_for_repayment(rep, user, reason, today):
 def overdue_now(group, today):
     """Instalments past deadline + grace right now, with the fine accrued so far."""
     from app.services.loans import ACTIVE_STATES
-    s = get_settings(group.id)
     out = []
     loans = Loan.query.filter(Loan.group_id == group.id, Loan.status.in_(list(ACTIVE_STATES)),
                               Loan.disbursement_tx_id.isnot(None)).all()
@@ -132,9 +132,9 @@ def overdue_now(group, today):
             days = (today - dl).days
             if days <= 0:
                 continue
-            fine = compute(s, bal, days)
+            fine = compute(loan, bal, days)               # each loan is charged under its own frozen terms
             out.append({"loan": loan, "sched": sched, "deadline": dl, "days": days, "balance": bal, "fine": fine,
-                        "in_grace": days <= s.fine_grace_days})
+                        "in_grace": days <= loan.fine_grace_days})
     out.sort(key=lambda r: -r["days"])
     return out
 
