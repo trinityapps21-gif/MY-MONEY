@@ -10,7 +10,7 @@
 {{ stat('Collected (income)', money(t.paid[0]), 'badge-check', 'green', t.paid[1] ~ ' fine(s)') }}
 {{ stat('Waived', money(t.waived[0]), 'hand-heart', '', t.waived[1] ~ ' fine(s)') }}
 {{ stat('Overdue instalments', overdue|length, 'alarm-clock', 'red') }}</div>
-<p class="muted mb2">Rule: no fine for {{ s.fine_grace_days }} day(s) after the deadline; then
+<p class="muted mb2">Current rule for new loans (each loan keeps the terms it was created with): no fine for {{ s.fine_grace_days }} day(s) after the deadline; then
 {% if s.fine_type == 'PERCENT' %}{{ '%g' % (s.fine_rate_bp / 100) }}% of the late amount{% else %}{{ money(s.fine_fixed) }}{% endif %} for every {{ s.fine_period_days }} day(s) after that{% if s.fine_capped %}, never more than the late amount{% endif %}.</p>
 <div class="grid g2 mb2">
 <div class="card card-pad"><h2 class="mb2">Fines per month</h2><div class="chart-box"><canvas data-chart="f-m"></canvas></div></div>
