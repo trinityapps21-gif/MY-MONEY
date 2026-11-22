@@ -1,2 +1,2 @@
-{% if turnstile_site_key %}<div class="field ts-wrap"><div class="cf-turnstile" data-sitekey="{{ turnstile_site_key }}" data-theme="light" data-size="flexible" data-action="{{ ts_action|default('auth') }}"></div></div>
+{% if turnstile_site_key %}<div class="field ts-wrap"><div class="cf-turnstile" data-sitekey="{{ turnstile_site_key }}" data-theme="{{ ts_theme|default('light') }}" data-size="flexible" data-action="{{ ts_action|default('auth') }}"></div></div>
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>{% endif %}
