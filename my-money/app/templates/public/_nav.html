@@ -1,14 +1,41 @@
-{% from "partials/macros.html" import brand_mark %}
-<nav class="pub-nav"><div class="in"><a class="pub-brand" href="{{ url_for('main.index') }}"><span style="color:#101C36;display:inline-flex">{{ brand_mark('#101C36','#1F5FD6') }}</span>MY MONEY</a>
-<div class="pub-links"><a href="{{ url_for('main.index') }}#features">Features</a><a href="{{ url_for('main.about') }}">About</a><a href="{{ url_for('main.contact') }}">Contact</a></div>
-<div class="pub-cta">{% if current_user.is_authenticated %}<a class="btn btn-primary" href="{{ url_for('groups.select') }}">Open app</a>{% else %}<a class="btn" href="{{ url_for('auth.login') }}">Login</a><a class="btn btn-primary" href="{{ url_for('auth.register') }}">Register Group</a>{% endif %}</div>
-<button class="pub-burger" type="button" data-pubnav aria-expanded="false" aria-controls="pub-panel" aria-label="Open menu"><svg class="bars" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg><svg class="x" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+{% set ep = request.endpoint or '' %}
+{% set switchable = site_switchable|default(false) %}
+<nav class="pub-nav" aria-label="Main"><div class="in">
+  <a class="pub-brand" href="{{ url_for('main.index') }}"><img src="{{ url_for('static', filename='img/logo.png') }}" alt="" width="38" height="38"><span>MY MONEY</span></a>
+  <div class="pub-links">
+    <a href="{{ url_for('main.index') }}#features">Features</a>
+    <a href="{{ url_for('main.index') }}#how">How it works</a>
+    <a href="{{ url_for('main.about') }}" {% if ep == 'main.about' %}aria-current="page"{% endif %}>About</a>
+    <a href="{{ url_for('main.contact') }}" {% if ep == 'main.contact' %}aria-current="page"{% endif %}>Contact</a>
+  </div>
+  <div class="pub-cta">
+    {% if switchable %}<div class="s-switch" role="group" aria-label="Choose what you run">
+      <button type="button" data-set-theme="savings" aria-pressed="true"><i data-lucide="users-round"></i>Savings</button>
+      <button type="button" data-set-theme="lending" aria-pressed="false"><i data-lucide="hand-coins"></i>Lending</button>
+    </div>{% endif %}
+    {% if current_user.is_authenticated %}<a class="s-btn primary sm" href="{{ url_for('groups.select') }}">Open app</a>
+    {% else %}
+      <span class="pair only-savings"><a class="s-btn ghost sm" href="{{ url_for('auth.login') }}">Login</a><a class="s-btn primary sm" href="{{ url_for('auth.register') }}">Register group</a></span>
+      <span class="pair only-lending"><a class="s-btn ghost sm" href="{{ url_for('auth.login_lending') }}">Lender login</a><a class="s-btn primary sm" href="{{ url_for('auth.register_lending') }}">Register business</a></span>
+    {% endif %}
+  </div>
+  <button class="pub-burger" type="button" data-pubnav aria-expanded="false" aria-controls="pub-panel" aria-label="Open menu"><svg class="bars" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg><svg class="x" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+</div>
 <div class="pub-panel" id="pub-panel">
   <a class="pl" href="{{ url_for('main.index') }}#features"><i data-lucide="layout-grid"></i>Features</a>
+  <a class="pl" href="{{ url_for('main.index') }}#how"><i data-lucide="route"></i>How it works</a>
   <a class="pl" href="{{ url_for('main.about') }}"><i data-lucide="info"></i>About</a>
   <a class="pl" href="{{ url_for('main.contact') }}"><i data-lucide="life-buoy"></i>Contact</a>
+  {% if switchable %}<div class="s-switch" role="group" aria-label="Choose what you run">
+    <button type="button" data-set-theme="savings" aria-pressed="true"><i data-lucide="users-round"></i>Savings</button>
+    <button type="button" data-set-theme="lending" aria-pressed="false"><i data-lucide="hand-coins"></i>Lending</button>
+  </div>{% endif %}
   <div class="pp-cta">
-    {% if current_user.is_authenticated %}<a class="btn btn-primary" href="{{ url_for('groups.select') }}">Open app</a>{% else %}<a class="btn btn-accent" href="{{ url_for('auth.register') }}">Register Your Group</a><a class="btn" href="{{ url_for('auth.login') }}">Login</a><a class="btn" href="{{ url_for('auth.register_lending') }}">Register Lending Business</a><a class="btn" href="{{ url_for('auth.login_lending') }}">Lender Login</a>{% endif %}
-    <a class="pp-wa" href="https://wa.me/256703520925?text=Hello%20MY%20MONEY%2C%20I%20need%20help." target="_blank" rel="noopener">{% include "public/_wa_icon.html" %}WhatsApp us</a>
+    {% if current_user.is_authenticated %}<a class="s-btn primary" href="{{ url_for('groups.select') }}">Open app</a>
+    {% else %}
+      <div class="pp-cta only-savings"><a class="s-btn primary" href="{{ url_for('auth.register') }}">Register your group</a><a class="s-btn ghost" href="{{ url_for('auth.login') }}">Login</a></div>
+      <div class="pp-cta only-lending"><a class="s-btn primary" href="{{ url_for('auth.register_lending') }}">Register your lending business</a><a class="s-btn ghost" href="{{ url_for('auth.login_lending') }}">Lender login</a></div>
+    {% endif %}
+    <a class="s-btn wa" href="https://wa.me/256703520925?text=Hello%20MY%20MONEY%2C%20I%20need%20help." target="_blank" rel="noopener">{% include "public/_wa_icon.html" %}WhatsApp us</a>
   </div>
 </div></nav>
