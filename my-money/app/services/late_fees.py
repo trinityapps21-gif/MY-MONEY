@@ -24,7 +24,7 @@ from flask import current_app, has_app_context
 from app.extensions import db
 from app.models import Borrower, Loan, LoanRepaymentSchedule as S, LateFeeTracker, utcnow
 from app.services import notify
-from app.services.loans import ACTIVE_STATES
+from app.services.loans import ACTIVE_STATES, outstanding
 from app.services.money import fmt
 
 GRACE_DAYS = 7
@@ -88,6 +88,48 @@ def scan(group, today) -> list[dict]:
         rows.append(a)
     rows.sort(key=lambda r: (-r["days_overdue"], r["loan"].reference, r["sched"].number))
     return rows
+
+
+def statement(group, loan, today) -> dict | None:
+    """Loan-level late-fine statement: every overdue instalment of one loan with the policy applied, plus the
+    before / after picture the borrower needs to understand what they are being asked to pay and why.
+
+    "Principal" in the headline figures follows the overdue log: it is what is still unpaid on the overdue
+    instalments (principal and interest), i.e. the late amount the fine is charged on.
+
+        principal_before  = unpaid amount on the overdue instalments, before any fine
+        fine              = sum of the per-instalment fines (each worked out by assess())
+        principal_after   = principal_before + fine
+        balance_before    = everything still owed on the loan (principal + interest, overdue or not)
+        balance_after     = balance_before + fine
+
+    Returns None when the loan has nothing overdue (not disbursed, finished, written off, or fully up to date).
+    Informational only: nothing is posted to the ledger."""
+    if loan.group_id != group.id or not loan.disbursement_tx_id or loan.status not in ACTIVE_STATES:
+        return None
+    lines = []
+    for s in loan.schedule:
+        if s.due_date >= today or s.balance <= 0:            # same test as scan(): past due and not fully paid
+            continue
+        a = assess(s.balance, s.due_date, today)
+        a.update(number=s.number, principal_due=s.principal_due, interest_due=s.interest_due, paid=s.total_paid,
+                 raw_pct=RATE_BP_PER_BLOCK * a["blocks"] / 100)   # before the 100% cap, to show the working
+        lines.append(a)
+    if not lines:
+        return None
+    before = sum(x["amount"] for x in lines)
+    fine = sum(x["fine"] for x in lines)
+    p_out, i_out = outstanding(loan)
+    next_dates = [x["next_increase"] for x in lines if x["next_increase"]]
+    return {
+        "loan": loan, "borrower": loan.borrower, "date": today, "lines": lines, "mode": lines[0]["mode"],
+        "principal_before": before, "fine": fine, "principal_after": before + fine,
+        "balance_before": p_out + i_out, "balance_after": p_out + i_out + fine,
+        "paid_to_date": sum(s.total_paid for s in loan.schedule),
+        "longest_days": max(x["days_overdue"] for x in lines),
+        "fined": sum(1 for x in lines if x["blocks"] > 0), "capped": sum(1 for x in lines if x["capped"]),
+        "next_increase": min(next_dates) if next_dates else None,
+    }
 
 
 def trackers(group_id, schedule_ids) -> dict:
