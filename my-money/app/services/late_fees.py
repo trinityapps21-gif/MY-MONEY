@@ -1,18 +1,20 @@
-"""Company late-fee policy: monitor overdue repayments, work out the fine, alert administrators.
+"""Late-fee tracking: monitor overdue repayments, work out the fine, alert administrators.
 
-POLICY
-  * Grace period: no fine from the due date (day 0) through day 7 after it.
+THE TERMS BELONG TO THE LOAN. Each group sets its own late-fine terms in Group rules, and every loan freezes a copy of them
+when it is created (services/fine_terms.py). A loan is always assessed under its own terms, so changing the group's rules
+never changes what an existing loan owes. The defaults a new group starts with are:
+  * Grace period: no fine from the due date through day 7 after it.
   * After the grace period: 5% of the original late amount for every 7-day block.
         days_overdue   = today - due_date
-        billable_days  = days_overdue - 7
-        blocks         = 0 if billable_days <= 0, else floor(billable_days / 7)      (mode COMPLETED, the default)
-                                                      or ceil(billable_days / 7)       (mode STARTED)
-        raw_fine       = late_amount * 0.05 * blocks
-        final_fine     = min(raw_fine, late_amount)                    # never more than 100% of the late amount
+        billable_days  = days_overdue - grace_days
+        blocks         = 0 if billable_days <= 0, else floor(billable_days / period_days)   (mode COMPLETED, the default)
+                                                       or ceil(billable_days / period_days)    (mode STARTED)
+        raw_fine       = late_amount * rate * blocks          (PERCENT)     or     fixed_amount * blocks    (FIXED)
+        final_fine     = min(raw_fine, late_amount)           (when the terms are capped, the default)
         total_owed     = late_amount + final_fine
   * Whenever a borrower enters a new penalty block, every administrator gets one alert.
 
-Set LATE_FEE_BLOCK_MODE=STARTED to charge at the START of each 7-day block (ceil) instead of when it is completed.
+Set LATE_FEE_BLOCK_MODE=STARTED to charge at the START of each block (ceil) instead of when it is completed.
 These figures are informational: this module never posts to the ledger. Collecting money still goes through the
 normal repayment screens. The late amount is what is still unpaid on the instalment (principal + interest)."""
 import math
@@ -23,14 +25,11 @@ from flask import current_app, has_app_context
 
 from app.extensions import db
 from app.models import Borrower, Loan, LoanRepaymentSchedule as S, LateFeeTracker, utcnow
-from app.services import notify
+from app.services import fine_terms, notify
+from app.services.groupcfg import get_settings
 from app.services.loans import ACTIVE_STATES, outstanding
 from app.services.money import fmt
-
-GRACE_DAYS = 7
-BLOCK_DAYS = 7
-RATE_BP_PER_BLOCK = 500          # 5%
-CAP_BP = 10000                   # the fine can never exceed 100% of the original late amount
+from app.services.timeutil import to_local
 
 
 def block_mode() -> str:
@@ -39,52 +38,86 @@ def block_mode() -> str:
     return mode if mode in ("COMPLETED", "STARTED") else "COMPLETED"
 
 
-def assess(amount: int, due_date, today, mode: str | None = None) -> dict:
-    """Apply the policy to one late amount (minor units). Pure function: no database access."""
+def assess(amount: int, due_date, today, mode: str | None = None, terms=None) -> dict:
+    """Apply late-fine terms to one late amount (minor units). Pure function: no database access.
+
+    `terms` is whatever carries the fine_* terms, normally the LOAN being assessed (its own frozen terms). Called without
+    terms it uses the defaults a new group starts with (7-day grace, 5% every 7 days, capped at the late amount)."""
+    t = fine_terms.terms(terms if terms is not None else fine_terms.DEFAULTS)
     mode = mode or block_mode()
+    grace, period = t.fine_grace_days, max(1, t.fine_period_days)
+    charges = not fine_terms.is_free(t)
     days = (today - due_date).days
-    billable = days - GRACE_DAYS
+    billable = days - grace
     if billable <= 0:
         blocks = 0
     elif mode == "STARTED":
-        blocks = math.ceil(billable / BLOCK_DAYS)
+        blocks = math.ceil(billable / period)
     else:
-        blocks = billable // BLOCK_DAYS
-    raw = (Decimal(amount) * RATE_BP_PER_BLOCK * blocks / Decimal(10000)).quantize(Decimal(1), rounding=ROUND_HALF_UP)
-    fine = int(min(raw, Decimal(amount)))
-    capped = blocks > 0 and raw >= amount
-    tier_bp = min(RATE_BP_PER_BLOCK * blocks, CAP_BP)
-    # first day the NEXT block starts charging (None once the cap is reached)
-    if capped:
+        blocks = billable // period
+    if t.fine_type == "FIXED":
+        raw = Decimal(t.fine_fixed) * blocks
+    else:
+        raw = (Decimal(amount) * t.fine_rate_bp * blocks / Decimal(10000)).quantize(Decimal(1), rounding=ROUND_HALF_UP)
+    fine = int(min(raw, Decimal(amount))) if t.fine_capped else int(raw)
+    capped = bool(t.fine_capped and charges and blocks > 0 and raw >= amount)
+    if t.fine_type == "FIXED":
+        tier_bp = round(fine * 10000 / amount) if amount else 0          # the fixed fee as a share of the late amount
+    else:
+        tier_bp = t.fine_rate_bp * blocks
+        if t.fine_capped:
+            tier_bp = min(tier_bp, 10000)
+    # first day the NEXT block starts charging (None once the cap is reached, or when the terms charge nothing)
+    if capped or not charges:
         next_date = None
     elif mode == "STARTED":
-        next_date = due_date + timedelta(days=GRACE_DAYS + BLOCK_DAYS * blocks + 1)
+        next_date = due_date + timedelta(days=grace + period * blocks + 1)
     else:
-        next_date = due_date + timedelta(days=GRACE_DAYS + BLOCK_DAYS * (blocks + 1))
+        next_date = due_date + timedelta(days=grace + period * (blocks + 1))
     if days <= 0:
         flag = "Not yet due"
-    elif days <= GRACE_DAYS:
+    elif days <= grace:
         flag = "Grace Period"
+    elif not charges:
+        flag = "Overdue - No Late Fine"            # this loan's terms charge no fine
     elif blocks == 0:
-        flag = "Active Overdue - No Fine Yet"      # grace is over, the first full 7-day block has not finished
+        flag = "Active Overdue - No Fine Yet"      # grace is over, the first full period has not finished
     elif capped:
         flag = "Max Fine Cap Reached"
     else:
         flag = f"Active Overdue - Tier {blocks}"
-    return {"amount": amount, "due_date": due_date, "days_overdue": days, "grace_end": due_date + timedelta(days=GRACE_DAYS),
+    return {"amount": amount, "due_date": due_date, "days_overdue": days, "grace_end": due_date + timedelta(days=grace),
             "blocks": blocks, "tier_bp": tier_bp, "tier_pct": tier_bp / 100, "fine": fine, "total": amount + fine,
-            "capped": capped, "flag": flag, "next_increase": next_date, "mode": mode}
+            "capped": capped, "flag": flag, "next_increase": next_date, "mode": mode,
+            "grace_days": grace, "period_days": period, "terms": t}
+
+
+def loan_terms(group, loan) -> dict:
+    """The late-fine terms this loan is charged under, ready to display.
+
+    `older` is True when the group has changed its fine rules since this loan was created: the loan keeps the terms it was
+    agreed on, and the group's newer terms apply only to loans created after the change."""
+    cur = get_settings(group.id)
+    t = fine_terms.terms(loan)
+    cur_t = fine_terms.terms(cur)
+    cc, dd = group.currency, group.currency_decimals
+    changed_at = to_local(cur.fine_terms_since, group.timezone) if cur.fine_terms_since else None
+    return {"terms": t, "text": fine_terms.describe(t, cc, dd), "headline": fine_terms.headline(t, cc, dd),
+            "free": fine_terms.is_free(t), "older": not fine_terms.same(loan, cur),
+            "current_text": fine_terms.describe(cur_t, cc, dd), "current_headline": fine_terms.headline(cur_t, cc, dd),
+            "since": changed_at.date() if changed_at else None, "created_at": loan.created_at}
 
 
 def scan(group, today) -> list[dict]:
-    """Every instalment that is past its due date and not fully paid, with the policy applied. Longest overdue first."""
+    """Every instalment that is past its due date and not fully paid, with each loan's own terms applied. Longest overdue first."""
     q = (db.session.query(S, Loan, Borrower).join(Loan, Loan.id == S.loan_id).join(Borrower, Borrower.id == Loan.borrower_id)
          .filter(S.group_id == group.id, Loan.group_id == group.id, Loan.disbursement_tx_id.isnot(None),
                  Loan.status.in_(ACTIVE_STATES), S.due_date < today, (S.principal_due + S.interest_due) > (S.principal_paid + S.interest_paid)))
+    cur = get_settings(group.id)
     rows = []
     for s, loan, b in q:
-        a = assess(s.balance, s.due_date, today)
-        a.update(sched=s, loan=loan, borrower=b)
+        a = assess(s.balance, s.due_date, today, terms=loan)
+        a.update(sched=s, loan=loan, borrower=b, older_terms=not fine_terms.same(loan, cur))
         rows.append(a)
     rows.sort(key=lambda r: (-r["days_overdue"], r["loan"].reference, r["sched"].number))
     return rows
@@ -103,6 +136,8 @@ def statement(group, loan, today) -> dict | None:
         balance_before    = everything still owed on the loan (principal + interest, overdue or not)
         balance_after     = balance_before + fine
 
+    Every figure uses the LOAN's own frozen late-fine terms (`terms` in the result), never the group's current rules.
+
     Returns None when the loan has nothing overdue (not disbursed, finished, written off, or fully up to date).
     Informational only: nothing is posted to the ledger."""
     if loan.group_id != group.id or not loan.disbursement_tx_id or loan.status not in ACTIVE_STATES:
@@ -111,9 +146,10 @@ def statement(group, loan, today) -> dict | None:
     for s in loan.schedule:
         if s.due_date >= today or s.balance <= 0:            # same test as scan(): past due and not fully paid
             continue
-        a = assess(s.balance, s.due_date, today)
-        a.update(number=s.number, principal_due=s.principal_due, interest_due=s.interest_due, paid=s.total_paid,
-                 raw_pct=RATE_BP_PER_BLOCK * a["blocks"] / 100)   # before the 100% cap, to show the working
+        a = assess(s.balance, s.due_date, today, terms=loan)
+        # the working, before any cap: percent of the late amount, or the fixed fee, times the number of periods
+        raw_pct = a["terms"].fine_rate_bp * a["blocks"] / 100 if a["terms"].fine_type == "PERCENT" else None
+        a.update(number=s.number, principal_due=s.principal_due, interest_due=s.interest_due, paid=s.total_paid, raw_pct=raw_pct)
         lines.append(a)
     if not lines:
         return None
@@ -127,8 +163,9 @@ def statement(group, loan, today) -> dict | None:
         "balance_before": p_out + i_out, "balance_after": p_out + i_out + fine,
         "paid_to_date": sum(s.total_paid for s in loan.schedule),
         "longest_days": max(x["days_overdue"] for x in lines),
-        "fined": sum(1 for x in lines if x["blocks"] > 0), "capped": sum(1 for x in lines if x["capped"]),
+        "fined": sum(1 for x in lines if x["fine"] > 0), "capped": sum(1 for x in lines if x["capped"]),
         "next_increase": min(next_dates) if next_dates else None,
+        "terms": lines[0]["terms"], "terms_info": loan_terms(group, loan),
     }
 
 
@@ -155,7 +192,7 @@ def alert_text(group, a) -> tuple[str, str]:
 
 def run_daily(group, today) -> int:
     """Alert the administrators once for every instalment that has entered a new penalty block. Safe to call often."""
-    rows = [r for r in scan(group, today) if r["blocks"] > 0]
+    rows = [r for r in scan(group, today) if r["blocks"] > 0 and r["fine"] > 0]
     if not rows:
         return 0
     known = trackers(group.id, [r["sched"].id for r in rows])
