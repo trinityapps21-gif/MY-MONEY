@@ -1,26 +1,27 @@
 {% set wa_number = "256703520925" %}
-<footer class="pub-foot pro">
+<footer class="pub-foot">
   <div class="pf-main">
     <div>
-      <div class="pf-brand"><i data-lucide="landmark"></i>MY MONEY</div>
+      <div class="pf-brand"><img src="{{ url_for('static', filename='img/logo.png') }}" alt="" width="40" height="40">MY MONEY</div>
       <p>Smart savings, trusted lending and transparent finance for savings groups, SACCOs and community lenders.</p>
     </div>
-    <div>
+    <div class="col">
       <h4>Explore</h4>
       <a href="{{ url_for('main.index') }}#features"><i data-lucide="layout-grid"></i>Features</a>
+      <a href="{{ url_for('main.index') }}#how"><i data-lucide="route"></i>How it works</a>
       <a href="{{ url_for('main.about') }}"><i data-lucide="info"></i>About us</a>
       <a href="{{ url_for('main.contact') }}"><i data-lucide="life-buoy"></i>Help &amp; contact</a>
     </div>
-    <div>
+    <div class="col">
       <h4>Get started</h4>
-      <a href="{{ url_for('auth.register') }}"><i data-lucide="users"></i>Register your group</a>
+      <a href="{{ url_for('auth.register') }}"><i data-lucide="users-round"></i>Register your group</a>
       <a href="{{ url_for('auth.register_lending') }}"><i data-lucide="hand-coins"></i>Register your lending business</a>
       <a href="{{ url_for('auth.login') }}"><i data-lucide="log-in"></i>Login</a>
       <a href="{{ url_for('auth.login_lending') }}"><i data-lucide="log-in"></i>Lender login</a>
       <a href="{{ url_for('auth.recover') }}"><i data-lucide="key-round"></i>Recover account</a>
       <a href="#" data-install hidden><i data-lucide="smartphone"></i>Install the app</a>
     </div>
-    <div>
+    <div class="col">
       <h4>Talk to us</h4>
       <a href="tel:+256703520925"><i data-lucide="phone"></i>0703 520 925</a>
       <a href="https://wa.me/{{ wa_number }}" target="_blank" rel="noopener">{% include "public/_wa_icon.html" %}WhatsApp us</a>
