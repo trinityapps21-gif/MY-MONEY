@@ -1,10 +1,23 @@
-{% extends "base.html" %}{% from "partials/macros.html" import csrf %}
+{% extends "auth/_site_auth.html" %}{% from "partials/macros.html" import csrf %}
+{% set site_theme = 'lending' %}
 {% block title %}Lender login{% endblock %}{% block body_class %}theme-lender{% endblock %}
-{% block body %}<div class="auth-wrap photo" style="--photo:url('{{ url_for('static', filename='img/growth.jpg') }}')"><div class="auth-split"><div class="auth-side" style="--photo:url('{{ url_for('static', filename='img/growth.jpg') }}')"><h2>Welcome back, lender</h2><p>Manage your borrowers, loans, repayments and collections in one secure place.</p><ul><li><i data-lucide="shield-check"></i>Secure, private client records</li><li><i data-lucide="hand-coins"></i>Loans, fees and collections</li><li><i data-lucide="bar-chart-3"></i>Live portfolio reports</li></ul></div><div class="auth-card">{% include "auth/_brand.html" %}
+{% block panel %}
+<h1>Welcome back, <em>lender</em></h1>
+<p>Manage your borrowers, loans, repayments and collections in one secure place.</p>
+<ul>
+  <li><span class="tile"><i data-lucide="shield-check"></i></span>Secure, private client records</li>
+  <li><span class="tile"><i data-lucide="hand-coins"></i></span>Loans, fees and collections</li>
+  <li><span class="tile"><i data-lucide="bar-chart-3"></i></span>Live portfolio reports</li>
+</ul>
+{% endblock %}
+{% block card %}
+<h2>Lender login</h2>
+<p class="sub">Sign in to your lending business with your phone number or email.</p>
 <form method="post">{{ csrf() }}
-<div class="field"><label>Phone or email</label><input type="text" name="identifier" required autofocus autocomplete="username"></div>
-<div class="field"><label>Password</label><input type="password" name="password" required autocomplete="current-password"></div>
-{% set ts_action = 'login' %}{% include "auth/_turnstile.html" %}
-<button class="btn btn-primary btn-lg" style="width:100%" type="submit">Login</button>
-<button class="btn btn-lg bio-login hide" style="width:100%;margin-top:10px" type="button" id="bio-login" data-next="{{ request.args.get('next', '') }}"><i data-lucide="fingerprint"></i> Sign in with fingerprint or face</button></form>
-<p class="center small mt2"><a href="{{ url_for('auth.forgot_password') }}">Forgot password?</a> &middot; <a href="{{ url_for('auth.recover') }}">Use recovery code</a> &middot; <a href="{{ url_for('auth.register_lending') }}">Register your lending business</a></p>{% include "auth/_foot.html" %}</div></div></div>{% endblock %}
+<div class="field"><label for="identifier">Phone or email</label><input type="text" id="identifier" name="identifier" required autofocus autocomplete="username"></div>
+<div class="field"><label for="password">Password</label><input type="password" id="password" name="password" required autocomplete="current-password"></div>
+{% set ts_action = 'login' %}{% set ts_theme = 'dark' %}{% include "auth/_turnstile.html" %}
+<button class="s-btn primary block" type="submit">Login</button>
+<button class="s-btn ghost block bio-login hide" style="margin-top:12px" type="button" id="bio-login" data-next="{{ request.args.get('next', '') }}"><i data-lucide="fingerprint"></i> Sign in with fingerprint or face</button></form>
+<p class="auth-links"><a href="{{ url_for('auth.forgot_password') }}">Forgot password?</a><span class="sep">|</span><a href="{{ url_for('auth.recover') }}">Use recovery code</a><br><a href="{{ url_for('auth.register_lending') }}">Register your lending business</a><span class="sep">|</span><a href="{{ url_for('auth.login') }}">Savings group login</a></p>
+{% endblock %}
