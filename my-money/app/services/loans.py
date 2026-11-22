@@ -7,7 +7,9 @@ larger than the total outstanding is rejected. Allocations are stored per
 repayment so a reversal can restore the schedule exactly.
 
 Terms (rate, period, method, duration, frequency) are copied onto each loan at
-creation; later changes to the platform interest policy never touch them.
+creation; later changes to the platform interest policy never touch them. The
+group's late-fine terms are copied the same way (services/fine_terms.py), so a
+change to the fine rules only ever affects loans created after it.
 """
 from datetime import timedelta
 
@@ -20,7 +22,7 @@ from app.models import (Borrower, InterestSettings, Loan, LoanApproval, LoanRepa
 from app.models import LoanProduct
 from app.services import lender
 from app.services.timeutil import local_today
-from app.services import feedlog, importctx, interest, ledger, notify
+from app.services import feedlog, fine_terms, importctx, interest, ledger, notify
 from app.services.savings import DuplicateError
 
 ACTIVE_STATES = ("ACTIVE", "PARTIALLY_REPAID", "OVERDUE")
@@ -143,6 +145,7 @@ def create_loan(group, user, data, save_draft=False) -> Loan:
         total_repayable=result.total_repayable, approvals_required=group.loan_approvals_required,
         created_by=user.id, officer_id=data.get("officer_id") or borrower.officer_id,
         refinance_of_id=old.id if old else None, **extra,
+        **fine_terms.snapshot(group.id),                  # the group's late-fine terms as they are today, frozen on this loan
     )
     db.session.add(loan)
     db.session.flush()
