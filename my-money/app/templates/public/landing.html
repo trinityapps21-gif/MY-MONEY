@@ -104,16 +104,16 @@
     <div class="s-actions" style="margin-top:26px"><a class="s-btn ghost" href="#how">See how it works</a></div>
   </div>
   <div class="s-cards">
-    {% for icon, t, d in [
-      ('piggy-bank', 'Contributions', 'Record member savings with receipts and a full history.'),
-      ('hand-coins', 'Loans', 'Flat or reducing-balance interest, approvals and repayment schedules.'),
-      ('book-open-check', 'Ledger', 'An append-only ledger that always reconciles with your dashboard.'),
-      ('receipt', 'Receipts', 'Every contribution and repayment gets a clear, shareable receipt.'),
-      ('file-text', 'Reports', 'PDF, Excel and CSV exports for every report.'),
-      ('users-round', 'Members & roles', 'Administrator, treasurer, vice chair and member roles with the right access for each.'),
-      ('messages-square', 'Community & notices', 'A social feed for posts and photos, plus pinned announcements for every member.'),
-      ('shield-check', 'Private & secure', 'Each group is fully isolated, and sensitive actions are logged in an audit trail.')] %}
-    <article class="s-card reveal"><span class="tile"><i data-lucide="{{ icon }}"></i></span><h3>{{ t }}</h3><p>{{ d }}</p></article>
+    {% for t, d in [
+      ('Contributions', 'Record member savings with receipts and a full history.'),
+      ('Loans', 'Flat or reducing-balance interest, approvals and repayment schedules.'),
+      ('Ledger', 'An append-only ledger that always reconciles with your dashboard.'),
+      ('Receipts', 'Every contribution and repayment gets a clear, shareable receipt.'),
+      ('Reports', 'PDF, Excel and CSV exports for every report.'),
+      ('Members & roles', 'Administrator, treasurer, vice chair and member roles with the right access for each.'),
+      ('Community & notices', 'A social feed for posts and photos, plus pinned announcements for every member.'),
+      ('Private & secure', 'Each group is fully isolated, and sensitive actions are logged in an audit trail.')] %}
+    <article class="s-card bullet reveal"><h3>{{ t }}</h3><p>{{ d }}</p></article>
     {% endfor %}
   </div>
 </div></section>
@@ -170,10 +170,10 @@
       <h2 class="title" id="vs-title" style="font-size:clamp(1.9rem,3.4vw,2.7rem);font-weight:800;letter-spacing:-.03em;margin-bottom:16px">See MY MONEY <span style="color:var(--accent-2)">in action</span></h2>
       <p class="s-lead">Watch how savings groups and lenders replace notebooks and guesswork with one clear, secure record that every member can trust.</p>
       <ul class="vs-list">
-        <li><span class="tile"><i data-lucide="piggy-bank"></i></span><div><b>Record every contribution</b><span>Each payment saved with a receipt and full history.</span></div></li>
-        <li><span class="tile"><i data-lucide="hand-coins"></i></span><div><b>Manage loans with confidence</b><span>Approvals, interest and repayments tracked in one place.</span></div></li>
-        <li><span class="tile"><i data-lucide="file-text"></i></span><div><b>Share clear reports</b><span>Download PDF, Excel and CSV reports in seconds.</span></div></li>
-        <li><span class="tile"><i data-lucide="shield-check"></i></span><div><b>Keep your data private</b><span>Every group is completely separate and secure.</span></div></li>
+        <li><div><b>Record every contribution</b><span>Each payment saved with a receipt and full history.</span></div></li>
+        <li><div><b>Manage loans with confidence</b><span>Approvals, interest and repayments tracked in one place.</span></div></li>
+        <li><div><b>Share clear reports</b><span>Download PDF, Excel and CSV reports in seconds.</span></div></li>
+        <li><div><b>Keep your data private</b><span>Every group is completely separate and secure.</span></div></li>
       </ul>
       <div class="s-actions">
         <a class="s-btn primary only-savings" href="{{ url_for('auth.register') }}">Register your group</a>
@@ -206,17 +206,15 @@
   </div>
   <div class="s-for">
     <article class="for-card nv reveal">
-      <span class="tile"><i data-lucide="users-round"></i></span>
       <h3>Savings groups</h3>
       <p>For savings groups and SACCOs that collect contributions and lend to members.</p>
-      <ul><li><i data-lucide="check"></i>Contributions with receipts</li><li><i data-lucide="check"></i>Member loans and repayments</li><li><i data-lucide="check"></i>Roles, community feed and announcements</li></ul>
+      <ul><li>Contributions with receipts</li><li>Member loans and repayments</li><li>Roles, community feed and announcements</li></ul>
       <div class="s-actions"><a class="s-btn primary" href="{{ url_for('auth.register') }}">Register your group</a><a class="s-btn ghost" href="{{ url_for('auth.login') }}">Login</a></div>
     </article>
     <article class="for-card rd reveal">
-      <span class="tile"><i data-lucide="hand-coins"></i></span>
       <h3>Lending businesses</h3>
       <p>For money lenders who manage borrowers, collections and a loan portfolio.</p>
-      <ul><li><i data-lucide="check"></i>Borrower records and applications</li><li><i data-lucide="check"></i>Loans, fees and collections</li><li><i data-lucide="check"></i>Live portfolio reports</li></ul>
+      <ul><li>Borrower records and applications</li><li>Loans, fees and collections</li><li>Live portfolio reports</li></ul>
       <div class="s-actions"><a class="s-btn primary" href="{{ url_for('auth.register_lending') }}">Register your business</a><a class="s-btn ghost" href="{{ url_for('auth.login_lending') }}">Lender login</a></div>
     </article>
   </div>
