@@ -61,8 +61,12 @@ html:not([data-theme="lending"]) .only-lending { display: none !important; }
 @keyframes s-spin { to { transform: rotate(360deg); } }
 
 /* ---------- navigation (class names are used by responsive.js) ---------- */
-.pub-nav { position: sticky; top: 0; z-index: 60; background: rgba(6, 9, 18, .72); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); border-bottom: 1px solid var(--line); }
-html[data-theme="lending"] .pub-nav { background: rgba(10, 10, 11, .74); }
+.pub-nav { position: sticky; top: 0; z-index: 60; border-bottom: 1px solid var(--line); }
+/* The frosted glass lives on a pseudo-element, never on .pub-nav itself: a backdrop-filter on an ancestor becomes the containing
+   block of every position:fixed descendant, which used to squash the mobile menu to the height of the header bar. */
+.pub-nav::before { content: ""; position: absolute; inset: 0; z-index: -1; background: rgba(6, 9, 18, .72); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); transition: background .2s ease; }
+html[data-theme="lending"] .pub-nav::before { background: rgba(10, 10, 11, .74); }
+.pub-nav.open::before { background: var(--bg); -webkit-backdrop-filter: none; backdrop-filter: none; }   /* solid header while the menu is open */
 .pub-nav .in { max-width: var(--maxw); margin: 0 auto; padding: 0 24px; height: var(--nav-h); display: flex; align-items: center; gap: 28px; }
 .pub-brand { display: inline-flex; align-items: center; gap: 11px; color: var(--text) !important; font-weight: 800; font-size: 17px; letter-spacing: -.01em; text-decoration: none !important; }
 .pub-brand img { width: 38px; height: 38px; border-radius: 11px; display: block; border: 1px solid var(--line-2); }
@@ -74,7 +78,8 @@ html[data-theme="lending"] .pub-nav { background: rgba(10, 10, 11, .74); }
 .s-switch button { border: 0; background: transparent; color: var(--muted); font: 700 13px/1 var(--font); padding: 9px 14px; border-radius: 999px; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; }
 .s-switch button svg { width: 15px; height: 15px; }
 .s-switch button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
-.pub-burger { display: none; margin-left: auto; width: 46px; height: 46px; border-radius: 14px; border: 1px solid var(--line-2); background: rgba(255, 255, 255, .04); color: var(--text); cursor: pointer; place-items: center; }
+.pub-burger { display: none; margin-left: auto; width: 46px; height: 46px; border-radius: 14px; border: 1px solid var(--line-2); background: rgba(255, 255, 255, .04); color: var(--text); cursor: pointer; place-items: center; padding: 0; -webkit-tap-highlight-color: transparent; transition: background .15s ease; }
+.pub-burger:active, .pub-nav.open .pub-burger { background: rgba(255, 255, 255, .09); }
 .pub-burger svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
 .pub-burger .x { display: none; }
 .pub-nav.open .pub-burger .bars { display: none; } .pub-nav.open .pub-burger .x { display: block; }
@@ -83,14 +88,26 @@ html[data-theme="lending"] .pub-nav { background: rgba(10, 10, 11, .74); }
   .pub-links, .pub-cta { display: none; }
   .pub-burger { display: grid; }
   .pub-nav .in { gap: 12px; }
-  .pub-panel { position: fixed; left: 0; right: 0; top: var(--nav-h); bottom: 0; z-index: 59; background: var(--bg); padding: 18px 20px calc(24px + env(safe-area-inset-bottom)); overflow-y: auto; flex-direction: column; gap: 6px; }
-  .pub-nav.open .pub-panel { display: flex; }
-  .pub-panel .pl { display: flex; align-items: center; gap: 12px; padding: 15px 16px; border-radius: 16px; color: var(--text); font-weight: 700; font-size: 17px; text-decoration: none !important; border: 1px solid var(--line); background: var(--surface); }
-  .pub-panel .pl svg { color: var(--accent-2); }
-  .pub-panel .s-switch { align-self: flex-start; margin: 10px 0 6px; }
-  .pub-panel .pp-cta { display: grid; gap: 10px; margin-top: 12px; }
+  /* Full-height sheet under the header. It is hidden with visibility (not display) so it can fade in, and so its links leave
+     the tab order while it is closed. */
+  .pub-panel { position: fixed; left: 0; right: 0; top: var(--nav-h); height: calc(100vh - var(--nav-h)); height: calc(100dvh - var(--nav-h)); z-index: 59;
+    display: flex; flex-direction: column; background: var(--bg); border-top: 1px solid var(--line);
+    padding: 6px max(20px, calc((100% - 560px) / 2)) calc(24px + env(safe-area-inset-bottom));
+    overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; touch-action: pan-y;
+    opacity: 0; visibility: hidden; transform: translateY(-8px); transition: opacity .18s ease, transform .18s ease, visibility 0s linear .18s; }
+  .pub-nav.open .pub-panel { opacity: 1; visibility: visible; transform: none; transition-delay: 0s; }
+  .pub-panel .pl { display: flex; align-items: center; justify-content: space-between; min-height: 58px; padding: 0 4px; color: var(--text); font-weight: 600; font-size: 17px; letter-spacing: -.01em; text-decoration: none !important; border-bottom: 1px solid var(--line); -webkit-tap-highlight-color: transparent; }
+  .pub-panel .pl::after { content: ""; flex: none; width: 8px; height: 8px; margin-right: 6px; border-top: 1.8px solid var(--muted); border-right: 1.8px solid var(--muted); transform: rotate(45deg); }
+  .pub-panel .pl:active, .pub-panel .pl[aria-current="page"] { color: var(--accent-2); }
+  .pub-panel .pl[aria-current="page"]::after { border-color: var(--accent-2); }
+  .pub-panel .pp-label { margin: 24px 0 10px; font-size: 11.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .pub-panel .s-switch { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+  .pub-panel .s-switch button { justify-content: center; padding: 13px 14px; font-size: 14px; }
+  .pub-panel .pp-cta { display: grid; gap: 10px; margin-top: auto; padding-top: 24px; }       /* sits at the bottom on tall phones, scrolls on short ones */
+  .pub-panel .pp-set { display: grid; gap: 10px; }
   .pub-panel .pp-cta .s-btn { width: 100%; }
 }
+@media (prefers-reduced-motion: reduce) { .pub-panel, .pub-nav::before, .pub-burger { transition: none; } }
 
 .pair { display: inline-flex; align-items: center; gap: 10px; }
 
