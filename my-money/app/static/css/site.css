@@ -247,6 +247,14 @@ html[data-theme="lending"] .map-label { background: rgba(10, 10, 11, .9); }
 .for-card li svg { width: 20px; height: 20px; flex: none; }
 .for-card.nv li svg, .for-card.nv .tile { color: #8DB6F2; } .for-card.rd li svg, .for-card.rd .tile { color: #FF6B83; }
 .for-card.nv .tile { background: rgba(31, 95, 214, .22); } .for-card.rd .tile { background: rgba(228, 0, 43, .2); }
+/* Bullet markers: a plain, professional replacement for icon tiles on cards and lists */
+.bullet h3 { display: flex; align-items: center; gap: 12px; }
+.bullet h3::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--accent-2); }
+.s-card.bullet p, .s-role.bullet p { padding-left: 20px; }              /* description lines up with the heading text */
+.vs-list li::before, .s-checks li::before, .for-card li::before { content: ""; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--accent-2); margin-top: 9px; }
+.for-card li::before { margin-top: 0; }
+.for-card.nv li::before { background: #8DB6F2; } .for-card.rd li::before { background: #FF6B83; }
+.for-card h3:first-child { margin-top: 0; }                              /* no icon above the title any more */
 .for-card .s-btn.primary { color: #fff !important; }
 .for-card.nv .s-btn.primary { background: #1F5FD6; box-shadow: 0 10px 28px -8px rgba(31, 95, 214, .6); }
 .for-card.rd .s-btn.primary { background: #E4002B; box-shadow: 0 10px 28px -8px rgba(228, 0, 43, .6); }
