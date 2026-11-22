@@ -1,10 +1,8 @@
-{% extends "base.html" %}
-{% from "partials/macros.html" import brand_mark %}
+{% extends "public/_site.html" %}
+{% set site_switchable = true %}
 {% block title %}Smart Savings & Lending{% endblock %}
 {% block meta_description %}MY MONEY helps savings groups, SACCOs and community lenders run contributions, loans and reports in one secure place. Register your group free.{% endblock %}
-{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/public.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/video-section.css') }}">
-<script type="application/ld+json">{{ {
+{% block head %}<script type="application/ld+json">{{ {
   "@context": "https://schema.org",
   "@graph": [
     {"@type": "WebSite", "@id": site_url ~ "/#website", "url": site_url ~ "/", "name": platform_name, "alternateName": ["MY MONEY for Groups", "MyMoney"], "inLanguage": "en"},
@@ -15,28 +13,141 @@
 } | tojson }}</script>{% endblock %}
 {% block body %}
 {% include "public/_nav.html" %}
-<section class="hero"><div class="in"><div>
-<h1>MY MONEY</h1><div class="tag">Smart Savings, Trusted Lending, Transparent Finance for every group.</div>
-<p class="desc">Run savings groups and lending with a secure ledger, clear reports, receipts and a community feed — all in one place.</p>
-<div class="flex gap1 wrap mt2"><a class="btn btn-lg btn-accent" href="{{ url_for('auth.register') }}"><i data-lucide="users"></i>Register Your Group</a><a class="btn btn-lg" href="{{ url_for('auth.login') }}"><i data-lucide="log-in"></i>Login</a><a class="btn btn-lg btn-wa" href="https://wa.me/256703520925?text=Hello%20MY%20MONEY%2C%20I%20would%20like%20to%20know%20more." target="_blank" rel="noopener">{% include "public/_wa_icon.html" %}WhatsApp us</a></div></div>
-<div class="hero-photo"><img src="{{ url_for('static', filename='img/world-coins.jpg') }}" alt="World map over stacks of coins" width="736" height="1308" fetchpriority="high"><div class="hero-chip a"><i data-lucide="shield-check"></i>Secure ledger</div><div class="hero-chip b"><i data-lucide="trending-up"></i>Live reports</div></div></div></section>
-<div class="feature-strip"><div class="in">
-{% for i,t in [('shield-check','Secure & Private'),('users','Group Savings'),('hand-coins','Smart Lending'),('bar-chart-3','Clear Reports'),('messages-square','Community Feed')] %}<div class="fs-item"><i data-lucide="{{ i }}"></i>{{ t }}</div>{% endfor %}</div></div>
+<main id="main">
 
-<section class="section" id="features"><h2>Everything your group needs</h2><p class="lead">Built for savings groups, SACCOs and community lenders.</p>
-<div class="grid g3">{% for tone,i,t,d in [
- ('blue','piggy-bank','Contributions','Record member savings with receipts and full history.'),
- ('green','hand-coins','Loans','Flat or reducing-balance interest, approvals and repayment schedules.'),
- ('navy','book-open-check','Ledger','Append-only ledger that always reconciles with your dashboard.'),
- ('amber','megaphone','Announcements','Pin important notices for every member.'),
- ('violet','messages-square','Community','A social feed for posts, photos, comments and likes.'),
- ('rose','file-text','Reports','PDF, Excel and CSV exports for every report.'),
- ('teal','users-round','Members & Roles','Administrator, treasurer, vice chair and member roles with the right access for each.'),
- ('blue','receipt','Receipts','Every contribution and repayment gets a clear, shareable receipt.'),
- ('green','shield-check','Private & Secure','Each group is fully isolated, and sensitive actions are logged in an audit trail.')] %}
-<div class="card feat-card pro"><div class="tile {{ tone }}"><i data-lucide="{{ i }}"></i></div><h3>{{ t }}</h3><p>{{ d }}</p></div>{% endfor %}</div></section>
+<!-- ================= HERO ================= -->
+<section class="s-hero" aria-labelledby="hero-title">
+  <span class="spark" style="left:46%;top:60px;width:22px;height:22px" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v18M3 12h18"/></svg></span>
+  <span class="spark" style="right:6%;bottom:90px;width:16px;height:16px" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v18M3 12h18"/></svg></span>
+  <div class="wrap">
+    <div>
+      <h1 id="hero-title"><span class="only-savings">Stay in control of your <em>group's money</em></span><span class="only-lending">Stay in control of every <em>loan you lend</em></span></h1>
+      <p class="lead"><span class="only-savings">Run contributions, loans, receipts and reports from one secure ledger that every member can trust.</span><span class="only-lending">Run borrowers, loans, repayments and collections from one secure ledger, with clear reports for every client.</span></p>
+      <div class="s-actions">
+        {% if current_user.is_authenticated %}
+        <a class="s-btn primary" href="{{ url_for('groups.select') }}"><i data-lucide="layout-dashboard"></i>Open the app</a>
+        {% else %}
+        <a class="s-btn primary only-savings" href="{{ url_for('auth.register') }}">Register your group</a>
+        <a class="s-btn light only-savings" href="{{ url_for('auth.login') }}">Login</a>
+        <a class="s-btn primary only-lending" href="{{ url_for('auth.register_lending') }}">Register your lending business</a>
+        <a class="s-btn light only-lending" href="{{ url_for('auth.login_lending') }}">Lender login</a>
+        {% endif %}
+        <a class="s-btn ghost" href="https://wa.me/256703520925?text=Hello%20MY%20MONEY%2C%20I%20would%20like%20to%20know%20more." target="_blank" rel="noopener">{% include "public/_wa_icon.html" %}WhatsApp us</a>
+      </div>
+      <div class="s-install">
+        <span class="tile"><i data-lucide="smartphone"></i></span>
+        <span>Works on any phone. Install it from your browser, no app store needed. <a href="#" data-install hidden>Install now</a></span>
+      </div>
+    </div>
 
-<section class="section vs-section" id="watch" aria-labelledby="vs-title">
+    <div>
+      <div class="s-phones" aria-hidden="true">
+        <!-- back phone -->
+        <div class="phone back"><div class="phone-screen">
+          <div class="ps-top"><div class="ps-title only-savings">Loans</div><div class="ps-title only-lending">Collections</div><span class="ps-ico"><i data-lucide="search"></i></span></div>
+          <div class="ps-list only-savings">
+            <div class="ps-row"><span class="ps-ico"><i data-lucide="hand-coins"></i></span><div>School fees loan<span>3 of 6 instalments paid</span><div class="ps-bar"><i style="width:50%"></i></div></div></div>
+            <div class="ps-row"><span class="ps-ico"><i data-lucide="hand-coins"></i></span><div>Farm inputs loan<span>1 of 3 instalments paid</span><div class="ps-bar"><i style="width:33%"></i></div></div></div>
+            <div class="ps-row"><span class="ps-ico"><i data-lucide="hand-coins"></i></span><div>Market stall loan<span>5 of 6 instalments paid</span><div class="ps-bar"><i style="width:83%"></i></div></div></div>
+          </div>
+          <div class="ps-list only-lending">
+            <div class="ps-row"><span class="ps-ico"><i data-lucide="phone-call"></i></span><div>Due today<span>12 borrowers</span></div><em>UGX 3.1M</em></div>
+            <div class="ps-row"><span class="ps-ico"><i data-lucide="alarm-clock"></i></span><div>Overdue<span>4 borrowers</span></div><em>UGX 860K</em></div>
+            <div class="ps-row"><span class="ps-ico"><i data-lucide="badge-check"></i></span><div>Paid this week<span>31 repayments</span></div><em>UGX 9.4M</em></div>
+          </div>
+          <div class="ps-card"><small>Next payment</small><b>UGX 450,000</b><span class="ps-chip"><i data-lucide="calendar-clock"></i>Due in 3 days</span></div>
+        </div></div>
+        <!-- front phone -->
+        <div class="phone front"><div class="phone-screen">
+          <div class="ps-top">
+            <div class="ps-hello">Good morning<b class="only-savings">Umoja Savings Group</b><b class="only-lending">Your lending business</b></div>
+            <span class="ps-ico"><i data-lucide="bell"></i></span>
+          </div>
+          <div class="ps-card">
+            <small class="only-savings">Total group savings</small><small class="only-lending">Loan portfolio</small>
+            <b class="only-savings">UGX 12,450,000</b><b class="only-lending">UGX 48,200,000</b>
+            <span class="ps-chip"><i data-lucide="trending-up"></i><span class="only-savings">+8.2% this month</span><span class="only-lending">126 active loans</span></span>
+          </div>
+          <div class="ps-bars"><i style="height:34%"></i><i style="height:52%"></i><i style="height:42%"></i><i style="height:68%"></i><i style="height:58%"></i><i style="height:82%"></i><i style="height:100%"></i></div>
+          <div class="ps-h"><span>Recent activity</span><span>See all</span></div>
+          <div class="ps-list">
+            <div class="ps-row"><span class="ps-ico"><i data-lucide="arrow-down-left"></i></span><div class="only-savings">Contribution<span>Grace N.</span></div><div class="only-lending">Repayment<span>Grace N.</span></div><em>+50,000</em></div>
+            <div class="ps-row"><span class="ps-ico"><i data-lucide="receipt"></i></span><div>Receipt issued<span>Shared on WhatsApp</span></div><em>REC-0214</em></div>
+            <div class="ps-row"><span class="ps-ico"><i data-lucide="badge-check"></i></span><div>Loan approved<span>2 of 2 approvals</span></div><em>UGX 600K</em></div>
+          </div>
+        </div></div>
+        <div class="float-note a"><span class="tile"><i data-lucide="file-check-2"></i></span><div>Receipt ready<span>Download or send on WhatsApp</span></div></div>
+        <div class="float-note b"><span class="tile"><i data-lucide="shield-check"></i></span><div>Secure ledger<span>Every entry recorded</span></div></div>
+      </div>
+      <p class="s-note">Sample screens for illustration</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= PAYMENT METHODS ================= -->
+<section class="s-strip" aria-labelledby="pay-title"><div class="wrap">
+  <h2 id="pay-title">Record every payment your group already uses</h2>
+  <ul>
+    <li><i data-lucide="banknote"></i>Cash</li>
+    <li><i data-lucide="smartphone"></i>Mobile Money</li>
+    <li><i data-lucide="landmark"></i>Bank Transfer</li>
+    <li><i data-lucide="file-text"></i>Cheque</li>
+  </ul>
+</div></section>
+
+<!-- ================= ADVANTAGES ================= -->
+<section class="s-section" id="features" aria-labelledby="adv-title"><div class="wrap s-adv">
+  <div class="side reveal">
+    <span class="s-pill"><i data-lucide="sparkles"></i>Why MY MONEY</span>
+    <h2 class="title" id="adv-title">Advantages for groups and lenders who <em>choose us</em></h2>
+    <p class="s-lead">Everything you used to keep in notebooks, spreadsheets and chat messages, in one secure place that always adds up.</p>
+    <div class="s-actions" style="margin-top:26px"><a class="s-btn ghost" href="#how">See how it works</a></div>
+  </div>
+  <div class="s-cards">
+    {% for icon, t, d in [
+      ('piggy-bank', 'Contributions', 'Record member savings with receipts and a full history.'),
+      ('hand-coins', 'Loans', 'Flat or reducing-balance interest, approvals and repayment schedules.'),
+      ('book-open-check', 'Ledger', 'An append-only ledger that always reconciles with your dashboard.'),
+      ('receipt', 'Receipts', 'Every contribution and repayment gets a clear, shareable receipt.'),
+      ('file-text', 'Reports', 'PDF, Excel and CSV exports for every report.'),
+      ('users-round', 'Members & roles', 'Administrator, treasurer, vice chair and member roles with the right access for each.'),
+      ('messages-square', 'Community & notices', 'A social feed for posts and photos, plus pinned announcements for every member.'),
+      ('shield-check', 'Private & secure', 'Each group is fully isolated, and sensitive actions are logged in an audit trail.')] %}
+    <article class="s-card reveal"><span class="tile"><i data-lucide="{{ icon }}"></i></span><h3>{{ t }}</h3><p>{{ d }}</p></article>
+    {% endfor %}
+  </div>
+</div></section>
+
+<!-- ================= WORLD MAP ================= -->
+<section class="s-mapsec" id="reach" aria-labelledby="map-title"><div class="wrap">
+  <div class="s-mappanel reveal">
+    <div class="s-maptop">
+      <div class="s-head">
+        <span class="s-pill"><i data-lucide="globe"></i>Made in Uganda</span>
+        <h2 class="title" id="map-title">Built in Kampala. Ready for <em>every community</em>.</h2>
+        <p class="s-lead">MY MONEY is made in Uganda for savings groups, SACCOs and community lenders. If your members have a phone, they can join from anywhere.</p>
+      </div>
+      <div class="s-actions">
+        <a class="s-btn primary only-savings" href="{{ url_for('auth.register') }}">Register your group</a>
+        <a class="s-btn primary only-lending" href="{{ url_for('auth.register_lending') }}">Register your business</a>
+        <a class="s-btn ghost" href="{{ url_for('main.contact') }}">Talk to us</a>
+      </div>
+    </div>
+    <div class="s-mapbox">
+      {% include "public/_worldmap.html" %}
+      <div class="map-label"><span class="tile"><i data-lucide="map-pin"></i></span><div>Kampala, Uganda<span>Where MY MONEY is built</span></div></div>
+    </div>
+    <div class="s-stats">
+      <div class="s-stat"><b>100%</b><span>Group data kept separate</span></div>
+      <div class="s-stat"><b>Append-only</b><span>Ledger, never silently edited</span></div>
+      <div class="s-stat"><b>PDF · Excel · CSV</b><span>Report exports</span></div>
+      <div class="s-stat"><b>24 / 7</b><span>Access from phone or computer</span></div>
+    </div>
+  </div>
+</div></section>
+
+<!-- ================= VIDEO ================= -->
+<section class="s-section" id="watch" aria-labelledby="vs-title" style="padding-top:40px"><div class="wrap">
   <div class="vs">
     <figure class="vs-frame" id="vsFrame">
       <div class="vs-bg" style="background-image:url('{{ url_for('static', filename='img/video-poster.jpg') }}')" aria-hidden="true"></div>
@@ -55,39 +166,76 @@
       <div class="vs-track" id="vsTrack" role="progressbar" aria-label="Video progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="vsFill"></span></div>
     </figure>
     <div class="vs-copy">
-      <span class="vs-eyebrow"><i data-lucide="play-circle"></i>Watch the story</span>
-      <h2 id="vs-title">See MY MONEY in action</h2>
-      <p class="lead">Watch how savings groups and lenders replace notebooks and guesswork with one clear, secure record that every member can trust.</p>
+      <span class="s-pill"><i data-lucide="play-circle"></i>Watch the story</span>
+      <h2 class="title" id="vs-title" style="font-size:clamp(1.9rem,3.4vw,2.7rem);font-weight:800;letter-spacing:-.03em;margin-bottom:16px">See MY MONEY <span style="color:var(--accent-2)">in action</span></h2>
+      <p class="s-lead">Watch how savings groups and lenders replace notebooks and guesswork with one clear, secure record that every member can trust.</p>
       <ul class="vs-list">
-        <li><i data-lucide="piggy-bank"></i><div><b>Record every contribution</b><span>Each payment saved with a receipt and full history.</span></div></li>
-        <li><i data-lucide="hand-coins"></i><div><b>Manage loans with confidence</b><span>Approvals, interest and repayments tracked in one place.</span></div></li>
-        <li><i data-lucide="file-text"></i><div><b>Share clear reports</b><span>Download PDF, Excel and CSV reports in seconds.</span></div></li>
-        <li><i data-lucide="shield-check"></i><div><b>Keep your data private</b><span>Every group is completely separate and secure.</span></div></li>
+        <li><span class="tile"><i data-lucide="piggy-bank"></i></span><div><b>Record every contribution</b><span>Each payment saved with a receipt and full history.</span></div></li>
+        <li><span class="tile"><i data-lucide="hand-coins"></i></span><div><b>Manage loans with confidence</b><span>Approvals, interest and repayments tracked in one place.</span></div></li>
+        <li><span class="tile"><i data-lucide="file-text"></i></span><div><b>Share clear reports</b><span>Download PDF, Excel and CSV reports in seconds.</span></div></li>
+        <li><span class="tile"><i data-lucide="shield-check"></i></span><div><b>Keep your data private</b><span>Every group is completely separate and secure.</span></div></li>
       </ul>
-      <div class="flex gap1 wrap">
-        <a class="btn btn-lg btn-accent" href="{{ url_for('auth.register') }}"><i data-lucide="users"></i>Register Your Group</a>
-        <a class="btn btn-lg btn-wa" href="https://wa.me/256703520925?text=Hello%20MY%20MONEY%2C%20I%20would%20like%20to%20know%20more." target="_blank" rel="noopener">{% include "public/_wa_icon.html" %}WhatsApp us</a>
+      <div class="s-actions">
+        <a class="s-btn primary only-savings" href="{{ url_for('auth.register') }}">Register your group</a>
+        <a class="s-btn primary only-lending" href="{{ url_for('auth.register_lending') }}">Register your business</a>
+        <a class="s-btn wa" href="https://wa.me/256703520925?text=Hello%20MY%20MONEY%2C%20I%20would%20like%20to%20know%20more." target="_blank" rel="noopener">{% include "public/_wa_icon.html" %}WhatsApp us</a>
       </div>
     </div>
   </div>
-</section>
+</div></section>
 
-<div class="bg-soft"><section class="section">
-<h2>Up and running in minutes</h2><p class="lead">No spreadsheets, no notebooks, no confusion.</p>
-<div class="steps">
-<div class="step"><div class="num">1</div><h3>Register your group</h3><p>Set your group's name, currency and logo.</p></div>
-<div class="step"><div class="num">2</div><h3>Invite members</h3><p>Share a link and approve who joins.</p></div>
-<div class="step"><div class="num">3</div><h3>Save and lend</h3><p>Record contributions, loans and repayments.</p></div>
-<div class="step"><div class="num">4</div><h3>Share reports</h3><p>Export and share clear, accurate reports.</p></div>
-</div></section></div>
+<!-- ================= HOW IT WORKS ================= -->
+<section class="s-section" id="how" aria-labelledby="how-title"><div class="wrap">
+  <div class="s-head center reveal">
+    <h2 class="title" id="how-title">Up and running in <em>minutes</em></h2>
+    <p class="s-lead">No spreadsheets, no notebooks, no confusion.</p>
+  </div>
+  <div class="s-steps">
+    <div class="s-step reveal"><h3>Register</h3><p>Set your name, currency and logo. You become the administrator.</p></div>
+    <div class="s-step reveal"><h3>Invite members</h3><p>Share a link and approve who joins.</p></div>
+    <div class="s-step reveal"><h3>Save and lend</h3><p>Record contributions, loans and repayments.</p></div>
+    <div class="s-step reveal"><h3>Share reports</h3><p>Export and share clear, accurate reports.</p></div>
+  </div>
+</div></section>
 
-<section class="section" style="padding-bottom:20px"><h2>See your group's money clearly</h2><p class="lead">From savings to loans to reports, everything is tracked in one transparent place.</p>
-<div class="photo-grid">
-<div class="photo-card"><img src="{{ url_for('static', filename='img/world-coins.jpg') }}" alt="" loading="lazy"><div><h3>Group savings</h3><p>Record every contribution and watch your group's savings grow.</p></div></div>
-<div class="photo-card"><img src="{{ url_for('static', filename='img/analytics.jpg') }}" alt="" loading="lazy"><div><h3>Clear reports</h3><p>Inspect every shilling with PDF, Excel and CSV reports.</p></div></div>
-<div class="photo-card"><img src="{{ url_for('static', filename='img/growth.jpg') }}" alt="" loading="lazy"><div><h3>Smart lending</h3><p>Track loans, interest and repayments with confidence.</p></div></div></div></section>
+<!-- ================= WHO IT IS FOR ================= -->
+<section class="s-section" style="padding-top:20px" aria-labelledby="for-title"><div class="wrap">
+  <div class="s-head center reveal">
+    <h2 class="title" id="for-title">Choose how you use <em>MY MONEY</em></h2>
+    <p class="s-lead">One platform, two ways to work. Pick the one that fits you.</p>
+  </div>
+  <div class="s-for">
+    <article class="for-card nv reveal">
+      <span class="tile"><i data-lucide="users-round"></i></span>
+      <h3>Savings groups</h3>
+      <p>For savings groups and SACCOs that collect contributions and lend to members.</p>
+      <ul><li><i data-lucide="check"></i>Contributions with receipts</li><li><i data-lucide="check"></i>Member loans and repayments</li><li><i data-lucide="check"></i>Roles, community feed and announcements</li></ul>
+      <div class="s-actions"><a class="s-btn primary" href="{{ url_for('auth.register') }}">Register your group</a><a class="s-btn ghost" href="{{ url_for('auth.login') }}">Login</a></div>
+    </article>
+    <article class="for-card rd reveal">
+      <span class="tile"><i data-lucide="hand-coins"></i></span>
+      <h3>Lending businesses</h3>
+      <p>For money lenders who manage borrowers, collections and a loan portfolio.</p>
+      <ul><li><i data-lucide="check"></i>Borrower records and applications</li><li><i data-lucide="check"></i>Loans, fees and collections</li><li><i data-lucide="check"></i>Live portfolio reports</li></ul>
+      <div class="s-actions"><a class="s-btn primary" href="{{ url_for('auth.register_lending') }}">Register your business</a><a class="s-btn ghost" href="{{ url_for('auth.login_lending') }}">Lender login</a></div>
+    </article>
+  </div>
+</div></section>
 
-<section class="band photo-band"><div class="section"><h2>Ready to start?</h2><p class="lead">Create your group in minutes.</p><div class="flex gap1 wrap"><a class="btn btn-lg btn-accent" href="{{ url_for('auth.register') }}"><i data-lucide="users"></i>Register Your Group</a><a class="btn btn-lg btn-wa" href="https://wa.me/256703520925?text=Hello%20MY%20MONEY%2C%20I%20would%20like%20to%20know%20more." target="_blank" rel="noopener">{% include "public/_wa_icon.html" %}Chat on WhatsApp</a><a class="btn btn-lg btn-outline-light" href="tel:+256703520925"><i data-lucide="phone"></i>0703 520 925</a></div></div></section>
+<!-- ================= CLOSING CALL TO ACTION ================= -->
+<section class="s-band"><div class="wrap">
+  <div class="s-bandbox reveal">
+    <h2>Ready to start?</h2>
+    <p>Create your account in minutes, or talk to us first. We are one message away.</p>
+    <div class="s-actions">
+      <a class="s-btn primary only-savings" href="{{ url_for('auth.register') }}">Register your group</a>
+      <a class="s-btn primary only-lending" href="{{ url_for('auth.register_lending') }}">Register your business</a>
+      <a class="s-btn wa" href="https://wa.me/256703520925?text=Hello%20MY%20MONEY%2C%20I%20would%20like%20to%20know%20more." target="_blank" rel="noopener">{% include "public/_wa_icon.html" %}Chat on WhatsApp</a>
+      <a class="s-btn ghost" href="tel:+256703520925"><i data-lucide="phone"></i>0703 520 925</a>
+    </div>
+  </div>
+</div></section>
+</main>
 <script src="{{ url_for('static', filename='js/video-section.js') }}" defer></script>
 {% include "public/_foot.html" %}
 {% endblock %}
