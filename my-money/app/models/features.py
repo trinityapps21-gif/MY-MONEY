@@ -28,6 +28,7 @@ class GroupSettings(db.Model):
     fine_rate_bp = db.Column(db.Integer, nullable=False, default=500)
     fine_fixed = db.Column(db.BigInteger, nullable=False, default=0)
     fine_capped = db.Column(db.Boolean, nullable=False, default=True)
+    fine_terms_since = db.Column(db.DateTime)  # when the fine terms above were last changed (NULL = never changed)
     # loan interest policy (was a single platform-wide row; now per group)
     default_rate_bp = db.Column(db.Integer, nullable=False, default=1000)
     min_rate_bp = db.Column(db.Integer, nullable=False, default=500)
