@@ -18,7 +18,7 @@ from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.lib.utils import ImageReader
-from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.platypus import Image, KeepTogether, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from app.services import storage
 from app.services.money import from_minor, fmt
@@ -396,6 +396,138 @@ def late_fee_notice_pdf(group, loan, a, notice_date) -> bytes:
     story += [Paragraph("Payment Instructions", sec), Paragraph(pay, st["note"]), Spacer(1, 2 * mm),
               Paragraph(f"<b>Please settle the total amount payable immediately</b> to avoid the next 7-day penalty increase.{nxt} "
                         "Keep your receipt for every payment.", st["note"])]
+    foot = _footer_factory(group, "")
+    doc.build(story, onFirstPage=foot, onLaterPages=foot)
+    return buf.getvalue()
+
+
+def late_fee_statement_pdf(group, stmt) -> bytes:
+    """'Overdue Loan Fine Statement': everything a borrower needs to understand why they are paying a late fine.
+
+    `stmt` is a late_fees.statement() result. The page shows the principal before the fine, the fine, the new
+    principal after the fine, the policy that produced it, and the working for every overdue instalment."""
+    from xml.sax.saxutils import escape as esc
+    from app.services.money import rate_pct
+    st = _styles()
+    page = A4
+    buf = io.BytesIO()
+    loan, b, today = stmt["loan"], stmt["borrower"], stmt["date"]
+    doc = SimpleDocTemplate(buf, pagesize=page, leftMargin=16 * mm, rightMargin=16 * mm, topMargin=12 * mm,
+                            bottomMargin=20 * mm, title=f"Overdue Loan Fine Statement {loan.reference}", author=BRAND)
+    width = page[0] - 32 * mm
+    cur, dec = group.currency, group.currency_decimals
+    m = lambda v: fmt(v, cur, dec)  # noqa: E731
+    cell, cellr, note = st["cell"], st["cellr"], st["note"]
+    big = ParagraphStyle("sbig", parent=cell, fontName="Helvetica-Bold", fontSize=10.5, leading=13)
+    bigr = ParagraphStyle("sbigr", parent=big, alignment=2)
+    sec = ParagraphStyle("ssec", parent=st["title"], fontSize=10.5, textColor=NAVY, spaceBefore=8, spaceAfter=3)
+    head_c = ParagraphStyle("shead", parent=cell, fontName="Helvetica-Bold", textColor=colors.white)
+    head_r = ParagraphStyle("sheadr", parent=head_c, alignment=2)
+    muted = ParagraphStyle("smuted", parent=note, fontSize=7.5, textColor=colors.HexColor("#666666"))
+    started = stmt["mode"] == "STARTED"
+    kind = "started" if started else "completed"
+    per = {"WEEK": "per week", "MONTH": "per month", "YEAR": "per year"}.get(loan.rate_period, "")
+
+    story = [_header(group, width, st), Spacer(1, 4 * mm),
+             Paragraph("Overdue Loan Fine Statement", st["title"]),
+             Paragraph(f"Statement date {today:%d %B %Y}  |  Loan {esc(loan.reference)}  |  Currency {cur}", st["small"]),
+             Spacer(1, 3 * mm)]
+
+    # ---- who and which loan
+    contact = " | ".join(esc(x) for x in (b.phone, getattr(b, "email", None), b.location) if x) or "-"
+    info = Table([
+        [Paragraph("<b>Borrower</b>", cell), Paragraph(esc(b.name), cell), Paragraph("<b>Loan Reference</b>", cell), Paragraph(esc(loan.reference), cell)],
+        [Paragraph("<b>Contact</b>", cell), Paragraph(contact, cell), Paragraph("<b>Loan Amount</b>", cell), Paragraph(m(loan.principal), cell)],
+        [Paragraph("<b>Lender</b>", cell), Paragraph(esc(group.name), cell), Paragraph("<b>Interest Rate</b>", cell),
+         Paragraph(f"{rate_pct(loan.rate_bp)}% {per}".strip(), cell)],
+        [Paragraph("<b>Disbursed</b>", cell), Paragraph(f"{loan.disbursement_date:%d %B %Y}", cell), Paragraph("<b>Paid To Date</b>", cell),
+         Paragraph(m(stmt["paid_to_date"]), cell)],
+    ], colWidths=[width * 0.16, width * 0.34, width * 0.18, width * 0.32])
+    info.setStyle(TableStyle([("GRID", (0, 0), (-1, -1), 0.4, BORDER), ("BACKGROUND", (0, 0), (0, -1), GREY),
+                              ("BACKGROUND", (2, 0), (2, -1), GREY), ("TOPPADDING", (0, 0), (-1, -1), 4),
+                              ("BOTTOMPADDING", (0, 0), (-1, -1), 4)]))
+    story += [info, Paragraph("Summary: before and after the fine", sec)]
+
+    # ---- the headline: principal before -> fine -> principal after
+    summ = Table([
+        [Paragraph("<b>Initial principal due (before the fine)</b>", cell), Paragraph(m(stmt["principal_before"]), cellr)],
+        [Paragraph("<b>Late fine added</b>", cell), Paragraph("+ " + m(stmt["fine"]), cellr)],
+        [Paragraph("NEW PRINCIPAL DUE (after the fine)", big), Paragraph(m(stmt["principal_after"]), bigr)],
+    ], colWidths=[width * 0.60, width * 0.40])
+    summ.setStyle(TableStyle([("GRID", (0, 0), (-1, -1), 0.4, BORDER), ("ROWBACKGROUNDS", (0, 0), (-1, 1), [colors.white, GREY]),
+                              ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#FFF4D6")), ("LINEABOVE", (0, -1), (-1, -1), 1.2, NAVY),
+                              ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                              ("VALIGN", (0, 0), (-1, -1), "MIDDLE")]))
+    story += [summ, Spacer(1, 1.5 * mm), Paragraph(
+        "\"Principal due\" is the amount still unpaid on the overdue instalment(s), including each instalment's own interest. "
+        "It is the amount the fine is charged on.", muted), Spacer(1, 2 * mm)]
+    whole = Table([
+        [Paragraph("Whole loan: balance still owed before the fine", cell), Paragraph(m(stmt["balance_before"]), cellr)],
+        [Paragraph("Whole loan: balance still owed after the fine", cell), Paragraph("<b>" + m(stmt["balance_after"]) + "</b>", cellr)],
+    ], colWidths=[width * 0.60, width * 0.40])
+    whole.setStyle(TableStyle([("GRID", (0, 0), (-1, -1), 0.4, BORDER), ("BACKGROUND", (0, 0), (-1, -1), GREY),
+                               ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 3)]))
+    story += [whole, Paragraph("Why this fine applies", sec)]
+
+    # ---- the reason, in plain words
+    n = len(stmt["lines"])
+    story += [Paragraph(
+        f"{esc(group.name)} is owed <b>{n}</b> instalment{'s' if n != 1 else ''} on loan {esc(loan.reference)} that "
+        f"{'were' if n != 1 else 'was'} not paid by the agreed due date{'s' if n != 1 else ''}. The longest is "
+        f"<b>{stmt['longest_days']} day(s)</b> overdue. Under the lender's late-payment policy:", note),
+        Spacer(1, 1.5 * mm),
+        Paragraph("&bull; No fine is charged during the <b>7-day grace period</b> that follows each due date.", note),
+        Paragraph(f"&bull; After the grace period, a fine of <b>5%</b> of the unpaid amount is added for every <b>{kind} 7-day block</b>"
+                  f"{' (a block is charged as soon as it starts)' if started else ' (a block is charged once its 7 days are complete)'}.", note),
+        Paragraph("&bull; The fine is <b>capped at 100%</b> of the unpaid amount on that instalment. It is never charged on the fine itself.", note),
+        Paragraph("&bull; Once an instalment is paid in full, no further fine is added on it.", note),
+        Paragraph("How each fine was calculated", sec)]
+
+    # ---- per-instalment table
+    hdr = [Paragraph("Inst.", head_c), Paragraph("Due date", head_c), Paragraph("Days late", head_r), Paragraph("Unpaid amount", head_r),
+           Paragraph("Blocks", head_r), Paragraph("Fine rate", head_r), Paragraph("Fine", head_r), Paragraph("New amount due", head_r)]
+    data = [hdr]
+    for x in stmt["lines"]:
+        rate = f"{x['tier_pct']:g}%" + (" (cap)" if x["capped"] else "")
+        data.append([Paragraph(f"#{x['number']}", cell), Paragraph(f"{x['due_date']:%d %b %Y}", cell),
+                     Paragraph(str(x["days_overdue"]), cellr), Paragraph(m(x["amount"]), cellr), Paragraph(str(x["blocks"]), cellr),
+                     Paragraph(rate, cellr), Paragraph(m(x["fine"]), cellr), Paragraph("<b>" + m(x["total"]) + "</b>", cellr)])
+    data.append([Paragraph("<b>Total</b>", cell), "", "", Paragraph("<b>" + m(stmt["principal_before"]) + "</b>", cellr), "", "",
+                 Paragraph("<b>" + m(stmt["fine"]) + "</b>", cellr), Paragraph("<b>" + m(stmt["principal_after"]) + "</b>", cellr)])
+    cw = [0.07, 0.15, 0.09, 0.19, 0.08, 0.11, 0.14, 0.17]
+    tbl = Table(data, colWidths=[width * c for c in cw], repeatRows=1)
+    tbl.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, 0), NAVY), ("GRID", (0, 0), (-1, -1), 0.4, BORDER),
+                             ("ROWBACKGROUNDS", (0, 1), (-1, -2), [colors.white, GREY]),
+                             ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#FFF4D6")), ("LINEABOVE", (0, -1), (-1, -1), 1.0, NAVY),
+                             ("TOPPADDING", (0, 0), (-1, -1), 4), ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                             ("VALIGN", (0, 0), (-1, -1), "MIDDLE")]))
+    story += [tbl, Spacer(1, 2.5 * mm), Paragraph("<b>The working, instalment by instalment</b>", note), Spacer(1, 1 * mm)]
+    for x in stmt["lines"]:
+        if x["blocks"] == 0:
+            first = x["next_increase"]
+            why = ("still inside the 7-day grace period" if x["days_overdue"] <= 7
+                   else "past the grace period, but no full 7-day block has been completed yet")
+            work = (f"{m(x['amount'])}: no fine yet ({why})." +
+                    (f" The first fine applies from <b>{first:%d %B %Y}</b>." if first else ""))
+        else:
+            work = (f"{m(x['amount'])} &times; 5% &times; {x['blocks']} {kind} block{'s' if x['blocks'] != 1 else ''} "
+                    f"= {x['raw_pct']:g}% = <b>{m(x['fine'])}</b>" +
+                    (" (limited to the 100% cap)." if x["capped"] else "."))
+        story.append(Paragraph(f"&bull; <b>Instalment #{x['number']}</b> (due {x['due_date']:%d %b %Y}, grace ended {x['grace_end']:%d %b %Y}): {work}", note))
+
+    # ---- what happens next, how to pay
+    story.append(Paragraph("What happens next", sec))
+    nxt = stmt["next_increase"]
+    story.append(Paragraph(
+        (f"The next 7-day penalty increase applies on <b>{nxt:%d %B %Y}</b> if the overdue amount is still unpaid. " if nxt else
+         "The maximum fine has been reached on every overdue instalment, so it will not grow any further. ") +
+        "The figures above are correct as at the statement date and change as more days pass or payments are made.", note))
+    pay = esc((group.pay_instructions or "").strip()).replace("\n", "<br/>") or esc(
+        f"Please contact {group.name}" + (f" on {group.phone}" if getattr(group, "phone", None) else "") + " for payment details.")
+    story.append(KeepTogether([Paragraph("How to pay", sec), Paragraph(pay, note), Spacer(1, 2 * mm), Paragraph(
+        f"<b>Please settle the new principal due of {m(stmt['principal_after'])} as soon as possible</b> to avoid further fines. "
+        "Keep your receipt for every payment. If you believe any figure on this statement is wrong, or you have already "
+        f"paid, contact {esc(group.name)}{(' on ' + esc(group.phone)) if getattr(group, 'phone', None) else ''} with your payment receipt.", note)]))
     foot = _footer_factory(group, "")
     doc.build(story, onFirstPage=foot, onLaterPages=foot)
     return buf.getvalue()
