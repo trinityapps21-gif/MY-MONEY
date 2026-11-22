@@ -1,15 +1,28 @@
-{% extends "base.html" %}{% from "partials/macros.html" import csrf %}
+{% extends "auth/_site_auth.html" %}{% from "partials/macros.html" import csrf %}
 {% block title %}Register your group{% endblock %}
-{% block body %}<div class="auth-wrap photo" style="--photo:url('{{ url_for('static', filename='img/world-coins.jpg') }}')"><div class="auth-split reg"><div class="auth-side" style="--photo:url('{{ url_for('static', filename='img/world-coins.jpg') }}')"><h2>Start your group on MY MONEY</h2><p>Set up in minutes. You become the Group Administrator.</p><ul><li><i data-lucide="piggy-bank"></i>Contributions with receipts</li><li><i data-lucide="hand-coins"></i>Loans with flat or reducing interest</li><li><i data-lucide="messages-square"></i>Community feed and announcements</li></ul></div><div class="auth-card">{% include "auth/_brand.html" %}<h2 class="center mb2">Register your group</h2>
+{% block shell_class %}reg{% endblock %}
+{% block panel %}
+<h1>Start your group on <em>MY MONEY</em></h1>
+<p>Set up in minutes. You become the Group Administrator.</p>
+<ul>
+  <li><span class="tile"><i data-lucide="piggy-bank"></i></span>Contributions with receipts</li>
+  <li><span class="tile"><i data-lucide="hand-coins"></i></span>Loans with flat or reducing interest</li>
+  <li><span class="tile"><i data-lucide="messages-square"></i></span>Community feed and announcements</li>
+</ul>
+{% endblock %}
+{% block card %}
+<h2>Register your group</h2>
+<p class="sub">Create your account and your group in one step.</p>
 <form method="post" enctype="multipart/form-data">{{ csrf() }}
-{% if not current_user.is_authenticated %}<h3>Your account</h3><div class="form-grid mt1">
-<div class="field"><label>Full name</label><input type="text" name="full_name" required></div>
-<div class="field"><label>Phone</label><input type="tel" name="phone" required></div>
-<div class="field full"><label>Email (optional)</label><input type="email" name="email"></div>
-<div class="field"><label>Password</label><input type="password" name="password" required minlength="8"></div>
-<div class="field"><label>Confirm password</label><input type="password" name="confirm_password" required></div></div>{% endif %}
-<h3 class="mt2 mb2">Group details</h3>{% include "groups/_group_fields.html" %}
-<div class="field"><label>Group logo (optional, max 2 MB)</label><input type="file" name="logo" accept="image/png,image/jpeg,image/webp"></div>
-{% if not current_user.is_authenticated %}{% set ts_action = 'register' %}{% include "auth/_turnstile.html" %}{% endif %}
-<button class="btn btn-primary btn-lg" type="submit">Create group</button></form>
-<p class="center small mt2"><a href="{{ url_for('auth.login') }}">Already have an account? Login</a></p>{% include "auth/_foot.html" %}</div></div></div>{% endblock %}
+{% if not current_user.is_authenticated %}<h3>Your account</h3><div class="form-grid">
+<div class="field"><label for="full_name">Full name</label><input type="text" id="full_name" name="full_name" required></div>
+<div class="field"><label for="phone">Phone</label><input type="tel" id="phone" name="phone" required></div>
+<div class="field full"><label for="email">Email (optional)</label><input type="email" id="email" name="email"></div>
+<div class="field"><label for="password">Password</label><input type="password" id="password" name="password" required minlength="8"></div>
+<div class="field"><label for="confirm_password">Confirm password</label><input type="password" id="confirm_password" name="confirm_password" required></div></div>{% endif %}
+<h3>Group details</h3>{% include "groups/_group_fields.html" %}
+<div class="field"><label for="logo">Group logo (optional, max 2 MB)</label><input type="file" id="logo" name="logo" accept="image/png,image/jpeg,image/webp"></div>
+{% if not current_user.is_authenticated %}{% set ts_action = 'register' %}{% set ts_theme = 'dark' %}{% include "auth/_turnstile.html" %}{% endif %}
+<button class="s-btn primary block" type="submit">Create group</button></form>
+<p class="auth-links"><a href="{{ url_for('auth.login') }}">Already have an account? Login</a><span class="sep">|</span><a href="{{ url_for('auth.register_lending') }}">Register a lending business instead</a></p>
+{% endblock %}
