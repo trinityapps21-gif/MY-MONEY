@@ -1,0 +1,19 @@
+{% extends "public/_site.html" %}
+{% block body %}
+<div class="auth-page">
+  <div class="auth-bar">
+    <a class="back" href="{{ url_for('main.index') }}"><i data-lucide="arrow-left"></i>Back to home</a>
+    <a class="pub-brand" href="{{ url_for('main.index') }}"><img src="{{ url_for('static', filename='img/logo.png') }}" alt="" width="38" height="38"><span>MY MONEY</span></a>
+  </div>
+  <main id="main" class="auth-shell {% block shell_class %}{% endblock %}">
+    <aside class="auth-panel">
+      <div aria-hidden="true">{% include "public/_worldmap.html" %}</div>
+      {% block panel %}{% endblock %}
+    </aside>
+    <section class="auth-card">
+      {% block card %}{% endblock %}
+      <div class="auth-foot">Developed and Powered by Emtrixz Technology Company.</div>
+    </section>
+  </main>
+</div>
+{% endblock %}
