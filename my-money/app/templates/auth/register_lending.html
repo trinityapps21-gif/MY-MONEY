@@ -1,33 +1,48 @@
-{% extends "base.html" %}{% from "partials/macros.html" import csrf %}
+{% extends "auth/_site_auth.html" %}{% from "partials/macros.html" import csrf %}
+{% set site_theme = 'lending' %}
 {% block title %}Register your lending business{% endblock %}{% block body_class %}theme-lender{% endblock %}
-{% block body %}<div class="auth-wrap photo" style="--photo:url('{{ url_for('static', filename='img/world-coins.jpg') }}')"><div class="auth-split reg"><div class="auth-side" style="--photo:url('{{ url_for('static', filename='img/world-coins.jpg') }}')"><h2>Start your lending business on MY MONEY</h2><p>Tell us about you and your business. We check every lender before it goes online.</p><ul><li><i data-lucide="id-card"></i>Owner identity check</li><li><i data-lucide="hand-coins"></i>Loans with flat or reducing interest</li><li><i data-lucide="folder-open"></i>Client documents and asset photos</li><li><i data-lucide="phone-call"></i>Collections and reminders</li></ul></div><div class="auth-card">{% include "auth/_brand.html" %}<h2 class="center mb2">Register your lending business</h2>
+{% block shell_class %}reg{% endblock %}
+{% block panel %}
+<h1>Start your lending business on <em>MY MONEY</em></h1>
+<p>Tell us about you and your business. We check every lender before it goes online.</p>
+<ul>
+  <li><span class="tile"><i data-lucide="id-card"></i></span>Owner identity check</li>
+  <li><span class="tile"><i data-lucide="hand-coins"></i></span>Loans with flat or reducing interest</li>
+  <li><span class="tile"><i data-lucide="folder-open"></i></span>Client documents and asset photos</li>
+  <li><span class="tile"><i data-lucide="phone-call"></i></span>Collections and reminders</li>
+</ul>
+{% endblock %}
+{% block card %}
+<h2>Register your lending business</h2>
+<p class="sub">Three short steps. The platform administrator reviews your details before you go online.</p>
 <form method="post" enctype="multipart/form-data">{{ csrf() }}
-{% if not current_user.is_authenticated %}<h3>1. About the owner</h3><div class="form-grid mt1">
-<div class="field"><label>Full name</label><input type="text" name="full_name" required value="{{ request.form.get('full_name', '') }}"></div>
-<div class="field"><label>Phone (used to sign in)</label><input type="tel" name="phone" required value="{{ request.form.get('phone', '') }}"></div>
-<div class="field"><label>Email (used to sign in)</label><input type="email" name="email" required value="{{ request.form.get('email', '') }}"></div>
-<div class="field"><label>National ID number</label><input type="text" name="national_id" required minlength="8" maxlength="40" autocapitalize="characters" value="{{ request.form.get('national_id', '') }}"></div>
-<div class="field full"><label>Photo of the National ID (required)</label><input type="file" name="owner_id_photo" accept="image/png,image/jpeg,image/webp,application/pdf" required><div class="hint">A clear photo of the front of the ID. On a phone this opens the camera.</div></div>
-<div class="field"><label>Password</label><input type="password" name="password" required minlength="8"></div>
-<div class="field"><label>Confirm password</label><input type="password" name="confirm_password" required></div></div>
-{% else %}<h3>1. About the owner</h3><div class="form-grid mt1">
-<div class="field"><label>National ID number</label><input type="text" name="national_id" required minlength="8" maxlength="40" autocapitalize="characters" value="{{ request.form.get('national_id', '') }}"></div>
-<div class="field"><label>Photo of the National ID (required)</label><input type="file" name="owner_id_photo" accept="image/png,image/jpeg,image/webp,application/pdf" required></div></div>{% endif %}
-<h3 class="mt2">2. About the lending business</h3><div class="form-grid mt1">
-<div class="field full"><label>Business name</label><input type="text" name="business_name" required minlength="3" value="{{ request.form.get('business_name', '') }}"></div>
-<div class="field"><label>Type of business</label><select name="business_kind" required>{% for k in kinds %}<option value="{{ k }}" {{ 'selected' if request.form.get('business_kind') == k }}>{{ k }}</option>{% endfor %}</select></div>
-<div class="field"><label>Licence / registration number (optional)</label><input type="text" name="registration_number" maxlength="60" value="{{ request.form.get('registration_number', '') }}"></div>
-<div class="field"><label>District</label><input type="text" name="district" required maxlength="80" value="{{ request.form.get('district', '') }}"></div>
-<div class="field"><label>Physical address</label><input type="text" name="address" required maxlength="120" value="{{ request.form.get('address', '') }}"></div>
-<div class="field"><label>Business phone</label><input type="tel" name="business_phone" value="{{ request.form.get('business_phone', '') }}"></div>
-<div class="field"><label>Business email</label><input type="email" name="business_email" value="{{ request.form.get('business_email', '') }}"></div>
-<div class="field"><label>Currency</label><select name="currency">{% for c in currencies %}<option value="{{ c }}" {{ 'selected' if c == 'UGX' }}>{{ c }}</option>{% endfor %}</select></div>
-<div class="field"><label>Business logo (optional)</label><input type="file" name="logo" accept="image/png,image/jpeg,image/webp"></div>
+{% if not current_user.is_authenticated %}<h3>1. About the owner</h3><div class="form-grid">
+<div class="field"><label for="full_name">Full name</label><input type="text" id="full_name" name="full_name" required value="{{ request.form.get('full_name', '') }}"></div>
+<div class="field"><label for="phone">Phone (used to sign in)</label><input type="tel" id="phone" name="phone" required value="{{ request.form.get('phone', '') }}"></div>
+<div class="field"><label for="email">Email (used to sign in)</label><input type="email" id="email" name="email" required value="{{ request.form.get('email', '') }}"></div>
+<div class="field"><label for="national_id">National ID number</label><input type="text" id="national_id" name="national_id" required minlength="8" maxlength="40" autocapitalize="characters" value="{{ request.form.get('national_id', '') }}"></div>
+<div class="field full"><label for="owner_id_photo">Photo of the National ID (required)</label><input type="file" id="owner_id_photo" name="owner_id_photo" accept="image/png,image/jpeg,image/webp,application/pdf" required><div class="hint">A clear photo of the front of the ID. On a phone this opens the camera.</div></div>
+<div class="field"><label for="password">Password</label><input type="password" id="password" name="password" required minlength="8"></div>
+<div class="field"><label for="confirm_password">Confirm password</label><input type="password" id="confirm_password" name="confirm_password" required></div></div>
+{% else %}<h3>1. About the owner</h3><div class="form-grid">
+<div class="field"><label for="national_id">National ID number</label><input type="text" id="national_id" name="national_id" required minlength="8" maxlength="40" autocapitalize="characters" value="{{ request.form.get('national_id', '') }}"></div>
+<div class="field"><label for="owner_id_photo">Photo of the National ID (required)</label><input type="file" id="owner_id_photo" name="owner_id_photo" accept="image/png,image/jpeg,image/webp,application/pdf" required></div></div>{% endif %}
+<h3>2. About the lending business</h3><div class="form-grid">
+<div class="field full"><label for="business_name">Business name</label><input type="text" id="business_name" name="business_name" required minlength="3" value="{{ request.form.get('business_name', '') }}"></div>
+<div class="field"><label for="business_kind">Type of business</label><select id="business_kind" name="business_kind" required>{% for k in kinds %}<option value="{{ k }}" {{ 'selected' if request.form.get('business_kind') == k }}>{{ k }}</option>{% endfor %}</select></div>
+<div class="field"><label for="registration_number">Licence / registration number (optional)</label><input type="text" id="registration_number" name="registration_number" maxlength="60" value="{{ request.form.get('registration_number', '') }}"></div>
+<div class="field"><label for="district">District</label><input type="text" id="district" name="district" required maxlength="80" value="{{ request.form.get('district', '') }}"></div>
+<div class="field"><label for="address">Physical address</label><input type="text" id="address" name="address" required maxlength="120" value="{{ request.form.get('address', '') }}"></div>
+<div class="field"><label for="business_phone">Business phone</label><input type="tel" id="business_phone" name="business_phone" value="{{ request.form.get('business_phone', '') }}"></div>
+<div class="field"><label for="business_email">Business email</label><input type="email" id="business_email" name="business_email" value="{{ request.form.get('business_email', '') }}"></div>
+<div class="field"><label for="currency">Currency</label><select id="currency" name="currency">{% for c in currencies %}<option value="{{ c }}" {{ 'selected' if c == 'UGX' }}>{{ c }}</option>{% endfor %}</select></div>
+<div class="field"><label for="logo">Business logo (optional)</label><input type="file" id="logo" name="logo" accept="image/png,image/jpeg,image/webp"></div>
 <input type="hidden" name="timezone" value="Africa/Kampala"></div>
-<h3 class="mt2">3. How you lend (you can change this later)</h3><div class="form-grid mt1">
-<div class="field"><label>Usual or maximum interest rate per month, % (optional)</label><input type="text" inputmode="decimal" name="rate_cap" placeholder="e.g. 10" value="{{ request.form.get('rate_cap', '') }}"></div>
-<div class="field"><label>Approvals needed before a loan is paid out</label><select name="loan_approvals_required">{% for n in [1, 2, 3] %}<option value="{{ n }}" {{ 'selected' if request.form.get('loan_approvals_required', '1') == n|string }}>{{ n }}</option>{% endfor %}</select></div></div>
-<p class="muted small mt2">After you submit, the platform administrator checks your details. Your business goes online as soon as it is approved.</p>
-{% if not current_user.is_authenticated %}{% set ts_action = 'register' %}{% include "auth/_turnstile.html" %}{% endif %}
-<button class="btn btn-primary btn-lg" type="submit">Submit for approval</button></form>
-<p class="center small mt2"><a href="{{ url_for('auth.login_lending') }}">Already registered? Lender login</a> &middot; <a href="{{ url_for('auth.register') }}">Register a savings group instead</a></p>{% include "auth/_foot.html" %}</div></div></div>{% endblock %}
+<h3>3. How you lend (you can change this later)</h3><div class="form-grid">
+<div class="field"><label for="rate_cap">Usual or maximum interest rate per month, % (optional)</label><input type="text" id="rate_cap" inputmode="decimal" name="rate_cap" placeholder="e.g. 10" value="{{ request.form.get('rate_cap', '') }}"></div>
+<div class="field"><label for="loan_approvals_required">Approvals needed before a loan is paid out</label><select id="loan_approvals_required" name="loan_approvals_required">{% for n in [1, 2, 3] %}<option value="{{ n }}" {{ 'selected' if request.form.get('loan_approvals_required', '1') == n|string }}>{{ n }}</option>{% endfor %}</select></div></div>
+<p class="muted small">After you submit, the platform administrator checks your details. Your business goes online as soon as it is approved.</p>
+{% if not current_user.is_authenticated %}{% set ts_action = 'register' %}{% set ts_theme = 'dark' %}{% include "auth/_turnstile.html" %}{% endif %}
+<button class="s-btn primary block" type="submit">Submit for approval</button></form>
+<p class="auth-links"><a href="{{ url_for('auth.login_lending') }}">Already registered? Lender login</a><span class="sep">|</span><a href="{{ url_for('auth.register') }}">Register a savings group instead</a></p>
+{% endblock %}
