@@ -7,10 +7,11 @@
 <div class="grid g4 mb2">
 {{ stat('Overdue instalments', totals.count, 'alarm-clock', 'red', totals.fined ~ ' with a late fine') }}
 {{ stat('Principal due (late)', money(totals.amount), 'hand-coins', 'amber') }}
-{{ stat('Fines accrued', money(totals.fine), 'percent', '', totals.capped ~ ' at the 100% cap' if totals.capped else '') }}
+{{ stat('Fines accrued', money(totals.fine), 'percent', '', totals.capped ~ ' at the fine cap' if totals.capped else '') }}
 {{ stat('Total owed', money(totals.total), 'wallet') }}
 </div>
-<div class="alert info small mb2"><b>Policy.</b> No fine from the due date through day 7 (grace period). After that, a <b>5% fine</b> on the original late amount for every {% if mode == 'STARTED' %}<b>started</b>{% else %}<b>completed</b>{% endif %} 7-day block, capped at <b>100%</b> of the late amount. "Principal due" is what is still unpaid on the instalment (principal and interest).</div>
+<div class="alert info small mb2"><b>Current group policy.</b> {{ group_terms }} It applies to loans created from now on; every loan is charged under the terms it was created with. "Principal due" is what is still unpaid on the instalment (principal and interest).</div>
+{% if older %}<div class="alert warn small mb2"><b>{{ older }} overdue instalment{{ 's' if older != 1 }} on older terms.</b> The group changed its late-fine terms; loans created before the change keep their original terms and are marked <span class="pill amber">Older terms</span> below.</div>{% endif %}
 <div class="card">{% if rows %}<div class="table-wrap"><table class="table"><thead><tr>{% for c in columns %}<th class="{{ 'num' if c in ('Days Overdue','Principal Due','Penalty %','Fine Accrued','Total Owed') }}">{{ c }}</th>{% endfor %}</tr></thead><tbody>
 {% for r in rows %}<tr>
 <td class="nowrap"><a href="{{ url_for('lending.detail', loan_id=r.loan.id) }}"><b>{{ r.loan.reference }}</b></a> <span class="muted xs">#{{ r.sched.number }}</span> <a class="btn btn-sm btn-ghost" href="{{ url_for('overdue.notice', sched_id=r.sched.id) }}" title="Overdue Loan &amp; Late Fine Notice (PDF)"><i data-lucide="file-down"></i></a> <a class="btn btn-sm btn-ghost" href="{{ url_for('overdue.statement', loan_id=r.loan.id) }}" title="Whole-loan fine statement: principal before and after the fine (PDF)"><i data-lucide="file-text"></i></a></td>
@@ -18,7 +19,7 @@
 <td class="nowrap">{{ r.due_date|ld }}</td>
 <td class="num">{{ r.days_overdue }}</td>
 <td class="num">{{ money(r.amount) }}</td>
-<td class="num"><b>{{ '%g'|format(r.tier_pct) }}%</b><div><span class="pill {{ 'red' if r.capped or r.blocks >= 3 else ('amber' if r.blocks else '') }}">{{ r.flag }}</span></div></td>
+<td class="num"><b>{{ '%g'|format(r.tier_pct) }}%</b><div><span class="pill {{ 'red' if r.capped or r.blocks >= 3 else ('amber' if r.blocks else '') }}">{{ r.flag }}</span>{% if r.older_terms %} <span class="pill amber" title="Created before the group changed its late-fine terms">Older terms</span>{% endif %}</div></td>
 <td class="num">{{ money(r.fine) }}</td>
 <td class="num"><b>{{ money(r.total) }}</b></td>
 <td class="nowrap">{{ r.last_notified|ldt('%d %b %Y %H:%M') if r.last_notified else 'Never' }}</td></tr>{% endfor %}
