@@ -169,6 +169,7 @@ def detail(loan_id, group_id=None):
         wa_link = f"https://wa.me/{phone}?text={quote(msg)}"
     return render_template("lending/detail.html", wa_link=wa_link, loan=loan, today=today, p_out=p_out, i_out=i_out,
                            fine_stmt=late_fees.statement(g.group, loan, today),
+                           fine_terms_info=late_fees.loan_terms(g.group, loan),
                            eff=loan_svc.effective_status(loan, today), next_due=loan_svc.next_due(loan),
                            my_decision=my_decision, periods=PERIODS, methods=METHODS, units=UNITS, freqs=FREQS,
                            penalty_due=lender_svc.penalties_due(loan), due=lender_svc.amount_due(loan, today), fine_reason=lambda p: lender_svc.fine_reason(loan, p, lambda v: fmt(v, g.group.currency, g.group.currency_decimals)), idem=new_idem_key(), officer_opts=officers.officer_options(g.group.id),
@@ -182,14 +183,12 @@ def detail(loan_id, group_id=None):
 def schedule_pdf(loan_id, group_id=None):
     from flask import Response
     from app.services import documents
-    from app.services.groupcfg import get_settings
+    from app.services import fine_terms
     loan = get_scoped_or_404(Loan, loan_id)
     if not loan.disbursement_tx_id:
         abort(404)
-    cfg = get_settings(g.group.id)
-    rule = (f"Late payments: no fine for {cfg.fine_grace_days} day(s) after the due date; after that a fine of "
-            + (f"{cfg.fine_rate_bp / 100:g}% of the late amount" if cfg.fine_type == "PERCENT"
-               else f"{g.group.currency} {cfg.fine_fixed:,}") + f" is added for every {cfg.fine_period_days} day(s) after that.")
+    # the loan's OWN late-fine terms (frozen when it was created), never the group's current rules
+    rule = "Late payments: " + fine_terms.describe(loan, g.group.currency, g.group.currency_decimals)
     data = documents.loan_schedule_pdf(g.group, loan, utcnow(), rule, loan.fines)
     audit("loan.schedule_downloaded", "loan", loan.id, group_id=g.group.id)
     db.session.commit()
