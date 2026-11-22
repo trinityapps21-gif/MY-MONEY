@@ -370,10 +370,16 @@ def late_fee_notice_pdf(group, loan, a, notice_date) -> bytes:
     bt.setStyle(TableStyle([("GRID", (0, 0), (-1, -1), 0.4, BORDER), ("TOPPADDING", (0, 0), (-1, -1), 4),
                             ("BOTTOMPADDING", (0, 0), (-1, -1), 4), ("BACKGROUND", (0, 0), (0, -1), GREY)]))
     story += [bt, Paragraph("Repayment Breakdown", sec)]
-    tier = f"5% per 7-day cycle post-grace (currently {a['tier_pct']:g}% applied)"
+    from app.services import fine_terms
+    lt = a["terms"]
+    gd, pd_ = a["grace_days"], a["period_days"]
+    if lt.fine_type == "FIXED":
+        tier = f"{m(lt.fine_fixed)} every {pd_} day(s) after grace (currently {a['blocks']} charged)"
+    else:
+        tier = f"{lt.fine_rate_bp / 100:g}% every {pd_} day(s) after grace (currently {a['tier_pct']:g}% applied)"
     rows = [("Original Repayment Amount", m(a["amount"])),
             ("Original Due Date", f"{a['due_date']:%d %B %Y}"),
-            ("Grace Period End Date (+7 Days)", f"{a['grace_end']:%d %B %Y}"),
+            (f"Grace Period End Date (+{gd} Days)", f"{a['grace_end']:%d %B %Y}"),
             ("Current Days Past Due", f"{a['days_overdue']} day(s)"),
             ("Late Fine Rate Applied", tier),
             ("Accumulated Late Fine", m(a["fine"]))]
@@ -386,15 +392,13 @@ def late_fee_notice_pdf(group, loan, a, notice_date) -> bytes:
                             ("VALIGN", (0, 0), (-1, -1), "MIDDLE")]))
     story += [bd]
     if a["capped"]:
-        story += [Spacer(1, 2 * mm), Paragraph("<b>The maximum late fine (100% of the original late amount) has been reached.</b>", st["note"])]
-    story += [Paragraph("Policy Reminder", sec), Paragraph(
-        "A late fee of <b>5%</b> of the original late amount applies for <b>every 7 days</b> after the <b>7-day grace period</b> "
-        "has ended. The total late fine is <b>capped at 100%</b> of the original late amount.", st["note"])]
+        story += [Spacer(1, 2 * mm), Paragraph("<b>The maximum late fine (the original late amount) has been reached.</b>", st["note"])]
+    story += [Paragraph("Policy Reminder", sec), Paragraph(esc(fine_terms.describe(lt, cur, dec)), st["note"])]
     pay = esc((group.pay_instructions or "").strip()).replace("\n", "<br/>") or esc(
         f"Please contact {group.name}" + (f" on {group.phone}" if getattr(group, "phone", None) else "") + " for payment details.")
-    nxt = (f" The next 7-day penalty increase applies on <b>{a['next_increase']:%d %B %Y}</b>." if a["next_increase"] else "")
+    nxt = (f" The next penalty increase applies on <b>{a['next_increase']:%d %B %Y}</b>." if a["next_increase"] else "")
     story += [Paragraph("Payment Instructions", sec), Paragraph(pay, st["note"]), Spacer(1, 2 * mm),
-              Paragraph(f"<b>Please settle the total amount payable immediately</b> to avoid the next 7-day penalty increase.{nxt} "
+              Paragraph(f"<b>Please settle the total amount payable immediately</b> to avoid the next penalty increase.{nxt} "
                         "Keep your receipt for every payment.", st["note"])]
     foot = _footer_factory(group, "")
     doc.build(story, onFirstPage=foot, onLaterPages=foot)
@@ -424,6 +428,10 @@ def late_fee_statement_pdf(group, stmt) -> bytes:
     head_c = ParagraphStyle("shead", parent=cell, fontName="Helvetica-Bold", textColor=colors.white)
     head_r = ParagraphStyle("sheadr", parent=head_c, alignment=2)
     muted = ParagraphStyle("smuted", parent=note, fontSize=7.5, textColor=colors.HexColor("#666666"))
+    from app.services import fine_terms
+    lt, tinfo = stmt["terms"], stmt["terms_info"]
+    fixed = lt.fine_type == "FIXED"
+    gd, pd_ = lt.fine_grace_days, max(1, lt.fine_period_days)
     started = stmt["mode"] == "STARTED"
     kind = "started" if started else "completed"
     per = {"WEEK": "per week", "MONTH": "per month", "YEAR": "per year"}.get(loan.rate_period, "")
@@ -476,12 +484,17 @@ def late_fee_statement_pdf(group, stmt) -> bytes:
         f"{'were' if n != 1 else 'was'} not paid by the agreed due date{'s' if n != 1 else ''}. The longest is "
         f"<b>{stmt['longest_days']} day(s)</b> overdue. Under the lender's late-payment policy:", note),
         Spacer(1, 1.5 * mm),
-        Paragraph("&bull; No fine is charged during the <b>7-day grace period</b> that follows each due date.", note),
-        Paragraph(f"&bull; After the grace period, a fine of <b>5%</b> of the unpaid amount is added for every <b>{kind} 7-day block</b>"
-                  f"{' (a block is charged as soon as it starts)' if started else ' (a block is charged once its 7 days are complete)'}.", note),
-        Paragraph("&bull; The fine is <b>capped at 100%</b> of the unpaid amount on that instalment. It is never charged on the fine itself.", note),
+        Paragraph("&bull; " + esc(fine_terms.describe(lt, cur, dec)) +
+                  (f" A period is charged {'as soon as it starts' if started else 'once its ' + str(pd_) + ' days are complete'}."
+                   if not fine_terms.is_free(lt) else ""), note),
         Paragraph("&bull; Once an instalment is paid in full, no further fine is added on it.", note),
-        Paragraph("How each fine was calculated", sec)]
+        ]
+    if tinfo["older"]:
+        since = f" on {tinfo['since']:%d %B %Y}" if tinfo["since"] else ""
+        story += [Spacer(1, 1.5 * mm), Paragraph(
+            f"<b>Please note:</b> {esc(group.name)} changed its late-fine terms{since}. This loan keeps the terms it was "
+            "created with (shown above); the newer terms apply only to loans created after the change.", note)]
+    story.append(Paragraph("How each fine was calculated", sec))
 
     # ---- per-instalment table
     hdr = [Paragraph("Inst.", head_c), Paragraph("Due date", head_c), Paragraph("Days late", head_r), Paragraph("Unpaid amount", head_r),
@@ -505,21 +518,27 @@ def late_fee_statement_pdf(group, stmt) -> bytes:
     for x in stmt["lines"]:
         if x["blocks"] == 0:
             first = x["next_increase"]
-            why = ("still inside the 7-day grace period" if x["days_overdue"] <= 7
-                   else "past the grace period, but no full 7-day block has been completed yet")
+            why = (f"still inside the {gd}-day grace period" if x["days_overdue"] <= gd
+                   else f"past the grace period, but no full {pd_}-day period has been completed yet")
+            if fine_terms.is_free(lt):
+                why = "this loan's terms charge no late fine"
             work = (f"{m(x['amount'])}: no fine yet ({why})." +
                     (f" The first fine applies from <b>{first:%d %B %Y}</b>." if first else ""))
         else:
-            work = (f"{m(x['amount'])} &times; 5% &times; {x['blocks']} {kind} block{'s' if x['blocks'] != 1 else ''} "
-                    f"= {x['raw_pct']:g}% = <b>{m(x['fine'])}</b>" +
-                    (" (limited to the 100% cap)." if x["capped"] else "."))
+            unit = f"{kind} {pd_}-day period{'s' if x['blocks'] != 1 else ''}"
+            if fixed:
+                work = f"{m(lt.fine_fixed)} &times; {x['blocks']} {unit} = <b>{m(x['fine'])}</b>"
+            else:
+                work = (f"{m(x['amount'])} &times; {lt.fine_rate_bp / 100:g}% &times; {x['blocks']} {unit} "
+                        f"= {x['raw_pct']:g}% = <b>{m(x['fine'])}</b>")
+            work += " (limited to the cap, the unpaid amount)." if x["capped"] else "."
         story.append(Paragraph(f"&bull; <b>Instalment #{x['number']}</b> (due {x['due_date']:%d %b %Y}, grace ended {x['grace_end']:%d %b %Y}): {work}", note))
 
     # ---- what happens next, how to pay
     story.append(Paragraph("What happens next", sec))
     nxt = stmt["next_increase"]
     story.append(Paragraph(
-        (f"The next 7-day penalty increase applies on <b>{nxt:%d %B %Y}</b> if the overdue amount is still unpaid. " if nxt else
+        (f"The next penalty increase applies on <b>{nxt:%d %B %Y}</b> if the overdue amount is still unpaid. " if nxt else
          "The maximum fine has been reached on every overdue instalment, so it will not grow any further. ") +
         "The figures above are correct as at the statement date and change as more days pass or payments are made.", note))
     pay = esc((group.pay_instructions or "").strip()).replace("\n", "<br/>") or esc(
