@@ -160,3 +160,77 @@ def test_cli_command_runs(app, biz):
     _overdue_loan(biz, 20)
     res = app.test_cli_runner().invoke(args=["late-fees"])
     assert res.exit_code == 0 and "Late-fee alerts sent" in res.output
+
+
+# ---------------------------------------------------------------- loan-level fine statement (before / after + PDF)
+def _pdf_text(data):
+    pypdf = pytest.importorskip("pypdf")
+    return " ".join(" ".join(p.extract_text() for p in pypdf.PdfReader(io.BytesIO(data)).pages).split())
+
+
+def test_statement_before_fine_after(app, biz):
+    loan, s0 = _overdue_loan(biz, 20)                        # day 20 -> one completed block -> 5%
+    stmt = late_fees.statement(biz.biz, loan, date.today())
+    fine = round(s0.balance * 0.05)
+    assert stmt["principal_before"] == s0.balance and stmt["fine"] == fine
+    assert stmt["principal_after"] == s0.balance + fine
+    assert stmt["balance_after"] == stmt["balance_before"] + fine and stmt["longest_days"] == 20
+    assert len(stmt["lines"]) == 1 and stmt["lines"][0]["blocks"] == 1 and stmt["next_increase"] == s0.due_date + timedelta(days=21)
+
+
+def test_statement_matches_the_overdue_log(app, biz):
+    loan, s0 = _overdue_loan(biz, 40)
+    row = late_fees.log_rows(biz.biz, date.today())[0]
+    stmt = late_fees.statement(biz.biz, loan, date.today())
+    assert (stmt["principal_before"], stmt["fine"], stmt["principal_after"]) == (row["amount"], row["fine"], row["total"])
+
+
+def test_statement_none_when_nothing_overdue(app, biz):
+    loan = make_lender_loan(biz, product=False)
+    assert late_fees.statement(biz.biz, loan, date.today()) is None
+
+
+def test_statement_in_grace_period_has_no_fine(app, biz):
+    loan, s0 = _overdue_loan(biz, 5)
+    stmt = late_fees.statement(biz.biz, loan, date.today())
+    assert stmt["fine"] == 0 and stmt["principal_after"] == stmt["principal_before"] == s0.balance
+
+
+def test_statement_pdf_explains_the_fine(app, biz):
+    loan, s0 = _overdue_loan(biz, 20)
+    biz.biz.pay_instructions = "Send mobile money to 0772 000 000 (Quick Cash Ltd)."
+    db.session.commit()
+    r = biz.cl.get(f"{biz.bp}/overdue/loan/{loan.id}/statement.pdf")
+    assert r.status_code == 200 and r.mimetype == "application/pdf" and r.data[:4] == b"%PDF"
+    text, fine = _pdf_text(r.data), round(s0.balance * 0.05)
+    for needle in ("Overdue Loan Fine Statement", loan.reference, "Carl Trader", "Initial principal due (before the fine)",
+                   "Late fine added", "NEW PRINCIPAL DUE (after the fine)", "Why this fine applies", "7-day grace period",
+                   "capped at 100%", "How each fine was calculated", "The working, instalment by instalment", "What happens next",
+                   "How to pay", "Send mobile money to 0772 000 000", f"{s0.balance:,}", f"{fine:,}", f"{s0.balance + fine:,}"):
+        assert needle in text, needle
+
+
+def test_statement_404_when_not_overdue(app, biz):
+    loan = make_lender_loan(biz, product=False)
+    assert biz.cl.get(f"{biz.bp}/overdue/loan/{loan.id}/statement.pdf").status_code == 404
+
+
+def test_statement_access_control(app, biz):
+    loan, _ = _overdue_loan(biz, 20)
+    url = f"{biz.bp}/overdue/loan/{loan.id}/statement.pdf"
+    assert biz.cs.get(url).status_code == 403                         # plain staff
+    assert biz.ca.get(url).status_code == 404                         # another group's admin
+    assert app.test_client().get(url).status_code in (302, 401)       # signed out
+
+
+def test_loan_page_shows_fine_card_only_when_overdue(app, biz):
+    loan = make_lender_loan(biz, product=False)
+    assert "Overdue fine statement" not in biz.cl.get(f"{biz.bp}/loans/{loan.id}").data.decode()
+    s0 = loan.schedule[0]
+    s0.due_date = date.today() - timedelta(days=20)
+    db.session.commit()
+    html = biz.cl.get(f"{biz.bp}/loans/{loan.id}").data.decode()
+    fine = round(s0.balance * 0.05)
+    for needle in ("Overdue fine statement", "Initial principal (before fine)", "New principal (after fine)", "Fine statement (PDF)",
+                   f"{s0.balance:,}", f"{fine:,}", f"{s0.balance + fine:,}"):
+        assert needle in html, needle
