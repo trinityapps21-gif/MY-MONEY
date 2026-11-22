@@ -19,7 +19,7 @@
     x.className = "x"; x.type = "button"; x.setAttribute("aria-label", "Dismiss"); x.textContent = "×";
     x.onclick = () => t.remove();
     t.append(span, x); box.appendChild(t);
-    setTimeout(() => t.remove(), kind === "error" ? 8000 : 5000);
+    setTimeout(() => t.remove(), kind === "warning" ? 12000 : kind === "error" ? 8000 : 5000);
   };
 
   /* ---------- fetch helper (CSRF + JSON errors) ---------- */
