@@ -259,13 +259,14 @@ def receipt_pdf(group, title, receipt_no, fields, amount_minor, generated_at, ex
     rows = [[Paragraph(f"<b>{l}</b>", st["cell"]), Paragraph(str(v) if v not in (None, "") else "-", st["cell"])]
             for l, v in fields]
     t = Table(rows, colWidths=[width * 0.36, width * 0.64])
-    t.setStyle(TableStyle([("LINEBELOW", (0, 0), (-1, -1), 0.3, BORDER), ("TOPPADDING", (0, 0), (-1, -1), 4),
-                           ("BOTTOMPADDING", (0, 0), (-1, -1), 4), ("VALIGN", (0, 0), (-1, -1), "TOP")]))
+    pad = 4 if len(rows) <= 10 else 2          # long receipts (loan repayment with a fine breakdown) stay on one page
+    t.setStyle(TableStyle([("LINEBELOW", (0, 0), (-1, -1), 0.3, BORDER), ("TOPPADDING", (0, 0), (-1, -1), pad),
+                           ("BOTTOMPADDING", (0, 0), (-1, -1), pad), ("VALIGN", (0, 0), (-1, -1), "TOP")]))
     story.append(t)
     if extra_note:
         story += [Spacer(1, 4 * mm), Paragraph(extra_note, st["note"])]
     local = to_local(generated_at, group.timezone)
-    story += [Spacer(1, 6 * mm), Paragraph(f"Receipt issued {local:%d %b %Y %H:%M}. This is a computer-generated "
+    story += [Spacer(1, 6 * mm if len(rows) <= 10 else 3 * mm), Paragraph(f"Receipt issued {local:%d %b %Y %H:%M}. This is a computer-generated "
                                            "receipt from the group's records.", st["small"])]
     foot = _footer_factory(group, "")
     doc.build(story, onFirstPage=foot, onLaterPages=foot)
