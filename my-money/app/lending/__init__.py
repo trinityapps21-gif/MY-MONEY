@@ -5,7 +5,7 @@ from app.extensions import db
 from app.models import (Borrower, Collateral, COLLATERAL_STATUS, Guarantor, Loan, LoanApproval, LoanProduct,
                         StoredFile, utcnow)
 from app.models import FOLLOWUP_KINDS, LoanApplication, Group
-from app.services import (agreement, analytics, ledger, lender as lender_svc, loans as loan_svc, officers, storage)
+from app.services import (agreement, analytics, late_fees, ledger, lender as lender_svc, loans as loan_svc, officers, storage)
 from app.services.audit import audit
 from app.services.forms import form_amount, form_choice, form_date, form_text, new_idem_key
 from app.services.loans import STATUS_LABELS, LoanError
@@ -168,6 +168,7 @@ def detail(loan_id, group_id=None):
                + (f" Your next payment of {fmt(nd.balance, g.group.currency, g.group.currency_decimals)} is due on {nd.due_date:%d %b %Y}." if nd else ""))
         wa_link = f"https://wa.me/{phone}?text={quote(msg)}"
     return render_template("lending/detail.html", wa_link=wa_link, loan=loan, today=today, p_out=p_out, i_out=i_out,
+                           fine_stmt=late_fees.statement(g.group, loan, today),
                            eff=loan_svc.effective_status(loan, today), next_due=loan_svc.next_due(loan),
                            my_decision=my_decision, periods=PERIODS, methods=METHODS, units=UNITS, freqs=FREQS,
                            penalty_due=lender_svc.penalties_due(loan), due=lender_svc.amount_due(loan, today), fine_reason=lambda p: lender_svc.fine_reason(loan, p, lambda v: fmt(v, g.group.currency, g.group.currency_decimals)), idem=new_idem_key(), officer_opts=officers.officer_options(g.group.id),
