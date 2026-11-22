@@ -51,6 +51,41 @@ class Receipt:
         return not self.official_only and membership_id in self.member_ids
 
 
+
+def _repayment_breakdown(group, r, m):
+    """Rows and note for a loan repayment receipt: principal / interest / late fine, and the loan's own fine terms.
+
+    The late fine is a separate charge raised because this payment was late (it is not taken out of the amount paid).
+    The terms shown are the ones frozen on the loan, so a later change to the group's rules never alters an old receipt."""
+    from app.models import LoanRepaymentSchedule as Sched
+    from app.services import fine_terms
+    from app.services.groupcfg import get_settings
+    loan, cc, dd = r.loan, group.currency, group.currency_decimals
+    nums = sorted({sc.number for sc in (db.session.get(Sched, a.schedule_id) for a in r.allocations) if sc})
+    fines = [f for f in LoanFine.query.filter_by(group_id=group.id, repayment_id=r.id) if f.status != "VOID"]
+    fine_total = sum(f.amount for f in fines)
+    shown = {"UNPAID": "not yet paid", "PAID": "paid", "WAIVED": "waived"}
+    fields = [("Received from", r.borrower.name), ("Loan", loan.reference), ("Category", "Loan instalment payment"),
+              ("Instalment(s) paid", ", ".join(f"#{n}" for n in nums) or None),
+              ("Amount paid", m(r.amount)),
+              ("Principal portion", m(r.principal_part)),
+              ("Interest portion", m(r.interest_part))]
+    if fines:
+        f = fines[0]
+        fields += [("Late fine charged", f"{m(fine_total)} ({shown.get(f.status, f.status.lower())})"),
+                   ("Days late", str(max(x.days_late for x in fines))),
+                   ("Fine charged on", m(sum(x.late_amount for x in fines))),
+                   ("Total with late fine", m(r.amount + fine_total))]
+    else:
+        fields.append(("Late fine charged", "None - paid on time" if not fine_terms.is_free(loan) else "None (no late fine on this loan)"))
+    fields += [("Late-fine terms on this loan", fine_terms.describe(loan, cc, dd)),
+               ("Date", f"{r.payment_date:%d %b %Y}"), ("Payment method", r.payment_method),
+               ("Payment reference", r.payment_reference), ("Recorded by", r.recorder.full_name)]
+    note = None
+    if not fine_terms.same(loan, get_settings(group.id)):
+        note = "The group has since changed its late-fine terms. This loan keeps the terms it was created with."
+    return fields, note
+
 def _money(group, v):
     return documents.fmt(v, group.currency, group.currency_decimals)
 
@@ -126,13 +161,11 @@ def describe(group, kind, obj_id) -> Receipt:
                        w.member.user.full_name, w.member.user.phone, {w.member_id})
     if kind == "repayment":
         r = _scoped(LoanRepayment, obj_id, group)
-        fields = [("Received from", r.borrower.name), ("Loan", r.loan.reference), ("Category", "Loan instalment payment"),
-                  ("Principal portion", m(r.principal_part)), ("Interest portion", m(r.interest_part)),
-                  ("Date", f"{r.payment_date:%d %b %Y}"), ("Payment method", r.payment_method),
-                  ("Payment reference", r.payment_reference), ("Recorded by", r.recorder.full_name)]
+        fields, note = _repayment_breakdown(group, r, m)
+        if r.status == "REVERSED":
+            note = " ".join(x for x in ("This repayment has been REVERSED.", note) if x)
         return Receipt(kind, r.id, "Loan Repayment Receipt", r.receipt_no, r.amount, fields, r.payment_date,
-                       "This repayment has been REVERSED." if r.status == "REVERSED" else None,
-                       r.borrower.name, getattr(r.borrower, "phone", None))
+                       note or None, r.borrower.name, getattr(r.borrower, "phone", None))
     if kind == "disbursement":
         loan = _scoped(Loan, obj_id, group)
         if not loan.disbursement_tx_id:
