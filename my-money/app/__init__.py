@@ -85,6 +85,17 @@ def sync_schema(app=None):
                 except Exception as exc:
                     log.exception("Could not add column %s.%s", table.name, col.name)
                     errors.append(f"{table.name}.{col.name}: {exc}")
+        if "loans.fine_grace_days" in added:
+            # First run with per-loan late-fine terms: freeze every existing loan on the terms its group charges today,
+            # so loans that exist before a group changes its fine rules keep the terms they were running under.
+            try:
+                from app.services import fine_terms
+                with engine.begin() as conn:
+                    fine_terms.backfill_loans(conn)
+                log.warning("Froze late-fine terms on existing loans from each group's current rules")
+            except Exception as exc:
+                log.exception("Could not backfill loan fine terms")
+                errors.append(f"backfill loan fine terms: {exc}")
     except Exception as exc:
         log.exception("Column sync failed")
         errors.append(f"column sync: {exc}")
