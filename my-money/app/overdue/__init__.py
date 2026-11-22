@@ -6,7 +6,7 @@ from flask import Blueprint, Response, abort, g, render_template, request
 from flask_login import current_user
 
 from app.extensions import db
-from app.models import LoanRepaymentSchedule as S, utcnow
+from app.models import Loan, LoanRepaymentSchedule as S, utcnow
 from app.services import documents, late_fees
 from app.services.audit import audit
 from app.services.money import from_minor
@@ -66,5 +66,25 @@ def notice(sched_id, group_id=None):
     db.session.commit()
     resp = Response(data, mimetype="application/pdf")
     resp.headers["Content-Disposition"] = f'attachment; filename="late-fee-notice-{loan.reference}-{sched.number}.pdf"'
+    resp.headers["Cache-Control"] = "private, no-store"
+    return resp
+
+
+@bp.route("/loan/<int:loan_id>/statement.pdf")
+@tenant_route(official=True)
+def statement(loan_id, group_id=None):
+    """Overdue Loan Fine Statement for the whole loan: principal before the fine, the fine, the new principal after it,
+    the policy behind it and the working for each overdue instalment."""
+    loan = get_scoped_or_404(Loan, loan_id)
+    stmt = late_fees.statement(g.group, loan, local_today(g.group.timezone))
+    if stmt is None:
+        abort(404)                                   # nothing overdue on this loan
+    data = documents.late_fee_statement_pdf(g.group, stmt)
+    audit("late_fee.statement_generated", "loan", loan.id,
+          {"instalments": len(stmt["lines"]), "principal_before": stmt["principal_before"], "fine": stmt["fine"],
+           "principal_after": stmt["principal_after"]}, group_id=g.group.id)
+    db.session.commit()
+    resp = Response(data, mimetype="application/pdf")
+    resp.headers["Content-Disposition"] = f'attachment; filename="fine-statement-{loan.reference}.pdf"'
     resp.headers["Cache-Control"] = "private, no-store"
     return resp
