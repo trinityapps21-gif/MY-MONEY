@@ -42,7 +42,7 @@
 <body class="{% block body_class %}{{ 'theme-lender' if current_group and current_group.is_lender }}{% endblock %}">
   {% block body %}{% endblock %}
   <div id="toasts" aria-live="polite"></div>
-  {% for category, message in get_flashed_messages(with_categories=true) %}<span class="hide" data-flash="{{ message }}" data-kind="{{ category if category in ('success','error','info') else 'info' }}"></span>{% endfor %}
+  {% for category, message in get_flashed_messages(with_categories=true) %}<span class="hide" data-flash="{{ message }}" data-kind="{{ category if category in ('success','error','info','warning') else 'info' }}"></span>{% endfor %}
   {# Icons and charts are served from this site (cached for a year, no third-party lookup) and use defer so pages paint first. #}
   <script defer src="{{ url_for('static', filename='vendor/lucide-0.469.0.min.js') }}"></script>
   {% if use_charts %}<script defer src="{{ url_for('static', filename='vendor/chart-4.4.7.umd.js') }}"></script>{% endif %}
