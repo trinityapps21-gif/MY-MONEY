@@ -1,0 +1,54 @@
+{%- set theme = site_theme|default('savings') -%}
+<!doctype html>
+<html lang="en" data-theme="{{ theme }}"{% if site_switchable|default(false) %} data-switchable{% endif %}>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <meta name="theme-color" content="{{ '#0A0A0B' if theme == 'lending' else '#060912' }}">
+  {% if current_user.is_authenticated %}<meta name="idle-timeout" content="{{ idle_timeout_seconds }}"><meta name="idle-warning" content="{{ idle_warning_seconds }}">{% endif %}
+  <meta name="biometric-installed-only" content="{{ '1' if biometric_installed_only else '0' }}">
+  <meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="{{ platform_name }}"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="application-name" content="{{ platform_name }}"><meta name="format-detection" content="telephone=no">
+  <title>{% block title %}{{ platform_name }}{% endblock %} - {{ platform_name }}</title>
+  <meta name="description" content="{% block meta_description %}MY MONEY is a secure savings and lending platform for savings groups, SACCOs and community lenders. Record contributions, manage loans and share clear reports.{% endblock %}">
+  <link rel="canonical" href="{{ site_url }}{{ request.path }}">
+  <link rel="icon" href="{{ site_url }}/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="96x96" href="{{ url_for('static', filename='img/favicon.png') }}">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}">
+  <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="{{ platform_name }}">
+  <meta property="og:title" content="{% block og_title %}{{ platform_name }} - Smart savings and lending for groups{% endblock %}">
+  <meta property="og:description" content="Smart savings, trusted lending and transparent finance for every group.">
+  <meta property="og:url" content="{{ site_url }}{{ request.path }}">
+  <meta property="og:image" content="{{ site_url }}{{ url_for('static', filename='img/icon-512.png') }}">
+  <meta name="twitter:card" content="summary">
+  {% if site_switchable|default(false) %}{# set the saved theme before the first paint so there is no colour flash #}
+  <script>(function(){try{var d=document.documentElement,q=new URLSearchParams(location.search).get('for'),s=localStorage.getItem('mm-theme');var t=(q==='lending'||q==='savings')?q:(s==='lending'?'lending':'savings');d.setAttribute('data-theme',t);}catch(e){}})();</script>
+  {% endif %}
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"></noscript>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/site.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/pwa.css') }}">
+  {% block head %}{% endblock %}
+</head>
+<body class="site {% block body_class %}{% endblock %}">
+  <a class="skip" href="#main">Skip to content</a>
+  {% block body %}{% endblock %}
+  <div id="toasts" aria-live="polite"></div>
+  {% for category, message in get_flashed_messages(with_categories=true) %}<span class="hide" data-flash="{{ message }}" data-kind="{{ category if category in ('success','error','info') else 'info' }}"></span>{% endfor %}
+  <script defer src="{{ url_for('static', filename='vendor/lucide-0.469.0.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/responsive.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/pwa.js') }}"></script>
+  {% if current_user.is_authenticated %}<script src="{{ url_for('static', filename='js/idle.js') }}"></script>{% endif %}
+  <script src="{{ url_for('static', filename='js/biometric.js') }}"></script>
+  {% if current_user.is_authenticated %}<script src="{{ url_for('static', filename='js/receipts.js') }}"></script>{% endif %}
+  {% if onboarding %}<script src="{{ url_for('static', filename='js/onboarding.js') }}"></script>{% endif %}
+  <script src="{{ url_for('static', filename='js/site.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>
