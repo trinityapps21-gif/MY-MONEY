@@ -1,83 +1,85 @@
-{% extends "base.html" %}
+{% extends "public/_site.html" %}
+{% set site_switchable = true %}
 {% block title %}About{% endblock %}
-{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/public.css') }}">{% endblock %}
 {% block body %}
 {% include "public/_nav.html" %}
+<main id="main">
 
-<header class="page-hero"><div class="in">
-  <span class="eyebrow"><i data-lucide="info" style="width:14px;height:14px"></i>About us</span>
-  <h1>Money management your whole group can trust</h1>
+<header class="s-pagehead"><div class="wrap">
+  <span class="s-pill"><i data-lucide="info"></i>About us</span>
+  <h1>Money management your whole group can <span style="color:var(--accent-2)">trust</span></h1>
   <p>MY MONEY is a secure platform where savings groups, SACCOs and community lenders record contributions, manage loans and share clear reports, all in one place.</p>
-  <div class="actions">
-    <a class="btn btn-lg btn-accent" href="{{ url_for('auth.register') }}"><i data-lucide="users"></i>Register your group</a>
-    <a class="btn btn-lg btn-outline-light" href="{{ url_for('main.contact') }}"><i data-lucide="message-circle"></i>Talk to us</a>
+  <div class="s-actions">
+    <a class="s-btn primary only-savings" href="{{ url_for('auth.register') }}">Register your group</a>
+    <a class="s-btn primary only-lending" href="{{ url_for('auth.register_lending') }}">Register your business</a>
+    <a class="s-btn ghost" href="{{ url_for('main.contact') }}"><i data-lucide="message-circle"></i>Talk to us</a>
   </div>
 </div></header>
 
-<section class="section tight">
-  <div class="stat-row">
-    <div class="stat-pill"><b>100%</b><span>Group data kept separate</span></div>
-    <div class="stat-pill"><b>Append-only</b><span>Ledger, never silently edited</span></div>
-    <div class="stat-pill"><b>PDF · Excel · CSV</b><span>Report exports</span></div>
-    <div class="stat-pill"><b>24 / 7</b><span>Access from phone or computer</span></div>
+<section class="s-section tight"><div class="wrap">
+  <div class="s-stats" style="border-top:0;margin-top:0">
+    <div class="s-stat"><b>100%</b><span>Group data kept separate</span></div>
+    <div class="s-stat"><b>Append-only</b><span>Ledger, never silently edited</span></div>
+    <div class="s-stat"><b>PDF · Excel · CSV</b><span>Report exports</span></div>
+    <div class="s-stat"><b>24 / 7</b><span>Access from phone or computer</span></div>
   </div>
-</section>
-
-<section class="section tight">
-  <div class="section-head"><h2>Why we built MY MONEY</h2><p>Many groups still track savings in notebooks and chat messages. That makes it hard to prove who paid what, who owes what, and where the money went. MY MONEY replaces that with one transparent record every member can rely on.</p></div>
-  <div class="grid g3">
-    {% for tone,icon,t,d in [
-      ('blue','eye','Transparency','Members can see group savings, loans and activity, so there are no surprises and fewer disputes.'),
-      ('green','scale','Accuracy','Interest is calculated precisely and money is stored in whole units, so totals always add up.'),
-      ('amber','lock-keyhole','Security','Every group is isolated from every other group, and sensitive actions are recorded in an audit trail.')] %}
-    <div class="card feat-card pro"><div class="tile {{ tone }}"><i data-lucide="{{ icon }}"></i></div><h3>{{ t }}</h3><p>{{ d }}</p></div>
-    {% endfor %}
-  </div>
-</section>
-
-<div class="bg-soft"><section class="section">
-  <div class="section-head"><h2>How it works</h2><p>Getting your group running takes a few minutes.</p></div>
-  <div class="steps">
-    <div class="step"><div class="num">1</div><h3>Register your group</h3><p>Create your group, set its currency and add your logo. You become the group administrator.</p></div>
-    <div class="step"><div class="num">2</div><h3>Invite members</h3><p>Share an invitation link. New members apply, and an official approves them before they join.</p></div>
-    <div class="step"><div class="num">3</div><h3>Record and lend</h3><p>Record savings, approve loans and log repayments. Receipts and the ledger update automatically.</p></div>
-    <div class="step"><div class="num">4</div><h3>Report and share</h3><p>Open live dashboards, export reports and keep everyone informed with announcements.</p></div>
-  </div>
-</section></div>
-
-<section class="section">
-  <div class="section-head"><h2>Clear roles for every member</h2><p>Each person sees and does only what their role allows.</p></div>
-  <div class="grid g2c">
-    {% for tone,icon,t,d in [
-      ('navy','crown','Group Administrator','Full group management. The person who registers the group is the owner.'),
-      ('blue','calculator','Treasurer','Equal day-to-day management: contributions, loans, repayments and reports.'),
-      ('violet','user-cog','Vice Chairperson','Equal day-to-day management permissions, ready to step in for the administrator.'),
-      ('green','user','Member','Read-only access to the group transparency pages, plus the community feed.')] %}
-    <div class="role"><div class="tile {{ tone }}"><i data-lucide="{{ icon }}"></i></div><div><h3>{{ t }}</h3><p>{{ d }}</p></div></div>
-    {% endfor %}
-  </div>
-</section>
-
-<div class="bg-soft"><section class="section">
-  <div class="grid g2c" style="gap:40px;align-items:start">
-    <div>
-      <h2>What every user should know</h2>
-      <p class="lead" style="margin-bottom:0">A few things that keep your account and your group's money safe.</p>
-    </div>
-    <ul class="checks">
-      <li><i data-lucide="check-circle-2"></i><div><b>Save your recovery code</b><span>On first sign-in you get a one-time recovery code. Keep it safe. It lets you reset your password without waiting for anyone.</span></div></li>
-      <li><i data-lucide="check-circle-2"></i><div><b>Forgot your password?</b><span>Send a request and a group official will confirm it is really you, then send a reset link valid for 24 hours.</span></div></li>
-      <li><i data-lucide="check-circle-2"></i><div><b>Corrections are visible</b><span>The ledger is never rewritten. A mistake is fixed with a reversal entry, so the full history stays honest.</span></div></li>
-      <li><i data-lucide="check-circle-2"></i><div><b>Each loan keeps its own terms</b><span>Changing a group's interest settings only affects new loans, never loans already issued.</span></div></li>
-      <li><i data-lucide="check-circle-2"></i><div><b>Your data stays in your group</b><span>No other group can see your members, savings or loans.</span></div></li>
-    </ul>
-  </div>
-</section></div>
-
-<section class="wa-band"><div class="section">
-  <div><h2>Questions? We're a message away.</h2><p>Chat with the MY MONEY team on WhatsApp or call us on 0703 520 925.</p></div>
-  <a class="btn btn-lg" href="https://wa.me/256703520925?text=Hello%20MY%20MONEY%2C%20I%20would%20like%20to%20know%20more." target="_blank" rel="noopener">{% include "public/_wa_icon.html" %}Chat on WhatsApp</a>
 </div></section>
 
+<section class="s-section tight"><div class="wrap">
+  <div class="s-head reveal"><h2 class="title">Why we built <em>MY MONEY</em></h2>
+    <p class="s-lead">Many groups still track savings in notebooks and chat messages. That makes it hard to prove who paid what, who owes what, and where the money went. MY MONEY replaces that with one transparent record every member can rely on.</p></div>
+  <div class="s-grid3">
+    {% for icon,t,d in [
+      ('eye','Transparency','Members can see group savings, loans and activity, so there are no surprises and fewer disputes.'),
+      ('scale','Accuracy','Interest is calculated precisely and money is stored in whole units, so totals always add up.'),
+      ('lock-keyhole','Security','Every group is isolated from every other group, and sensitive actions are recorded in an audit trail.')] %}
+    <article class="s-card reveal"><span class="tile"><i data-lucide="{{ icon }}"></i></span><h3>{{ t }}</h3><p>{{ d }}</p></article>
+    {% endfor %}
+  </div>
+</div></section>
+
+<section class="s-section"><div class="wrap">
+  <div class="s-head center reveal"><h2 class="title">How it <em>works</em></h2><p class="s-lead">Getting your group running takes a few minutes.</p></div>
+  <div class="s-steps">
+    <div class="s-step reveal"><h3>Register your group</h3><p>Create your group, set its currency and add your logo. You become the group administrator.</p></div>
+    <div class="s-step reveal"><h3>Invite members</h3><p>Share an invitation link. New members apply, and an official approves them before they join.</p></div>
+    <div class="s-step reveal"><h3>Record and lend</h3><p>Record savings, approve loans and log repayments. Receipts and the ledger update automatically.</p></div>
+    <div class="s-step reveal"><h3>Report and share</h3><p>Open live dashboards, export reports and keep everyone informed with announcements.</p></div>
+  </div>
+</div></section>
+
+<section class="s-section" style="padding-top:20px"><div class="wrap">
+  <div class="s-head reveal"><h2 class="title">Clear roles for <em>every member</em></h2><p class="s-lead">Each person sees and does only what their role allows.</p></div>
+  <div class="s-grid2">
+    {% for icon,t,d in [
+      ('crown','Group Administrator','Full group management. The person who registers the group is the owner.'),
+      ('calculator','Treasurer','Equal day-to-day management: contributions, loans, repayments and reports.'),
+      ('user-cog','Vice Chairperson','Equal day-to-day management permissions, ready to step in for the administrator.'),
+      ('user','Member','Read-only access to the group transparency pages, plus the community feed.')] %}
+    <article class="s-role reveal"><span class="tile"><i data-lucide="{{ icon }}"></i></span><div><h3>{{ t }}</h3><p>{{ d }}</p></div></article>
+    {% endfor %}
+  </div>
+</div></section>
+
+<section class="s-section" style="padding-top:20px"><div class="wrap s-split">
+  <div class="reveal">
+    <h2 class="title">What every user should <em>know</em></h2>
+    <p class="s-lead">A few things that keep your account and your group's money safe.</p>
+  </div>
+  <ul class="s-checks reveal">
+    <li><i data-lucide="check-circle-2"></i><div><b>Save your recovery code</b><span>On first sign-in you get a one-time recovery code. Keep it safe. It lets you reset your password without waiting for anyone.</span></div></li>
+    <li><i data-lucide="check-circle-2"></i><div><b>Forgot your password?</b><span>Send a request and a group official will confirm it is really you, then send a reset link valid for 24 hours.</span></div></li>
+    <li><i data-lucide="check-circle-2"></i><div><b>Corrections are visible</b><span>The ledger is never rewritten. A mistake is fixed with a reversal entry, so the full history stays honest.</span></div></li>
+    <li><i data-lucide="check-circle-2"></i><div><b>Each loan keeps its own terms</b><span>Changing a group's interest settings only affects new loans, never loans already issued.</span></div></li>
+    <li><i data-lucide="check-circle-2"></i><div><b>Your data stays in your group</b><span>No other group can see your members, savings or loans.</span></div></li>
+  </ul>
+</div></section>
+
+<section class="s-band"><div class="wrap"><div class="s-bandbox reveal">
+  <h2>Questions? We're a message away.</h2>
+  <p>Chat with the MY MONEY team on WhatsApp or call us on 0703 520 925.</p>
+  <div class="s-actions"><a class="s-btn wa" href="https://wa.me/256703520925?text=Hello%20MY%20MONEY%2C%20I%20would%20like%20to%20know%20more." target="_blank" rel="noopener">{% include "public/_wa_icon.html" %}Chat on WhatsApp</a></div>
+</div></div></section>
+</main>
 {% include "public/_foot.html" %}
 {% endblock %}
