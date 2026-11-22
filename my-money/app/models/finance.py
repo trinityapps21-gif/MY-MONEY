@@ -140,6 +140,14 @@ class Loan(db.Model):
     penalty_type = db.Column(db.String(10), nullable=False, default="NONE", server_default="NONE")
     penalty_value = db.Column(db.BigInteger, nullable=False, default=0, server_default="0")
     penalty_grace_days = db.Column(db.Integer, nullable=False, default=0, server_default="0")
+    # Late-fine terms, frozen from the group's rules when the loan is created (see services/fine_terms.py). Changing the
+    # group's rules later only affects loans created afterwards; this loan always keeps the terms it was agreed on.
+    fine_grace_days = db.Column(db.Integer, nullable=False, default=7, server_default="7")
+    fine_period_days = db.Column(db.Integer, nullable=False, default=7, server_default="7")
+    fine_type = db.Column(db.String(8), nullable=False, default="PERCENT", server_default="PERCENT")
+    fine_rate_bp = db.Column(db.Integer, nullable=False, default=500, server_default="500")
+    fine_fixed = db.Column(db.BigInteger, nullable=False, default=0, server_default="0")
+    fine_capped = db.Column(db.Boolean, nullable=False, default=True, server_default="1")
     officer_id = db.Column(db.Integer, db.ForeignKey("users.id"))
     interest_rebate = db.Column(db.BigInteger, nullable=False, default=0, server_default="0")  # waived on early settlement
     refinance_of_id = db.Column(db.Integer, db.ForeignKey("loans.id", use_alter=True, name="fk_loan_refinance"))
