@@ -47,10 +47,12 @@ def index(group_id=None):
         resp.headers["Cache-Control"] = "private, no-store"
         return resp
     totals = {"count": len(rows), "amount": sum(r["amount"] for r in rows), "fine": sum(r["fine"] for r in rows),
-              "total": sum(r["total"] for r in rows), "fined": sum(1 for r in rows if r["blocks"] > 0),
+              "total": sum(r["total"] for r in rows), "fined": sum(1 for r in rows if r["fine"] > 0),
               "capped": sum(1 for r in rows if r["capped"])}
     return render_template("overdue/index.html", rows=rows, totals=totals, today=today, columns=late_fees.LOG_COLUMNS,
-                           mode=late_fees.block_mode())
+                           mode=late_fees.block_mode(), older=sum(1 for r in rows if r["older_terms"]),
+                           group_terms=late_fees.fine_terms.describe(late_fees.get_settings(g.group.id), g.group.currency,
+                                                                     g.group.currency_decimals))
 
 
 @bp.route("/<int:sched_id>/notice.pdf")
@@ -58,7 +60,7 @@ def index(group_id=None):
 def notice(sched_id, group_id=None):
     sched = get_scoped_or_404(S, sched_id)
     loan, today = sched.loan, local_today(g.group.timezone)
-    a = late_fees.assess(sched.balance, sched.due_date, today)
+    a = late_fees.assess(sched.balance, sched.due_date, today, terms=loan)
     if loan.group_id != g.group.id or sched.balance <= 0 or a["days_overdue"] <= 0:
         abort(404)                                   # nothing overdue on this instalment
     data = documents.late_fee_notice_pdf(g.group, loan, a, today)
