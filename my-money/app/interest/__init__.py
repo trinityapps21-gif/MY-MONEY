@@ -20,6 +20,7 @@ def index(group_id=None):
         view = "upcoming"
     page_no = request.args.get("page", 1, type=int)
     ov = ir.overview(g.group, today)
+    by_month = ir.monthly_received(g.group.id, today, 6)
     page = rows = None
     if view == "loans":
         q = (Loan.query.join(Borrower, Borrower.id == Loan.borrower_id)
@@ -35,4 +36,4 @@ def index(group_id=None):
         page = ir.date_rows_query(g.group.id, view, today).paginate(page=page_no, per_page=25, error_out=False)
         rows = [{"s": s, "loan": l, "borrower": b, "state": ir.row_state(s, l, today)} for s, l, b in page.items]
     return render_template("interest/index.html", ov=ov, view=view, views=ir.VIEWS, page=page, rows=rows, today=today,
-                           q=(request.args.get("q") or "").strip())
+                           q=(request.args.get("q") or "").strip(), by_month=by_month)
