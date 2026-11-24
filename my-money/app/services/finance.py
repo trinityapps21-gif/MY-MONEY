@@ -1,14 +1,16 @@
 """Group income and expenses (officials only): categories, itemised expenses,
 totals and chart series. Everything is derived from the ledger so it always
-agrees with the group's cash."""
+agrees with the group's cash.
+
+Loan interest is NOT group income here: it has its own page (Interest, services/interest_report.py).
+Income on this page is the group's own income (registration fees, donations, ...) plus fines."""
 from sqlalchemy import case, func
 
 from app.extensions import db
 from app.models import (Expense, ExpenseCategory, ExpenseItem, IncomeCategory, IncomeRecord, Transaction)
 from app.services import ledger
 
-AUTO_INCOME = [("Loan interest", "INTEREST_REPAYMENT", "*"), ("Fine interest", "PENALTY", "FINE"),
-               ("Other penalties", "PENALTY", None)]
+AUTO_INCOME = [("Fine interest", "PENALTY", "FINE"), ("Other penalties", "PENALTY", None)]
 DEFAULT_INCOME = ["Registration fees", "Donations", "Membership fees", "Events"]
 DEFAULT_EXPENSE = ["Annual meeting", "Stationery", "Transport", "Rent", "Airtime and data", "Other"]
 
@@ -113,8 +115,7 @@ def _signed(positive):
 
 def _income_filter():
     """Ledger rows that count as group income."""
-    return ((Transaction.tx_type == "INTEREST_REPAYMENT")
-            | (Transaction.tx_type == "PENALTY")
+    return ((Transaction.tx_type == "PENALTY")
             | ((Transaction.tx_type == "ADJUSTMENT") & (Transaction.kind == "INCOME")))
 
 
@@ -132,8 +133,8 @@ def monthly(group_id, today, months=6):
 
 
 def income_breakdown(group_id, start=None, end=None):
-    """[(source, amount)] largest first: the group's own categories plus
-    loan interest and fine interest that arrive automatically."""
+    """[(source, amount)] largest first: the group's own categories plus the fines that arrive automatically.
+    Loan interest is left out on purpose: see the Interest page."""
     out = {}
     q = db.session.query(IncomeCategory.name, func.coalesce(func.sum(_signed("IN")), 0)).join(
         IncomeRecord, IncomeRecord.category_id == IncomeCategory.id).join(
@@ -156,8 +157,7 @@ def income_breakdown(group_id, start=None, end=None):
     for name, amt in rq.group_by(IncomeCategory.name).all():
         out[name] = out.get(name, 0) - int(amt)
     t = ledger.totals(group_id, start, end)
-    for label, val in (("Loan interest", t["interest_collected"]), ("Fine interest", t["fines_collected"]),
-                       ("Other penalties", t["penalties"] - t["fines_collected"])):
+    for label, val in (("Fine interest", t["fines_collected"]), ("Other penalties", t["penalties"] - t["fines_collected"])):
         if val:
             out[label] = out.get(label, 0) + val
     return sorted(((k, v) for k, v in out.items() if v), key=lambda kv: -kv[1])
@@ -182,6 +182,6 @@ def expense_breakdown(group_id, start=None, end=None):
 
 def summary(group_id, start=None, end=None):
     t = ledger.totals(group_id, start, end)
-    inc = t["interest_collected"] + t["penalties"] + t["other_income"]
+    inc = t["penalties"] + t["other_income"]                 # loan interest is reported on the Interest page, not here
     return {"income": inc, "expenses": t["expenses"], "net": inc - t["expenses"],
-            "loan_interest": t["interest_collected"], "fines": t["penalties"], "other_income": t["other_income"]}
+            "fines": t["penalties"], "other_income": t["other_income"]}
