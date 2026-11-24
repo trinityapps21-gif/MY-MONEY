@@ -8,8 +8,9 @@
 <a class="btn" href="{{ url_for('finance.income') }}"><i data-lucide="trending-up"></i>Income</a>
 <a class="btn" href="{{ url_for('finance.expenses') }}"><i data-lucide="trending-down"></i>Expenses</a></div></div>
 <h3 class="mb2">This year</h3>
+<div class="alert info small mb2"><b>Loan interest is not counted here.</b> It has its own page, with what has been received, what is expected and when it falls due. <a href="{{ url_for('interest.index') }}">Open the Interest page</a>.</div>
 <div class="grid g4 mb2">{{ stat('Income', money(year.income), 'trending-up', 'green') }}{{ stat('Expenses', money(year.expenses), 'trending-down') }}{{ stat('Net result', money(year.net), 'scale', '', 'income minus expenses') }}{{ stat('This month (net)', money(month.net), 'calendar') }}</div>
-<div class="grid g3 mb2">{{ stat('Loan interest', money(year.loan_interest), 'percent') }}{{ stat('Fine interest and penalties', money(year.fines), 'alarm-clock') }}{{ stat('Other income', money(year.other_income), 'hand-coins') }}</div>
+<div class="grid g2 mb2">{{ stat('Fine interest and penalties', money(year.fines), 'alarm-clock') }}{{ stat('Other income', money(year.other_income), 'hand-coins') }}</div>
 <div class="card card-pad mb2"><h2 class="mb2">Income vs expenses (6 months)</h2><div class="chart-box"><canvas data-chart="ie"></canvas></div></div>
 <div class="grid g2">
 <div class="card card-pad"><h2 class="mb2">Income by category</h2>{% if inc_cat %}<div class="chart-box"><canvas data-chart="ic"></canvas></div>{% else %}{{ empty('trending-up', 'No income yet') }}{% endif %}</div>
