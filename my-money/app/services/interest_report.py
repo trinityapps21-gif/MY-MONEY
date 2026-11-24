@@ -12,7 +12,7 @@ from datetime import timedelta
 from sqlalchemy import func
 
 from app.extensions import db
-from app.models import Borrower, Loan, LoanRepaymentSchedule as S
+from app.models import Borrower, Loan, LoanRepaymentSchedule as S, Transaction
 from app.services.loans import ACTIVE_STATES
 
 VIEWS = {
@@ -108,3 +108,20 @@ def loan_rows(loans, today):
         out.append({"loan": l, "received": recv, "remaining": remaining, "overdue": overdue, "next_date": nxt,
                     "total": completed_interest(l) if interest_completed(l) else None, "open": open_})
     return out
+
+
+def monthly_received(group_id, today, months=6):
+    """[(YYYY-MM, interest received)] for the last `months` months, oldest first, straight from the ledger
+    (interest payments minus any reversals), so it agrees with the group's cash."""
+    keys, y, m = [], today.year, today.month
+    for _ in range(months):
+        keys.append(f"{y:04d}-{m:02d}")
+        m -= 1
+        if m == 0:
+            y, m = y - 1, 12
+    keys.reverse()
+    month = func.strftime("%Y-%m", Transaction.tx_date)
+    signed = db.case((Transaction.direction == "IN", Transaction.amount), else_=-Transaction.amount)
+    got = dict(db.session.query(month, func.coalesce(func.sum(signed), 0)).filter(
+        Transaction.group_id == group_id, Transaction.tx_type == "INTEREST_REPAYMENT", month >= keys[0]).group_by(month).all())
+    return [(k, int(got.get(k, 0))) for k in keys]
