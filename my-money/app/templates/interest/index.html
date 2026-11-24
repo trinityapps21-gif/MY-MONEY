@@ -11,6 +11,8 @@
 </div>
 <div class="alert info small mb2"><b>How to read this.</b> <b>Expected</b> = incoming + overdue. <b>Incoming</b> is interest whose due date has not arrived yet ({{ money(ov.soon) }} of it falls due in the next {{ ov.soon_days }} days). The full interest of a loan is only counted as <i>earned</i> once the borrower has finished paying that loan.</div>
 
+<div class="card card-pad mb2"><h2 class="mb2">Received by month</h2>{% for k, v in by_month|reverse %}<div class="list-row"><div class="grow">{{ k }}</div><b>{{ money(v) }}</b></div>{% endfor %}<p class="muted small mt1">Loan interest is reported here and is not counted in Income and expenses.</p></div>
+
 <div class="tabs">{% for k, label in views.items() %}<a class="{{ 'on' if view == k }}" href="{{ url_for('interest.index', view=k) }}">{{ label }}</a>{% endfor %}</div>
 
 {% if view == 'loans' %}
