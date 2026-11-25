@@ -8,7 +8,8 @@
 <div class="stat red"><div class="grow"><div class="lbl">With problems</div><div class="val">{{ b.error_rows }}</div></div></div>
 </div>
 {% if not b.source_file_id %}<div class="alert warn">The original file was not archived (file storage is not configured). The import itself still works.</div>{% endif %}
-{% if b.status == 'PREVIEW' %}
+{% if b.bundle %}<div class="alert info">This sheet is part of a full workbook import. <a href="{{ url_for('imports.bundle', token=b.bundle) }}"><b>Open the whole import</b></a> to confirm or undo everything together.</div>
+{% elif b.status == 'PREVIEW' %}
 <div class="alert info"><b>Preview only: nothing has been saved yet.</b> Rows with problems are skipped; fix them in your file and upload again, or confirm to import the {{ b.ok_rows }} good row(s).</div>
 <div class="flex gap1 wrap mb2">
 {% if b.ok_rows %}{{ action_form(url_for('imports.apply', batch_id=b.id), 'Confirm and import ' ~ b.ok_rows ~ ' row(s)', 'Import ' ~ b.ok_rows ~ ' row(s) into the group? You can undo the import afterwards.', cls='btn btn-primary', icon='check') }}{% endif %}
