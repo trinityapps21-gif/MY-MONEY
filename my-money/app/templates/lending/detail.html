@@ -4,7 +4,7 @@
 {% block content %}
 <div class="page-head"><div><h1>{{ loan.reference }} {{ loan_pill(eff) }}</h1><p>{{ loan.borrower.name }} &middot; created {{ loan.created_at|ldt('%d %b %Y') }} by {{ loan.creator.full_name }}</p></div>
 <div class="flex gap1 wrap">
-{% if loan.disbursement_tx_id %}<a class="btn" href="{{ url_for('lending.schedule_pdf', loan_id=loan.id) }}"><i data-lucide="file-down"></i>Payment schedule (PDF)</a>{% if wa_link %}<a class="btn" href="{{ wa_link }}" target="_blank" rel="noopener"><i data-lucide="send"></i>Share on WhatsApp</a>{% endif %}{% endif %}
+{% if loan.disbursement_tx_id %}<a class="btn btn-accent" href="{{ url_for('lending.statement_pdf', loan_id=loan.id) }}"><i data-lucide="file-down"></i>Full loan statement (PDF)</a><a class="btn" href="{{ url_for('lending.schedule_pdf', loan_id=loan.id) }}"><i data-lucide="file-down"></i>Payment schedule (PDF)</a>{% if wa_link %}<a class="btn" href="{{ wa_link }}" target="_blank" rel="noopener"><i data-lucide="send"></i>Share on WhatsApp</a>{% endif %}{% endif %}
 {% if loan.status == 'DRAFT' %}{{ action_form(url_for('lending.action', loan_id=loan.id), 'Submit for approval', 'Submit this loan for approval?', fields={'action':'submit'}, cls='btn btn-primary') }}{% endif %}
 {% if loan.status == 'PENDING_APPROVAL' %}
   {% if can_self_approve and not my_decision %}{{ action_form(url_for('lending.action', loan_id=loan.id), 'Approve', 'Approve this loan?', fields={'action':'approve'}, cls='btn btn-primary') }}{% endif %}
