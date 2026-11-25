@@ -127,6 +127,28 @@ def record_purchase(group, user, member, units, entry_date, unit_price=None, not
     return e
 
 
+def units_for_amount(group_id, amount, unit_price=None):
+    """(whole shares, price per share, left over) for an amount of money. The left over is less than one share."""
+    price = unit_price if unit_price and unit_price > 0 else get_settings(group_id).share_price
+    if price <= 0:
+        raise ShareError("Set a share price in Share settings first.")
+    if amount <= 0:
+        raise ShareError("Enter an amount above zero.")
+    units = amount // price
+    return units, price, amount - units * price
+
+
+def record_purchase_by_amount(group, user, member, amount, entry_date, unit_price=None, note=None, method=None):
+    """The member paid `amount`: work out the whole shares it buys at the share price and save them.
+    Only whole shares are recorded (units x price); returns (entry, left_over) so the caller can tell the official
+    about any money that does not make a full share."""
+    units, price, left = units_for_amount(group.id, amount, unit_price)
+    if units < 1:
+        raise ShareError(f"That amount is less than the price of one share ({price / 10 ** group.currency_decimals:,.{group.currency_decimals}f} {group.currency}).")
+    entry = record_purchase(group, user, member, units, entry_date, price, note, method)
+    return entry, left
+
+
 def reverse_purchase(group, entry: ShareEntry, user, reason, today):
     if entry.group_id != group.id or entry.kind != "PURCHASE" or entry.reversed_at:
         raise ShareError("This share purchase cannot be reversed.")
