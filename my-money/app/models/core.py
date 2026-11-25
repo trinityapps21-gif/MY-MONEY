@@ -311,6 +311,19 @@ class Notification(db.Model):
     group = db.relationship("Group")
 
 
+class PushSubscription(db.Model):
+    """One browser/phone/laptop that agreed to receive pop-up notifications for a user (Web Push)."""
+    __tablename__ = "push_subscriptions"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    endpoint = db.Column(db.String(600), nullable=False, unique=True)
+    p256dh = db.Column(db.String(200), nullable=False)
+    auth = db.Column(db.String(60), nullable=False)
+    user_agent = db.Column(db.String(200))
+    created_at = db.Column(db.DateTime, nullable=False, default=utcnow)
+    last_sent_at = db.Column(db.DateTime)
+
+
 class AuditLog(db.Model):
     __tablename__ = "audit_logs"
     id = db.Column(db.Integer, primary_key=True)
