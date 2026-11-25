@@ -92,6 +92,7 @@ class Config:
     ONBOARDING_BRAND_LOGO = os.environ.get("ONBOARDING_BRAND_LOGO", "img/emtrixz-logo.png").strip()
     # Late-fee policy: COMPLETED = charge when a 7-day block is finished (floor), STARTED = at the start of each block (ceil)
     LATE_FEE_BLOCK_MODE = os.environ.get("LATE_FEE_BLOCK_MODE", "COMPLETED").strip().upper()
+    VAPID_SUBJECT = os.environ.get("VAPID_SUBJECT", "").strip()   # mailto:you@domain - who push services contact
     TESTING = False
 
     @classmethod
