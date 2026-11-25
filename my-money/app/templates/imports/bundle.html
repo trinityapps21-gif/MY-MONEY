@@ -1,0 +1,25 @@
+{% extends "shell_group.html" %}{% from "partials/macros.html" import csrf, action_form %}
+{% block title %}Full import{% endblock %}
+{% block content %}
+{% set pill = {'APPLIED':'green','PREVIEW':'amber','UNDONE':'red','CANCELLED':''}[status] %}
+<div class="page-head"><div><h1>Full workbook import</h1><p>{{ filename }} &middot; {{ created|ldt }} &middot; {{ creator.full_name }} &middot; <span class="pill {{ pill }}">{{ status|title }}</span></p></div><a class="btn" href="{{ url_for('imports.index') }}">All imports</a></div>
+<div class="grid g3 mb2">
+<div class="stat"><div class="grow"><div class="lbl">Rows in the workbook</div><div class="val">{{ total }}</div></div></div>
+<div class="stat green"><div class="grow"><div class="lbl">{{ 'Imported' if status in ('APPLIED','UNDONE') else 'Ready to import' }}</div><div class="val">{{ applied if status in ('APPLIED','UNDONE') else ready }}</div></div></div>
+<div class="stat red"><div class="grow"><div class="lbl">With problems</div><div class="val">{{ problems }}</div></div></div></div>
+{% if not source_file_id %}<div class="alert warn">The original file was not archived (file storage is not configured). The import itself still works.</div>{% endif %}
+{% if status == 'PREVIEW' %}
+<div class="alert info"><b>Preview only: nothing has been saved yet.</b> Everything is added in this order: members, contributions, shares, loans, repayments, income, expenses. Rows with problems are skipped; fix them in the workbook and upload it again, or confirm to import the {{ ready }} good row(s).</div>
+<div class="flex gap1 wrap mb2">
+{% if ready %}{{ action_form(url_for('imports.bundle_apply', token=token), 'Confirm and import everything (' ~ ready ~ ' rows)', 'Import ' ~ ready ~ ' row(s) from ' ~ batches|length ~ ' sheet(s) into the group? You can undo the whole import afterwards.', cls='btn btn-primary', icon='check') }}{% endif %}
+{{ action_form(url_for('imports.bundle_cancel', token=token), 'Cancel', 'Cancel this import? Nothing will be saved.', cls='btn') }}</div>
+{% elif status == 'APPLIED' %}
+<div class="alert success">{{ hint }}</div>
+<div class="flex gap1 wrap mb2">{{ action_form(url_for('imports.bundle_undo', token=token), 'Undo the whole import', 'Undo everything from this workbook? Entries are reversed in the ledger and stay visible in the audit trail.', cls='btn btn-danger', icon='undo-2', danger=true) }}</div>
+{% endif %}
+<div class="card"><div class="card-head"><h2>What is in the workbook</h2></div><div class="table-wrap"><table class="table"><thead><tr><th>#</th><th>Sheet</th><th class="num">Rows</th><th class="num">{{ 'Imported' if status in ('APPLIED','UNDONE') else 'Ready' }}</th><th class="num">Problems</th><th>Status</th><th></th></tr></thead><tbody>
+{% for b in batches %}<tr><td>{{ loop.index }}</td><td><b>{{ specs[b.kind].label }}</b></td><td class="num">{{ b.total_rows }}</td><td class="num">{{ b.applied_rows if b.status in ('APPLIED','UNDONE') else b.ok_rows }}</td>
+<td class="num">{% if b.error_rows %}<span class="pill red">{{ b.error_rows }}</span>{% else %}0{% endif %}</td>
+<td><span class="pill {{ {'APPLIED':'green','PREVIEW':'amber','UNDONE':'red','CANCELLED':''}[b.status] }}">{{ b.status|title }}</span></td>
+<td><a class="btn btn-sm" href="{{ url_for('imports.batch', batch_id=b.id) }}">Review rows</a>{% if b.error_rows %} <a class="btn btn-sm" href="{{ url_for('imports.errors_csv', batch_id=b.id) }}">Problems (.csv)</a>{% endif %}</td></tr>{% endfor %}</tbody></table></div></div>
+{% endblock %}
