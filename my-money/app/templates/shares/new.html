@@ -2,14 +2,18 @@
 {% from "partials/macros.html" import csrf %}
 {% block title %}Add shares{% endblock %}
 {% block content %}
-<div class="page-head"><h1>Add shares</h1><a class="btn" href="{{ url_for('shares.index') }}">Back</a></div>
-<div class="card card-pad" style="max-width:720px"><form method="post">{{ csrf() }}
+<div class="page-head"><div><h1>Add shares</h1><p>Enter the amount the member paid and MY MONEY works out the shares and saves them.</p></div><a class="btn" href="{{ url_for('shares.index') }}">Back</a></div>
+<div class="card card-pad" style="max-width:720px"><form method="post" data-share-form data-price="{{ s.share_price }}" data-decimals="{{ current_group.currency_decimals }}" data-currency="{{ current_group.currency }}">{{ csrf() }}
+<div class="tabs mb2" role="tablist"><label class="on" data-mode-tab="amount"><input type="radio" name="mode" value="amount" checked hidden>By amount paid</label><label data-mode-tab="units"><input type="radio" name="mode" value="units" hidden>By number of shares</label></div>
 <div class="form-grid">
 <div class="field full"><label>Member</label><select name="member_id" required><option value="">Select member</option>{% for m in members %}<option value="{{ m.id }}" {{ 'selected' if preselect == m.id }}>{{ m.user.full_name }}</option>{% endfor %}</select></div>
-<div class="field"><label>Number of shares</label><input type="text" inputmode="numeric" name="units" required></div>
+<div class="field" data-when="amount"><label>Amount paid ({{ current_group.currency }})</label><input type="text" inputmode="decimal" name="amount" autocomplete="off" placeholder="e.g. {{ money_plain(s.share_price * 5) }}"></div>
+<div class="field" data-when="units" hidden><label>Number of shares</label><input type="text" inputmode="numeric" name="units" autocomplete="off"></div>
 <div class="field"><label>Price per share ({{ current_group.currency }})</label><input type="text" inputmode="decimal" name="unit_price" placeholder="{{ money_plain(s.share_price) }}"><small class="muted">Leave empty to use the group price.</small></div>
+<div class="field full"><div class="alert info small" data-share-preview aria-live="polite">Group share price: <b>{{ money(s.share_price) }}</b>. Type an amount to see the shares.</div></div>
 <div class="field"><label>Date</label><input type="date" name="entry_date" value="{{ today.isoformat() }}" required></div>
 <div class="field"><label>Payment method</label><select name="payment_method"><option>Cash</option><option>Mobile Money</option><option>Bank Transfer</option><option>Cheque</option><option>Other</option></select></div>
 <div class="field full"><label>Notes</label><input type="text" name="note" maxlength="300"></div></div>
 <button class="btn btn-primary" type="submit">Save shares</button></form></div>
 {% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/share-calc.js') }}"></script>{% endblock %}
