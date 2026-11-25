@@ -4,6 +4,10 @@
 {% block content %}
 <div class="page-head"><h1>Notifications</h1><div class="flex gap1"><a class="btn btn-sm" href="{{ url_for('notifications.index', unread=0 if unread_only else 1) }}">{{ 'Show all' if unread_only else 'Unread only' }}</a>
 <form method="post" action="{{ url_for('notifications.read_all') }}">{{ csrf() }}<button class="btn btn-sm">Mark all read</button></form></div></div>
+<div class="card mb2" data-push-card><div class="card-head"><h2>Pop-up notifications <span class="pill" data-push-pill>Off</span></h2></div><div class="card-body">
+<p class="muted" data-push-state>Checking this device...</p><p class="muted xs" data-push-help hidden></p>
+<div class="flex gap1 wrap mt1"><button type="button" class="btn btn-primary" data-push-on hidden><i data-lucide="bell-ring"></i>Turn on notifications</button><button type="button" class="btn" data-push-test hidden><i data-lucide="send"></i>Send a test</button><button type="button" class="btn btn-danger" data-push-off hidden>Turn off on this device</button></div>
+<p class="muted xs mt1">Works on Android, iPhone (after adding MY MONEY to your Home Screen) and laptops. Each device is switched on separately, and logging out switches it off for you.</p></div></div>
 <div class="card">{% for n in page.items %}<a class="list-row" href="{{ url_for('notifications.open_', nid=n.id) }}" style="{{ 'background:#F2F7FF' if not n.is_read }};text-decoration:none;color:inherit"><i data-lucide="bell"></i><div class="grow"><div class="act-title">{{ n.title }}</div><div class="muted small">{{ n.body or '' }}</div></div><span class="faint xs nowrap">{{ n.created_at|ago }}</span></a>
 {% else %}{% call empty('bell', 'No notifications') %}{% endcall %}{% endfor %}{{ pager(page) }}</div>
 {% endblock %}
