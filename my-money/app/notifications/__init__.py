@@ -1,8 +1,9 @@
-from flask import Blueprint, jsonify, redirect, render_template, request, url_for
+from flask import Blueprint, current_app, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
 from app.extensions import db
-from app.models import GroupMember, Notification
+from app.models import GroupMember, Notification, PushSubscription
+from app.services import webpush
 
 bp = Blueprint("notifications", __name__, url_prefix="/notifications")
 
@@ -67,3 +68,73 @@ def recent():
         unread=Notification.query.filter_by(user_id=current_user.id, is_read=False).count(),
         items=[{"id": n.id, "title": n.title, "body": n.body, "read": n.is_read,
                 "url": url_for("notifications.open_", nid=n.id)} for n in rows])
+
+
+# ----------------------------------------------------------------- pop-up (push) notifications
+def _json():
+    return request.get_json(silent=True) or request.form.to_dict() or {}
+
+
+@bp.route("/push/config")
+@login_required
+def push_config():
+    return jsonify(enabled=True, key=webpush.public_key(current_app.config.get("SECRET_KEY", "")),
+                   devices=PushSubscription.query.filter_by(user_id=current_user.id).count())
+
+
+@bp.route("/push/subscribe", methods=["POST"])
+@login_required
+def push_subscribe():
+    d = _json()
+    keys = d.get("keys") or {}
+    endpoint, p256dh, auth = d.get("endpoint", ""), keys.get("p256dh", ""), keys.get("auth", "")
+    try:
+        ok = webpush.allowed_endpoint(endpoint) and len(webpush.b64d(p256dh)) == 65 and len(webpush.b64d(auth)) == 16
+    except Exception:                                          # noqa: BLE001
+        ok = False
+    if not ok:
+        return jsonify(ok=False, error="This device sent an invalid notification address."), 400
+    sub = PushSubscription.query.filter_by(endpoint=endpoint).first()
+    if sub:                                                    # same phone/laptop, possibly a different person logging in
+        sub.user_id, sub.p256dh, sub.auth = current_user.id, p256dh, auth
+    else:
+        db.session.add(PushSubscription(user_id=current_user.id, endpoint=endpoint, p256dh=p256dh, auth=auth,
+                                        user_agent=(request.headers.get("User-Agent") or "")[:200]))
+        db.session.flush()
+        extra = PushSubscription.query.filter_by(user_id=current_user.id).order_by(PushSubscription.id.desc()).offset(
+            webpush.MAX_SUBSCRIPTIONS_PER_USER).all()
+        for old in extra:
+            db.session.delete(old)
+    db.session.commit()
+    return jsonify(ok=True)
+
+
+@bp.route("/push/unsubscribe", methods=["POST"])
+@login_required
+def push_unsubscribe():
+    endpoint = _json().get("endpoint", "")
+    if endpoint:
+        PushSubscription.query.filter_by(endpoint=endpoint, user_id=current_user.id).delete()
+        db.session.commit()
+    return jsonify(ok=True)
+
+
+@bp.route("/push/test", methods=["POST"])
+@login_required
+def push_test():
+    """Sends a real pop-up to every device this user enabled, so they can see it works."""
+    subs = PushSubscription.query.filter_by(user_id=current_user.id).all()
+    msg = {"title": "Notifications are on", "body": "You will now get pop-up alerts from MY MONEY on this device.",
+           "url": url_for("notifications.index"), "tag": "test"}
+    sent, dead = 0, []
+    for sb in subs:
+        status = webpush.send(sb.endpoint, sb.p256dh, sb.auth, msg, subject=current_app.config.get("VAPID_SUBJECT")
+                              or "mailto:admin@example.com", secret_key=current_app.config.get("SECRET_KEY", ""))
+        if 200 <= status < 300:
+            sent += 1
+        elif status in (404, 410):
+            dead.append(sb)
+    for sb in dead:
+        db.session.delete(sb)
+    db.session.commit()
+    return jsonify(ok=True, sent=sent, devices=len(subs) - len(dead))
