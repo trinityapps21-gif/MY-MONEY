@@ -8,7 +8,7 @@ from app.services import receipts as receipts_svc, shares as share_svc
 from app.services.audit import audit
 from app.services.forms import form_amount, form_date, form_text
 from app.services.groupcfg import get_settings
-from app.services.money import to_minor
+from app.services.money import fmt, to_minor
 from app.services.shares import RANK_ICONS, ShareError
 from app.services.tenant import get_scoped_or_404, tenant_route
 from app.services.timeutil import local_today
@@ -74,11 +74,23 @@ def new(group_id=None):
                 raise ShareError("Select an active member.")
             price_raw = (request.form.get("unit_price") or "").strip()
             price = to_minor(price_raw, g.group.currency_decimals) if price_raw else None
-            e = share_svc.record_purchase(g.group, current_user, member, _units("units"), form_date("entry_date"),
-                                          price, form_text("note"), form_text("payment_method", 40))
-            audit("shares.purchased", "share_entry", e.id, {"units": e.units, "amount": e.amount}, group_id=g.group.id)
+            left = 0
+            if request.form.get("mode", "amount") == "amount":       # enter the money, the app works out the shares
+                paid = form_amount("amount")
+                e, left = share_svc.record_purchase_by_amount(g.group, current_user, member, paid,
+                                                              form_date("entry_date"), price, form_text("note"),
+                                                              form_text("payment_method", 40))
+            else:
+                e = share_svc.record_purchase(g.group, current_user, member, _units("units"), form_date("entry_date"),
+                                              price, form_text("note"), form_text("payment_method", 40))
+            audit("shares.purchased", "share_entry", e.id, {"units": e.units, "amount": e.amount, "left_over": left},
+                  group_id=g.group.id)
             db.session.commit()
-            flash(f"{e.units} share(s) recorded. Receipt {e.receipt_no}.", "success")
+            msg = f"{e.units} share(s) recorded for {fmt(e.amount, g.group.currency, g.group.currency_decimals)}. Receipt {e.receipt_no}."
+            if left:
+                msg += (f" {fmt(left, g.group.currency, g.group.currency_decimals)} was left over (less than one share) "
+                        "and was not recorded as shares.")
+            flash(msg, "warning" if left else "success")
             receipts_svc.offer(g.group, "share", e.id)
             return redirect(url_for("shares.index"))
         except ValueError as e:
