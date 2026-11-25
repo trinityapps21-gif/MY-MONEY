@@ -8,7 +8,7 @@ from sqlalchemy import case, func
 
 from app.extensions import db
 from app.models import (Expense, ExpenseCategory, ExpenseItem, IncomeCategory, IncomeRecord, Transaction)
-from app.services import ledger
+from app.services import importctx, ledger
 
 AUTO_INCOME = [("Fine interest", "PENALTY", "FINE"), ("Other penalties", "PENALTY", None)]
 DEFAULT_INCOME = ["Registration fees", "Donations", "Membership fees", "Events"]
@@ -77,7 +77,7 @@ def record_expense(group, user, title, category_name, expense_date, items, metho
     if not (title or "").strip():
         raise FinanceError("Give the expense a title.")
     total = sum(a for _, a in items)
-    if total > ledger.cash_balance(group.id):
+    if total > ledger.cash_balance(group.id) and not importctx.active():   # imported history predates the cash on record
         raise FinanceError("The group does not have enough cash for this expense.")
     cat = add_category(ExpenseCategory, group.id, category_name or "Other")
     tx = ledger.post(group.id, "EXPENSE", total, "OUT", expense_date, user.id,
