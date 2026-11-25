@@ -201,6 +201,28 @@ def schedule_pdf(loan_id, group_id=None):
     return resp
 
 
+@bp.route("/<int:loan_id>/statement.pdf")
+@tenant_route(official=True)
+def statement_pdf(loan_id, group_id=None):
+    """Complete loan statement (whole payment journey) - available for any disbursed loan, repaid or not."""
+    from flask import Response
+    from app.services import documents, fine_terms
+    loan = get_scoped_or_404(Loan, loan_id)
+    today = local_today(g.group.timezone)
+    fs = late_fees.statement(g.group, loan, today)
+    summ = loan_summary.summary(loan, today, accruing=(fs or {}).get("fine", 0))
+    if not summ:
+        abort(404)
+    rule = "Late payments: " + fine_terms.describe(loan, g.group.currency, g.group.currency_decimals)
+    data = documents.loan_statement_pdf(g.group, loan, summ, utcnow(), rule)
+    audit("loan.statement_downloaded", "loan", loan.id, group_id=g.group.id)
+    db.session.commit()
+    resp = Response(data, mimetype="application/pdf")
+    resp.headers["Content-Disposition"] = f'attachment; filename="loan-statement-{loan.reference}.pdf"'
+    resp.headers["Cache-Control"] = "private, no-store"
+    return resp
+
+
 @bp.route("/<int:loan_id>/action", methods=["POST"])
 @tenant_route(official=True)
 def action(loan_id, group_id=None):
