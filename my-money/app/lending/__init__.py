@@ -5,7 +5,8 @@ from app.extensions import db
 from app.models import (Borrower, Collateral, COLLATERAL_STATUS, Guarantor, Loan, LoanApproval, LoanProduct,
                         StoredFile, utcnow)
 from app.models import FOLLOWUP_KINDS, LoanApplication, Group
-from app.services import (agreement, analytics, late_fees, ledger, lender as lender_svc, loans as loan_svc, officers, storage)
+from app.services import (agreement, analytics, late_fees, ledger, lender as lender_svc, loan_summary, loans as loan_svc, officers,
+                          storage)
 from app.services.audit import audit
 from app.services.forms import form_amount, form_choice, form_date, form_text, new_idem_key
 from app.services.loans import STATUS_LABELS, LoanError
@@ -156,6 +157,7 @@ def detail(loan_id, group_id=None):
     today = local_today(g.group.timezone)
     lender_svc.accrue_penalties(g.group, today, loan)
     p_out, i_out = loan_svc.outstanding(loan)
+    fine_stmt = late_fees.statement(g.group, loan, today)
     my_decision = LoanApproval.query.filter_by(loan_id=loan.id, user_id=current_user.id).first()
     wa_link = None
     phone = "".join(ch for ch in (loan.borrower.phone or "") if ch.isdigit())
@@ -168,7 +170,8 @@ def detail(loan_id, group_id=None):
                + (f" Your next payment of {fmt(nd.balance, g.group.currency, g.group.currency_decimals)} is due on {nd.due_date:%d %b %Y}." if nd else ""))
         wa_link = f"https://wa.me/{phone}?text={quote(msg)}"
     return render_template("lending/detail.html", wa_link=wa_link, loan=loan, today=today, p_out=p_out, i_out=i_out,
-                           fine_stmt=late_fees.statement(g.group, loan, today),
+                           fine_stmt=fine_stmt,
+                           summary=loan_summary.summary(loan, today, accruing=(fine_stmt or {}).get("fine", 0)),
                            fine_terms_info=late_fees.loan_terms(g.group, loan),
                            eff=loan_svc.effective_status(loan, today), next_due=loan_svc.next_due(loan),
                            my_decision=my_decision, periods=PERIODS, methods=METHODS, units=UNITS, freqs=FREQS,
