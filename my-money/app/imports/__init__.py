@@ -8,7 +8,7 @@ from flask_login import current_user
 
 from app.extensions import db, limiter
 from app.models import ImportBatch
-from app.services import importer, storage
+from app.services import importer, storage, workbook as wb_svc
 from app.services.audit import audit
 from app.services.importer import ImportFileError, ScannedPdf, SPECS
 from app.services.money import fmt
@@ -27,12 +27,21 @@ COLS = {
               ("Your ref", "loan_ref", "")],
     "repayments": [("Loan", "loan", ""), ("Amount", "amount", "money"), ("Date", "date", ""),
                    ("Method", "payment_method", ""), ("Reference", "reference", "")],
+    "shares": [("Member", "member", ""), ("Shares", "units", ""), ("Price per share", "unit_price", "money"),
+               ("Amount", "amount", "money"), ("Date", "date", "")],
+    "income": [("Category", "category", ""), ("Amount", "amount", "money"), ("Date", "date", ""),
+               ("Description", "description", "")],
+    "expenses": [("Expense", "title", ""), ("Category", "category", ""), ("Amount", "amount", "money"),
+                 ("Date", "date", "")],
 }
 NEXT = {
     "members": "Imported members can sign in after tapping <b>Forgot password</b> on the login page; you approve each one under <b>Password Resets</b>. Next, import their contributions.",
     "contributions": "Contributions are in the ledger and on member statements. Next, import loans if the group has any.",
     "loans": "Loans are active with their original terms and schedules. Next, import the repayments already received.",
     "repayments": "Repayments were applied to each loan's oldest instalment first, interest before principal.",
+    "shares": "Shares are on each member's account with a receipt, and the money is in the ledger.",
+    "income": "Income is in the ledger and on the Income page.",
+    "expenses": "Expenses are in the ledger and on the Expenses page.",
 }
 
 
@@ -60,8 +69,19 @@ def _archive(raw, filename, mime):
 @bp.route("/")
 @tenant_route(official=True)
 def index(group_id=None):
-    batches = ImportBatch.query.filter_by(group_id=g.group.id).order_by(ImportBatch.id.desc()).limit(30).all()
-    return render_template("imports/index.html", specs=SPECS, batches=batches)
+    singles = ImportBatch.query.filter(ImportBatch.group_id == g.group.id, ImportBatch.bundle.is_(None)).order_by(
+        ImportBatch.id.desc()).limit(30).all()
+    history = [{"bundle": None, "b": b, "at": b.created_at} for b in singles]
+    grouped = {}
+    for b in ImportBatch.query.filter(ImportBatch.group_id == g.group.id, ImportBatch.bundle.isnot(None)).order_by(
+            ImportBatch.id.desc()).limit(300).all():
+        grouped.setdefault(b.bundle, []).append(b)
+    for token, rows in list(grouped.items())[:15]:
+        history.append({"bundle": token, "b": rows[0], "at": rows[0].created_at, "status": wb_svc.status_of(rows),
+                        "sheets": len(rows), "rows": sum(x.total_rows for x in rows),
+                        "done": sum(x.applied_rows for x in rows)})
+    history.sort(key=lambda h: h["at"], reverse=True)
+    return render_template("imports/index.html", specs=SPECS, history=history)
 
 
 @bp.route("/template/<kind>.<fmt>")
@@ -74,6 +94,100 @@ def template(kind, fmt, group_id=None):
     else:
         body, mime = importer.template_xlsx(kind), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     return Response(body, mimetype=mime, headers={"Content-Disposition": f"attachment; filename=my-money-{kind}-template.{fmt}"})
+
+
+@bp.route("/workbook-template.xlsx")
+@tenant_route(official=True)
+def workbook_template(group_id=None):
+    return Response(wb_svc.template_workbook(), mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": "attachment; filename=my-money-full-import-template.xlsx"})
+
+
+@bp.route("/workbook", methods=["POST"])
+@tenant_route(official=True)
+@limiter.limit("20 per hour")
+def workbook_upload(group_id=None):
+    f = request.files.get("file")
+    if not f or not f.filename:
+        flash("Select the workbook to upload.", "error")
+        return redirect(url_for("imports.index"))
+    raw = f.read(importer.MAX_BYTES + 1)
+    try:
+        ext, mime = storage.validate_document(raw, f.filename, f.mimetype, importer.MAX_BYTES)
+        if ext != "xlsx":
+            raise ImportFileError("Upload the Excel workbook (.xlsx). Use the workbook template for the layout.")
+        token, batches, ignored = wb_svc.build_bundle(g.group, current_user, f.filename, raw, _archive(raw, f.filename, mime))
+        db.session.commit()
+    except (storage.UploadError, ImportFileError) as e:
+        db.session.rollback()
+        flash(str(e), "error")
+        return redirect(url_for("imports.index"))
+    if ignored:
+        flash("These sheets were not recognised and were ignored: " + ", ".join(ignored) + ".", "info")
+    return redirect(url_for("imports.bundle", token=token))
+
+
+def _bundle(token):
+    batches = wb_svc.get_bundle(g.group.id, token)
+    if not batches:
+        abort(404)
+    return batches
+
+
+@bp.route("/full/<token>")
+@tenant_route(official=True)
+def bundle(token, group_id=None):
+    batches = _bundle(token)
+    return render_template("imports/bundle.html", batches=batches, specs=SPECS, token=token,
+                           status=wb_svc.status_of(batches), filename=batches[0].filename, created=batches[0].created_at,
+                           creator=batches[0].creator, ready=sum(b.ok_rows for b in batches),
+                           problems=sum(b.error_rows for b in batches),
+                           applied=sum(b.applied_rows for b in batches), total=sum(b.total_rows for b in batches),
+                           source_file_id=batches[0].source_file_id, hint=wb_svc.APPLY_HINT)
+
+
+@bp.route("/full/<token>/apply", methods=["POST"])
+@tenant_route(official=True)
+def bundle_apply(token, group_id=None):
+    _bundle(token)
+    try:
+        done = wb_svc.apply_bundle(g.group, current_user, token)
+        audit("import.bundle_applied", "import_batch", None, {"bundle": token, "applied": done}, group_id=g.group.id)
+        db.session.commit()
+    except ImportFileError as e:
+        db.session.rollback()
+        flash(str(e), "error")
+        return redirect(url_for("imports.bundle", token=token))
+    flash(f"Imported {sum(done.values())} row(s) across {len(done)} sheet(s).", "success")
+    return redirect(url_for("imports.bundle", token=token))
+
+
+@bp.route("/full/<token>/cancel", methods=["POST"])
+@tenant_route(official=True)
+def bundle_cancel(token, group_id=None):
+    _bundle(token)
+    wb_svc.cancel_bundle(g.group, current_user, token)
+    audit("import.bundle_cancelled", "import_batch", None, {"bundle": token}, group_id=g.group.id)
+    db.session.commit()
+    flash("Import cancelled. Nothing was saved.", "success")
+    return redirect(url_for("imports.index"))
+
+
+@bp.route("/full/<token>/undo", methods=["POST"])
+@tenant_route(official=True)
+def bundle_undo(token, group_id=None):
+    _bundle(token)
+    try:
+        kept = wb_svc.undo_bundle(g.group, current_user, token, local_today(g.group.timezone))
+        audit("import.bundle_undone", "import_batch", None, {"bundle": token, "kept_members": kept}, group_id=g.group.id)
+        db.session.commit()
+    except (ImportFileError, ValueError) as e:
+        db.session.rollback()
+        flash(str(e), "error")
+        return redirect(url_for("imports.bundle", token=token))
+    flash("The whole import was undone. Reversal entries were added to the ledger." +
+          (f" Kept (they have records): {', '.join(sorted(set(kept)))}." if kept else ""), "success")
+    return redirect(url_for("imports.bundle", token=token))
 
 
 @bp.route("/upload", methods=["POST"])
