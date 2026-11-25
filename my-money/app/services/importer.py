@@ -11,12 +11,16 @@ import re
 import secrets
 from datetime import date, datetime
 
+from types import SimpleNamespace
+
 from werkzeug.security import generate_password_hash
 
 from app.extensions import db
-from app.models import (Borrower, Contribution, GroupMember, ImportBatch, ImportItem, Loan, LoanRepayment,
-                        Notification, Transaction, User, utcnow)
-from app.services import importctx, interest, ledger, loans as loans_svc, money, savings as savings_svc
+from app.models import (Borrower, Contribution, Expense, GroupMember, ImportBatch, ImportItem, IncomeCategory,
+                        IncomeRecord, Loan, LoanRepayment, Notification, ShareEntry, Transaction, User, utcnow)
+from app.services import (finance as fin, importctx, interest, ledger, loans as loans_svc, money, savings as savings_svc,
+                          shares as share_svc)
+from app.services.groupcfg import get_settings
 from app.services.audit import audit
 
 MAX_ROWS = 2000
@@ -86,7 +90,45 @@ SPECS = {
     },
 }
 
+SPECS["shares"] = {
+    "label": "Shares",
+    "help": "Each member's shares. Give the number of shares, or just the amount paid and the shares are worked out at the share price. Whole shares only.",
+    "columns": [("phone", True, "Member's phone (or use full_name)", "0772123456"),
+                ("full_name", False, "Only used when phone is empty", "Grace Nambi"),
+                ("shares", False, "Number of shares (or give the amount instead)", "5"),
+                ("amount", False, "Amount paid; shares = amount / share price", "50000"),
+                ("date", True, "Date bought, e.g. 05/06/2024", "05/06/2024"),
+                ("unit_price", False, "Price per share, only if different from the group price", ""),
+                ("payment_method", False, "Cash, Mobile Money, Bank Transfer, Cheque, Other", "Cash"),
+                ("notes", False, "Optional", "")],
+}
+SPECS["income"] = {
+    "label": "Other income",
+    "help": "Registration fees, donations and other money the group earned. Loan interest is not income here; it comes from the loans.",
+    "columns": [("category", True, "e.g. Registration fees, Donations, Events", "Registration fees"),
+                ("amount", True, "Amount received", "20000"),
+                ("date", True, "Date received", "10/01/2025"),
+                ("description", False, "Optional", "New members"),
+                ("payment_method", False, "Cash, Mobile Money, ...", "Cash")],
+}
+SPECS["expenses"] = {
+    "label": "Expenses",
+    "help": "Money the group spent. Import contributions, income and repayments first so the group has the cash.",
+    "columns": [("title", True, "What it was for", "Annual meeting"),
+                ("category", False, "e.g. Transport, Rent, Stationery (default Other)", "Other"),
+                ("amount", True, "Amount spent", "150000"),
+                ("date", True, "Date spent", "20/02/2025"),
+                ("payment_method", False, "Cash, Mobile Money, ...", "Cash"),
+                ("notes", False, "Optional", "")],
+}
+ORDER = ["members", "contributions", "shares", "loans", "repayments", "income", "expenses"]
+SPECS = {k: SPECS[k] for k in ORDER}
+
 ALIASES = {
+    "units": "shares", "number_of_shares": "shares", "no_of_shares": "shares", "shares_bought": "shares",
+    "share_count": "shares", "price_per_share": "unit_price", "share_price": "unit_price",
+    "item": "title", "expense": "title", "expense_title": "title", "expense_category": "category",
+    "income_category": "category", "source": "category", "details": "description",
     "name": "full_name", "member": "full_name", "member_name": "full_name", "fullname": "full_name",
     "mobile": "phone", "phone_number": "phone", "tel": "phone", "telephone": "phone", "contact": "phone",
     "mobile_number": "phone", "e_mail": "email", "joined": "joined_date", "date_joined": "joined_date",
@@ -256,20 +298,22 @@ def phone_key(p):
 
 
 # ------------------------------------------------------------------ validating
-def validate(group, kind, headers, body):
+def validate(group, kind, headers, body, virtual=None, lenient=False):
     """Return a list of row dicts: {n, d (normalised data), errors, warnings}."""
     spec = SPECS[kind]
     required_cols = [c for c, req, *_ in spec["columns"] if req]
-    if kind == "contributions" and "phone" not in headers and "full_name" in headers:
+    if kind in ("contributions", "shares") and "phone" not in headers and "full_name" in headers:
         required_cols = [c for c in required_cols if c != "phone"]
     if kind == "repayments" and "loan_ref" not in headers and "borrower_name" in headers:
         pass
     missing = [c for c in required_cols if c not in headers]
     if kind == "repayments" and "loan_ref" not in headers and "borrower_name" not in headers:
         missing.append("loan_ref (or borrower_name)")
+    if kind == "shares" and "shares" not in headers and "amount" not in headers:
+        missing.append("shares (or amount)")
     if missing:
         raise ImportFileError("Missing column(s): " + ", ".join(missing) + ". Download the template to see the layout.")
-    ctx = _context(group, kind)
+    ctx = _context(group, kind, virtual, lenient)
     out, seen = [], set()
     for n, cells in body:
         row = {h: (cells[i] if i < len(cells) else "") for i, h in enumerate(headers) if h}
@@ -284,8 +328,13 @@ def validate(group, kind, headers, body):
     return out
 
 
-def _context(group, kind):
-    ctx = {"dec": group.currency_decimals, "today": date.today()}
+def _context(group, kind, virtual=None, lenient=False):
+    """`virtual` holds what the SAME workbook creates earlier on (members, loans), so later sheets can refer to
+    people and loans that do not exist yet. `lenient` lets a member who is already in the group be kept as is."""
+    ctx = {"dec": group.currency_decimals, "today": date.today(), "lenient": lenient,
+           "virtual": virtual or {"members": {}, "loans": []}}
+    if kind == "shares":
+        ctx["share_price"] = get_settings(group.id).share_price
     members = GroupMember.query.filter_by(group_id=group.id).all()
     ctx["members"] = {phone_key(m.user.phone): m for m in members if m.status == "ACTIVE"}
     ctx["members_all"] = {phone_key(m.user.phone): m for m in members}
@@ -302,22 +351,48 @@ def _context(group, kind):
     if kind == "repayments":
         ctx["remaining"] = {l.id: sum(loans_svc.outstanding(l)) for l in ctx["loans"]
                             if l.status in loans_svc.ACTIVE_STATES}
+        for v in ctx["virtual"]["loans"]:
+            ctx["remaining"][v["key"]] = v["total"]
     return ctx
+
+
+class _VM:
+    """A member that is listed in the same workbook but has not been created yet."""
+    id = None
+
+    def __init__(self, key, name):
+        self.key, self.user = key, SimpleNamespace(full_name=name)
+
+
+class _VL:
+    """A loan that is listed in the same workbook but has not been created yet."""
+    id = None
+    status = "ACTIVE"
+
+    def __init__(self, v):
+        self.v, self.vkey = v, v["key"]
+        self.reference = v["ref"] or f"{v['borrower']} (loans sheet row {v['n']})"
+        self.disbursement_date = date.fromisoformat(v["disb"])
 
 
 def _find_member(row, ctx):
     ph = phone_key(row.get("phone"))
+    vmembers = ctx["virtual"]["members"]
     if ph:
         m = ctx["members"].get(ph)
         if m:
             return m
+        if ph in vmembers:
+            return _VM(ph, vmembers[ph])
         raise RowError(f"No active member with phone {row.get('phone')}. Import members first.")
     nm = (row.get("full_name") or "").strip().lower()
     if not nm:
         raise RowError("phone (or full_name) is required")
     found = ctx["names"].get(nm, [])
-    if len(found) == 1:
-        return found[0]
+    vfound = [(k, n) for k, n in vmembers.items() if n.strip().lower() == nm]
+    if len(found) + len(vfound) == 1:
+        return found[0] if found else _VM(*vfound[0])
+    found = found + vfound
     raise RowError(f"Member '{row.get('full_name')}' " + ("matches several members; use the phone number"
                                                            if found else "was not found"))
 
@@ -341,6 +416,9 @@ def _v_members(group, row, ctx, seen, warns):
     seen.add(key)
     existing = ctx["members_all"].get(key)
     if existing and existing.status == "ACTIVE":
+        if ctx.get("lenient"):       # a full workbook may list people who are already in the group: keep them as they are
+            warns.append("Already a member: kept as is")
+            return {"full_name": name, "phone": phone, "email": email, "role": role, "joined_date": None, "skip": True}
         raise RowError("Already a member of this group")
     if existing and existing.status == "SUSPENDED":
         raise RowError("This member is suspended in this group")
@@ -365,15 +443,100 @@ def _v_contributions(group, row, ctx, seen, warns):
     notes = (row.get("notes") or "").strip()
     if cat == "OPENING":
         cat, notes = "CUSTOM", ("Opening balance (imported). " + notes).strip()
-    key = (m.id, d, amount, cat)
+    key = (m.id or f"v{m.key}", d, amount, cat)
     if key in seen:
         raise RowError("Duplicate of another row in this file (same member, date and amount)")
     seen.add(key)
-    if Contribution.query.filter_by(group_id=group.id, member_id=m.id, contribution_date=d, amount=amount).first():
+    if m.id and Contribution.query.filter_by(group_id=group.id, member_id=m.id, contribution_date=d, amount=amount).first():
         raise RowError("Already recorded (same member, date and amount)")
-    return {"member_id": m.id, "member": m.user.full_name, "amount": amount, "date": d.isoformat(), "category": cat,
+    return {"member_id": m.id, "member_key": getattr(m, "key", None), "member": m.user.full_name, "amount": amount, "date": d.isoformat(), "category": cat,
             "payment_method": p_method(row.get("payment_method")), "reference": (row.get("reference") or "").strip()[:80] or None,
             "notes": notes[:300]}
+
+
+def _v_shares(group, row, ctx, seen, warns):
+    m = _find_member(row, ctx)
+    d = p_date(row.get("date"))
+    if d > ctx["today"]:
+        raise RowError("date is in the future")
+    price_raw = (row.get("unit_price") or "").strip()
+    price = p_amount(price_raw, ctx["dec"], "unit_price") if price_raw else ctx["share_price"]
+    if price <= 0:
+        raise RowError("Set a share price in Share settings first")
+    units_raw = re.sub(r"[^\d.]", "", row.get("shares") or "")
+    amount_raw = (row.get("amount") or "").strip()
+    if units_raw:
+        try:
+            if float(units_raw) != int(float(units_raw)):
+                raise ValueError
+            units = int(float(units_raw))
+        except ValueError:
+            raise RowError("shares must be a whole number")
+        if units < 1:
+            raise RowError("shares must be at least 1")
+        if amount_raw and p_amount(amount_raw, ctx["dec"]) != units * price:
+            warns.append("amount does not match shares x price: the shares were used")
+    elif amount_raw:
+        paid = p_amount(amount_raw, ctx["dec"])
+        units, left = paid // price, paid % price
+        if units < 1:
+            raise RowError(f"amount is less than the price of one share ({money.fmt(price, group.currency, group.currency_decimals)})")
+        if left:
+            warns.append(f"{money.fmt(left, group.currency, group.currency_decimals)} is less than one share and is not recorded")
+    else:
+        raise RowError("Enter the number of shares or the amount paid")
+    amount = units * price
+    key = (m.id or f"v{m.key}", d, units, "share")
+    if key in seen:
+        raise RowError("Duplicate of another row in this file (same member, date and shares)")
+    seen.add(key)
+    if m.id and ShareEntry.query.filter_by(group_id=group.id, member_id=m.id, kind="PURCHASE", entry_date=d, units=units,
+                                           reversed_at=None).first():
+        raise RowError("Already recorded (same member, date and shares)")
+    warns.append(f"{units} share(s) = {money.fmt(amount, group.currency, group.currency_decimals)}")
+    return {"member_id": m.id, "member_key": getattr(m, "key", None), "member": m.user.full_name, "units": units,
+            "unit_price": price, "amount": amount, "date": d.isoformat(),
+            "payment_method": p_method(row.get("payment_method")), "notes": (row.get("notes") or "").strip()[:300]}
+
+
+def _v_income(group, row, ctx, seen, warns):
+    cat = (row.get("category") or "").strip()[:60]
+    if len(cat) < 2:
+        raise RowError("category is required")
+    amount = p_amount(row.get("amount"), ctx["dec"])
+    d = p_date(row.get("date"))
+    if d > ctx["today"]:
+        raise RowError("date is in the future")
+    desc = (row.get("description") or "").strip()[:300]
+    key = (cat.lower(), d, amount, desc.lower())
+    if key in seen:
+        raise RowError("Duplicate of another row in this file (same category, date and amount)")
+    seen.add(key)
+    if (IncomeRecord.query.join(IncomeCategory, IncomeCategory.id == IncomeRecord.category_id)
+            .filter(IncomeRecord.group_id == group.id, IncomeRecord.income_date == d, IncomeRecord.amount == amount,
+                    db.func.lower(IncomeCategory.name) == cat.lower()).first()):
+        raise RowError("Already recorded (same category, date and amount)")
+    return {"category": cat, "amount": amount, "date": d.isoformat(), "description": desc,
+            "payment_method": p_method(row.get("payment_method"))}
+
+
+def _v_expenses(group, row, ctx, seen, warns):
+    title = (row.get("title") or "").strip()[:120]
+    if len(title) < 2:
+        raise RowError("title is required")
+    amount = p_amount(row.get("amount"), ctx["dec"])
+    d = p_date(row.get("date"))
+    if d > ctx["today"]:
+        raise RowError("date is in the future")
+    cat = (row.get("category") or "").strip()[:60] or "Other"
+    key = (title.lower(), d, amount)
+    if key in seen:
+        raise RowError("Duplicate of another row in this file (same expense, date and amount)")
+    seen.add(key)
+    if Expense.query.filter_by(group_id=group.id, expense_date=d, amount=amount, description=title).first():
+        raise RowError("Already recorded (same expense, date and amount)")
+    return {"title": title, "category": cat, "amount": amount, "date": d.isoformat(),
+            "payment_method": p_method(row.get("payment_method")), "notes": (row.get("notes") or "").strip()[:300]}
 
 
 def _first_due(disb, unit, freq):
@@ -423,7 +586,7 @@ def _v_loans(group, row, ctx, seen, warns):
     return {"borrower_name": name, "borrower_phone": (row.get("borrower_phone") or "").strip() or None,
             "principal": principal, "rate_bp": rate_bp, "rate_period": period, "method": method,
             "duration": duration, "duration_unit": unit, "frequency": freq, "disbursement_date": disb.isoformat(),
-            "first_repayment_date": first.isoformat(), "loan_ref": ref,
+            "first_repayment_date": first.isoformat(), "loan_ref": ref, "total_due": principal + res.total_interest,
             "purpose": (row.get("purpose") or "").strip()[:300]}
 
 
@@ -433,14 +596,19 @@ def _find_loan(row, ctx):
         for l in ctx["loans"]:
             if l.reference.lower() == ref.lower() or f"[ref:{ref}]" in (l.notes or ""):
                 return l
+        for v in ctx["virtual"]["loans"]:
+            if v["ref"] and v["ref"].lower() == ref.lower():
+                return _VL(v)
         raise RowError(f"Loan '{ref}' was not found. Import the loans first.")
     name = (row.get("borrower_name") or "").strip().lower()
     if not name:
         raise RowError("loan_ref (or borrower_name) is required")
     ids = {b.id for b in ctx["borrowers"] if b.name.strip().lower() == name}
     found = [l for l in ctx["loans"] if l.borrower_id in ids and l.status in loans_svc.ACTIVE_STATES]
-    if len(found) == 1:
-        return found[0]
+    vfound = [v for v in ctx["virtual"]["loans"] if v["borrower"].strip().lower() == name]
+    if len(found) + len(vfound) == 1:
+        return found[0] if found else _VL(vfound[0])
+    found = found + vfound
     raise RowError(f"Borrower '{row.get('borrower_name')}' has " + ("several active loans; add loan_ref"
                                                                  if found else "no active loan"))
 
@@ -456,26 +624,27 @@ def _v_repayments(group, row, ctx, seen, warns):
     if loan.disbursement_date and d < loan.disbursement_date:
         raise RowError(f"date is before the loan was disbursed ({loan.disbursement_date.isoformat()})")
     ref = (row.get("reference") or "").strip()[:80] or None
-    key = (loan.id, d, amount, ref)
+    lkey = loan.id or loan.vkey
+    key = (lkey, d, amount, ref)
     if key in seen:
         raise RowError("Duplicate of another row in this file")
     seen.add(key)
     if ref and LoanRepayment.query.filter_by(group_id=group.id, payment_reference=ref).first():
         raise RowError("A repayment with this reference number already exists")
-    if LoanRepayment.query.filter_by(group_id=group.id, loan_id=loan.id, payment_date=d, amount=amount,
-                                     status="POSTED").first():
+    if loan.id and LoanRepayment.query.filter_by(group_id=group.id, loan_id=loan.id, payment_date=d, amount=amount,
+                                                 status="POSTED").first():
         raise RowError("Already recorded (same loan, date and amount)")
-    left = ctx["remaining"].get(loan.id, 0)
+    left = ctx["remaining"].get(lkey, 0)
     if amount > left:
         raise RowError("More than the outstanding balance of this loan")
-    ctx["remaining"][loan.id] = left - amount
-    return {"loan_id": loan.id, "loan": loan.reference, "amount": amount, "date": d.isoformat(),
+    ctx["remaining"][lkey] = left - amount
+    return {"loan_id": loan.id, "virtual_loan": getattr(loan, "v", None), "loan": loan.reference, "amount": amount, "date": d.isoformat(),
             "payment_method": p_method(row.get("payment_method")), "reference": ref,
             "notes": (row.get("notes") or "").strip()[:300]}
 
 
 _VALIDATORS = {"members": _v_members, "contributions": _v_contributions, "loans": _v_loans,
-               "repayments": _v_repayments}
+               "repayments": _v_repayments, "shares": _v_shares, "income": _v_income, "expenses": _v_expenses}
 
 
 # -------------------------------------------------------------------- batches
@@ -527,8 +696,38 @@ def _item(batch, etype, eid, detail=None):
     db.session.add(ImportItem(batch_id=batch.id, entity_type=etype, entity_id=eid, detail=detail))
 
 
+def _resolve_member(group, d):
+    """The member a row is for: by id, or (for a member created earlier in the same workbook) by phone number."""
+    if d.get("member_id"):
+        return db.session.get(GroupMember, d["member_id"])
+    for m in GroupMember.query.filter_by(group_id=group.id, status="ACTIVE").all():
+        if phone_key(m.user.phone) == d.get("member_key"):
+            return m
+    raise ImportFileError("The member for this row was not created, so it was skipped")
+
+
+def _resolve_loan(group, d):
+    """The loan a repayment is for: by id, or (for a loan created earlier in the same workbook) by its reference."""
+    if d.get("loan_id"):
+        return db.session.get(Loan, d["loan_id"])
+    v = d.get("virtual_loan") or {}
+    q = Loan.query.filter(Loan.group_id == group.id, Loan.disbursement_tx_id.isnot(None))
+    if v.get("ref"):
+        for l in q:
+            if f"[ref:{v['ref']}]" in (l.notes or ""):
+                return l
+    else:
+        for l in q.filter(Loan.status.in_(loans_svc.ACTIVE_STATES)):
+            if l.borrower.name.strip().lower() == v.get("borrower", "").strip().lower() and \
+                    l.disbursement_date.isoformat() == v.get("disb"):
+                return l
+    raise ImportFileError("The loan for this row was not created, so it was skipped")
+
+
 def _a_member(group, user, batch, r):
     d = r["d"]
+    if d.get("skip"):          # already in the group: nothing to create
+        return
     key = phone_key(d["phone"])
     u = next((x for x in User.query.filter(User.phone.like(f"%{key}")).all() if phone_key(x.phone) == key), None)
     new_user = u is None
@@ -565,7 +764,7 @@ class importctx_off:
 
 def _a_contribution(group, user, batch, r):
     d = r["d"]
-    m = db.session.get(GroupMember, d["member_id"])
+    m = _resolve_member(group, d)
     c = savings_svc.record_contribution(group, user, m, d["amount"], d["category"], date.fromisoformat(d["date"]),
                                         d["payment_method"], d["reference"], d["notes"],
                                         idempotency_key=f"imp-{batch.id}-{r['n']}")
@@ -601,14 +800,38 @@ def _a_loan(group, user, batch, r):
 
 def _a_repayment(group, user, batch, r):
     d = r["d"]
-    loan = db.session.get(Loan, d["loan_id"])
+    loan = _resolve_loan(group, d)
     rep = loans_svc.record_repayment(group, loan, user, d["amount"], date.fromisoformat(d["date"]),
                                      d["payment_method"], d["reference"], d["notes"],
                                      idempotency_key=f"imp-{batch.id}-{r['n']}")
     _item(batch, "repayment", rep.id)
 
 
-_APPLIERS = {"members": _a_member, "contributions": _a_contribution, "loans": _a_loan, "repayments": _a_repayment}
+def _a_share(group, user, batch, r):
+    d = r["d"]
+    m = _resolve_member(group, d)
+    e = share_svc.record_purchase(group, user, m, d["units"], date.fromisoformat(d["date"]), d["unit_price"],
+                                  d["notes"], d["payment_method"])
+    _item(batch, "share", e.id)
+
+
+def _a_income(group, user, batch, r):
+    d = r["d"]
+    cat = fin.add_category(IncomeCategory, group.id, d["category"])
+    rec = fin.record_income(group, user, cat.id, d["amount"], date.fromisoformat(d["date"]), d["description"],
+                            d["payment_method"])
+    _item(batch, "income", rec.id)
+
+
+def _a_expense(group, user, batch, r):
+    d = r["d"]
+    exp = fin.record_expense(group, user, d["title"], d["category"], date.fromisoformat(d["date"]),
+                             [(d["title"], d["amount"])], d["payment_method"])
+    _item(batch, "expense", exp.id)
+
+
+_APPLIERS = {"members": _a_member, "contributions": _a_contribution, "loans": _a_loan, "repayments": _a_repayment,
+             "shares": _a_share, "income": _a_income, "expenses": _a_expense}
 
 
 # ----------------------------------------------------------------------- undo
@@ -629,6 +852,18 @@ def undo_batch(group, user, batch, today):
                 c = db.session.get(Contribution, it.entity_id)
                 if c and not ledger.is_reversed(c.tx_id):
                     savings_svc.reverse_contribution(group, c, user, reason, today)
+            elif it.entity_type == "share":
+                e = db.session.get(ShareEntry, it.entity_id)
+                if e and not e.reversed_at:
+                    share_svc.reverse_purchase(group, e, user, reason, today)
+            elif it.entity_type == "income":
+                rec = db.session.get(IncomeRecord, it.entity_id)
+                if rec and not ledger.is_reversed(rec.tx_id):
+                    fin.reverse_income(group, rec, user, reason, today)
+            elif it.entity_type == "expense":
+                exp = db.session.get(Expense, it.entity_id)
+                if exp and not ledger.is_reversed(exp.tx_id):
+                    fin.reverse_expense(group, exp, user, reason, today)
             elif it.entity_type == "loan":
                 loan = db.session.get(Loan, it.entity_id)
                 if loan is None:
