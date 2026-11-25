@@ -480,6 +480,13 @@ def register_cli(app):
         else:
             click.echo("Schema is in sync.")
 
+    @app.cli.command("vapid-keys")
+    def vapid_keys_cmd():
+        """Print a fresh key pair for pop-up notifications (set VAPID_PRIVATE_KEY to the private value)."""
+        from app.services import webpush
+        private, public = webpush.generate_keys()
+        click.echo(f"VAPID_PRIVATE_KEY={private}\nPublic key (shown to browsers automatically): {public}")
+
     @app.cli.command("seed")
     def seed_cmd():
         """Create roles, interest settings and platform defaults (idempotent)."""
