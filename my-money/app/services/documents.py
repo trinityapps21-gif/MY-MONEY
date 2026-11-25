@@ -337,6 +337,136 @@ def loan_schedule_pdf(group, loan, generated_at, fine_rule_text=None, fines=None
     return buf.getvalue()
 
 
+def loan_statement_pdf(group, loan, summ, generated_at, fine_rule_text=None, officer=None) -> bytes:
+    """Complete loan statement for the payer: the whole journey from disbursement to the last payment (or today), with
+    principal, interest, late fines and the total with fines. Always buildable for a disbursed loan, repaid or not."""
+    st = _styles()
+    page = A4
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=page, leftMargin=14 * mm, rightMargin=14 * mm, topMargin=12 * mm,
+                            bottomMargin=20 * mm, title=f"Loan statement {loan.reference}", author=BRAND)
+    width = page[0] - 28 * mm
+    cur, dec = group.currency, group.currency_decimals
+    m = lambda v: fmt(v, cur, dec)  # noqa: E731
+    d = lambda v: f"{v:%d %b %Y}" if v else "-"  # noqa: E731
+    local = to_local(generated_at, group.timezone)
+    b = loan.borrower
+    cell, cellr = st["cell"], st["cellr"]
+    hd = ParagraphStyle("hd", parent=cell, textColor=colors.white)
+    hdr = ParagraphStyle("hdr", parent=hd, alignment=2)
+
+    def grid(head, rows, widths, right_from=1, total=None):
+        data = [[Paragraph(f"<b>{h}</b>", hd if i < right_from else hdr) for i, h in enumerate(head)]]
+        for r in rows:
+            data.append([Paragraph(str(c), cell if i < right_from else cellr) for i, c in enumerate(r)])
+        if total:
+            data.append([Paragraph(f"<b>{c}</b>", cell if i < right_from else cellr) for i, c in enumerate(total)])
+        t = Table(data, repeatRows=1, colWidths=[width * w for w in widths])
+        style = [("BACKGROUND", (0, 0), (-1, 0), NAVY), ("GRID", (0, 0), (-1, -1), 0.3, BORDER),
+                 ("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("TOPPADDING", (0, 0), (-1, -1), 3),
+                 ("BOTTOMPADDING", (0, 0), (-1, -1), 3)]
+        if len(data) > 2:
+            style.append(("ROWBACKGROUNDS", (0, 1), (-1, -2 if total else -1), [colors.white, GREY]))
+        if total:
+            style.append(("BACKGROUND", (0, -1), (-1, -1), GREY))
+        t.setStyle(TableStyle(style))
+        return t
+
+    finished = summ["finished"]
+    story = [_header(group, width, st, f"Currency: {cur}"), Spacer(1, 4 * mm),
+             Paragraph("Loan Statement" + (" - Fully Repaid" if finished else ""), st["title"]),
+             Paragraph(f"Loan {loan.reference}  |  Statement date {local:%d %b %Y %H:%M}", st["small"]), Spacer(1, 4 * mm)]
+    rate = f"{loan.rate_bp / 100:g}% per {loan.rate_period.lower()}"
+    info = [["Borrower", b.name, "Loan reference", loan.reference],
+            ["Phone", b.phone or "-", "Disbursed", d(loan.disbursement_date)],
+            ["Interest", f"{rate} ({'Flat' if loan.method == 'FLAT' else 'Reducing balance'})",
+             "Instalments", f"{summ['instalments']} ({loan.frequency.lower()})"],
+            ["Purpose", loan.purpose or "-", "Status", "Fully repaid" if finished else "Open"]]
+    if finished and summ.get("last_payment"):
+        info.append(["Completed", d(summ["last_payment"]), "Time taken", f"{summ['days_taken']} days"])
+    t = Table([[Paragraph(f"<b>{r[0]}</b>", cell), Paragraph(str(r[1]), cell), Paragraph(f"<b>{r[2]}</b>", cell),
+                Paragraph(str(r[3]), cell)] for r in info], colWidths=[width * x for x in (0.14, 0.36, 0.16, 0.34)])
+    t.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, -1), GREY), ("GRID", (0, 0), (-1, -1), 0.4, BORDER),
+                           ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 3)]))
+    story += [t, Spacer(1, 5 * mm), Paragraph("<b>Summary of the loan</b>", st["note"]), Spacer(1, 1.5 * mm)]
+    rows = [["Principal (amount lent)", m(summ["principal"])], ["Interest", m(summ["interest"])]]
+    if summ["interest_rebate"]:
+        rows.append(["Interest saved by early settlement", m(summ["interest_rebate"])])
+    rows += [["Late fine interest charged", m(summ["fines_charged"])]]
+    if summ["fines_waived"]:
+        rows.append(["Less: fine interest waived", "- " + m(summ["fines_waived"])])
+    if summ["accruing"]:
+        rows.append(["Fine interest building up today", m(summ["accruing"])])
+    rows += [["Total amount with fine interest", m(summ["total_with_fines"])],
+             ["Principal repaid", m(summ["principal_repaid"])], ["Interest repaid", m(summ["interest_repaid"])],
+             ["Fine interest paid", m(summ["fines_paid"])],
+             ["Balance still to pay" if summ["balance"] > 0 else "Balance", m(max(summ["balance"], 0))]]
+    sm = Table([[Paragraph(a, cell), Paragraph(b_, cellr)] for a, b_ in rows], colWidths=[width * 0.62, width * 0.38])
+    sm.setStyle(TableStyle([("GRID", (0, 0), (-1, -1), 0.3, BORDER), ("BACKGROUND", (0, 0), (-1, -1), GREY),
+                            ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#E8F0FB")),
+                            ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"), ("TOPPADDING", (0, 0), (-1, -1), 3),
+                            ("BOTTOMPADDING", (0, 0), (-1, -1), 3)]))
+    story += [sm, Spacer(1, 6 * mm)]
+
+    # ---- the journey, in date order
+    sched = sorted(loan.schedule, key=lambda s: s.number)
+    total_repayable = summ["principal"] + summ["interest"]
+    ev = [(loan.disbursement_date, 0, "Loan disbursed", "", "", "", "", m(total_repayable))]
+    paid_p = paid_i = 0
+    for r in sorted((x for x in loan.repayments if x.status != "REVERSED"), key=lambda x: (x.payment_date, x.id)):
+        paid_p += r.principal_part
+        paid_i += r.interest_part
+        ev.append((r.payment_date, 2, f"Payment {r.receipt_no}" + (f" ({r.payment_method})" if r.payment_method else ""),
+                   m(r.amount), m(r.principal_part), m(r.interest_part), "", m(max(total_repayable - paid_p - paid_i, 0))))
+    for f in summ["fines"]:
+        ev.append((f["charged_on"], 1, "Late fine charged" + (f" - {f['days_late']} days late on instalment due {d(f['due_date'])}"
+                                                           if f["days_late"] and f["due_date"] else ""), "", "", "", m(f["amount"]), ""))
+        if f["status"] in ("Paid", "Waived", "Part paid") and (f["settled_on"] or f["charged_on"]):
+            ev.append((f["settled_on"] or f["charged_on"], 3, "Late fine " + f["status"].lower(), "", "", "",
+                       ("- " if f["status"] == "Waived" else "") + m(f["waived"] or f["paid"]), ""))
+    ev.sort(key=lambda e: (e[0], e[1]))
+    if finished and summ.get("last_payment"):
+        ev.append((summ["last_payment"], 9, "Loan fully repaid", "", "", "", "", m(0)))
+    story += [Paragraph("<b>The journey of this loan</b>", st["note"]), Spacer(1, 1.5 * mm),
+              grid(["Date", "What happened", "Paid", "Principal", "Interest", "Fine", "Loan balance"],
+                   [(d(e[0]),) + e[2:] for e in ev], (0.11, 0.26, 0.13, 0.12, 0.11, 0.11, 0.16), right_from=2),
+              Spacer(1, 6 * mm)]
+
+    # ---- each instalment
+    story += [KeepTogether([Paragraph("<b>Every instalment</b>", st["note"]), Spacer(1, 1.5 * mm),
+              grid(["#", "Due", "Principal", "Interest", "Due", "Paid", "Paid on", "Days late", "Fine"],
+                   [(r["number"], d(r["due_date"]), m(r["principal"]), m(r["interest"]), m(r["due"]), m(r["paid"]),
+                     d(r["paid_on"]), r["days_late"] or "-", m(r["fine"]) if r["fine"] else "-")
+                    for r in summ["lines"]], (0.05, 0.12, 0.12, 0.11, 0.12, 0.12, 0.12, 0.09, 0.15), right_from=2,
+                   total=("", "Total", m(sum(r["principal"] for r in summ["lines"])),
+                          m(sum(r["interest"] for r in summ["lines"])), m(sum(r["due"] for r in summ["lines"])),
+                          m(sum(r["paid"] for r in summ["lines"])), "", "", m(summ["fines_charged"] - summ["fines_waived"]))),
+              ])]
+    story.append(Spacer(1, 5 * mm))
+    if summ["fines"]:
+        story += [KeepTogether([Paragraph("<b>Late fine interest over the period of payments</b>", st["note"]), Spacer(1, 1.5 * mm),
+                  grid(["Charged", "Instalment due", "Days late", "Fine", "Paid", "Waived", "Status"],
+                       [(d(f["charged_on"]), d(f["due_date"]), f["days_late"] if f["days_late"] is not None else "-",
+                         m(f["amount"]), m(f["paid"]), m(f["waived"]), f["status"]) for f in summ["fines"]],
+                       (0.14, 0.17, 0.10, 0.15, 0.15, 0.15, 0.14), right_from=2)]), Spacer(1, 4 * mm)]
+    if finished and summ["balance"] <= 0:
+        end = (f"<b>This loan is fully repaid.</b> Nothing further is owed on {loan.reference}. The total cost of the loan was "
+               f"{m(summ['total_with_fines'])}: principal {m(summ['principal'])}, interest {m(summ['interest'])}"
+               + (f" and late fine interest {m(summ['fines_charged'] - summ['fines_waived'])}." if summ["fines_charged"] - summ["fines_waived"] else "."))
+    else:
+        end = (f"<b>Balance still to pay: {m(max(summ['balance'], 0))}</b> (total with fine interest {m(summ['total_with_fines'])} "
+               f"less {m(summ['repaid'] + summ['fines_paid'])} already paid).")
+    story.append(Paragraph(end, st["note"]))
+    if fine_rule_text:
+        story += [Spacer(1, 2 * mm), Paragraph(fine_rule_text, st["note"])]
+    story += [Spacer(1, 2 * mm), Paragraph(
+        f"This statement was generated from {group.name}'s records and lists every payment received. Keep it with your receipts. "
+        f"Questions: {group.name}{(' on ' + group.phone) if group.phone else ''}.", st["note"])]
+    foot = _footer_factory(group, "")
+    doc.build(story, onFirstPage=foot, onLaterPages=foot)
+    return buf.getvalue()
+
+
 def late_fee_notice_pdf(group, loan, a, notice_date) -> bytes:
     """Formal 'Overdue Loan & Late Fine Notice' for a borrower. `a` is a late_fees.assess() result."""
     st = _styles()
