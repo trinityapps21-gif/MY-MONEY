@@ -82,10 +82,11 @@ class ImportBatch(db.Model):
     __tablename__ = "import_batches"
     id = db.Column(db.Integer, primary_key=True)
     group_id = db.Column(db.Integer, db.ForeignKey("groups.id"), nullable=False, index=True)
-    kind = db.Column(db.String(20), nullable=False)  # members / contributions / loans / repayments
+    kind = db.Column(db.String(20), nullable=False)  # members / contributions / shares / loans / repayments / income / expenses
     filename = db.Column(db.String(200), nullable=False)
     source_file_id = db.Column(db.Integer, db.ForeignKey("stored_files.id"))
     status = db.Column(db.String(12), nullable=False, default="PREVIEW")  # PREVIEW/APPLIED/UNDONE/CANCELLED
+    bundle = db.Column(db.String(24), index=True)  # shared by every sheet of one full-workbook import
     total_rows = db.Column(db.Integer, nullable=False, default=0)
     ok_rows = db.Column(db.Integer, nullable=False, default=0)
     error_rows = db.Column(db.Integer, nullable=False, default=0)
