@@ -49,7 +49,7 @@
   <script src="{{ url_for('static', filename='js/app.js') }}"></script>
   <script src="{{ url_for('static', filename='js/responsive.js') }}"></script>
   <script src="{{ url_for('static', filename='js/pwa.js') }}"></script>
-  {% if current_user.is_authenticated %}<script src="{{ url_for('static', filename='js/idle.js') }}"></script>{% endif %}
+  {% if current_user.is_authenticated %}<script src="{{ url_for('static', filename='js/idle.js') }}"></script><span hidden data-push-auth></span><script src="{{ url_for('static', filename='js/push.js') }}"></script>{% endif %}
   <script src="{{ url_for('static', filename='js/biometric.js') }}"></script>
   {% if current_user.is_authenticated %}<script src="{{ url_for('static', filename='js/receipts.js') }}"></script>{% endif %}
   {% if onboarding %}<script src="{{ url_for('static', filename='js/onboarding.js') }}"></script>{% endif %}
