@@ -85,6 +85,18 @@ def sync_schema(app=None):
                 except Exception as exc:
                     log.exception("Could not add column %s.%s", table.name, col.name)
                     errors.append(f"{table.name}.{col.name}: {exc}")
+        if engine.dialect.name == "sqlite":
+            # Databases created before the full-workbook import only allow four kinds of import: relax that one
+            # constraint (rebuilds the small import_batches table; does nothing once it is done).
+            try:
+                from app.schema_fixes import drop_import_kind_check
+                with engine.begin() as conn:
+                    if drop_import_kind_check(conn):
+                        added.append("import_batches (kind check removed)")
+                        log.warning("Rebuilt import_batches without the old kind constraint")
+            except Exception as exc:
+                log.exception("Could not relax the import kind constraint")
+                errors.append(f"import_batches kind constraint: {exc}")
         if "loans.fine_grace_days" in added:
             # First run with per-loan late-fine terms: freeze every existing loan on the terms its group charges today,
             # so loans that exist before a group changes its fine rules keep the terms they were running under.
