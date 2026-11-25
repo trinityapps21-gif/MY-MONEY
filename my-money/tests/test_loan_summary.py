@@ -97,3 +97,17 @@ def test_early_settlement_rebate_and_reversed_repayments_and_never_lent():
     assert summary(ln, d1) is None
     ln.disbursement_tx_id, ln.status = 5, "PENDING_APPROVAL"
     assert summary(ln, d1) is None
+
+
+def test_full_statement_pdf_builds_for_repaid_and_running_loans():
+    from datetime import datetime
+    from app.services import documents
+    ln, (d1, d2, d3) = repaid_loan()
+    ln.borrower = NS(name="Mary", phone="0700", location="x")
+    ln.reference, ln.rate_bp, ln.rate_period, ln.method, ln.frequency = "LN-1", 500, "MONTH", "FLAT", "MONTHLY"
+    ln.purpose, ln.total_interest = "Farm", 60_000
+    for i, r in enumerate(ln.repayments):
+        r.amount, r.principal_part, r.interest_part, r.receipt_no, r.payment_method = 220_000, 200_000, 20_000, f"RC-{i}", None
+    grp = NS(name="Trinity", currency="UGX", currency_decimals=0, timezone="UTC", phone="", logo=None)
+    x = summary(ln, D0 + timedelta(days=400))
+    assert documents.loan_statement_pdf(grp, ln, x, datetime(2026, 6, 1), "Late payments: 2%").startswith(b"%PDF")
