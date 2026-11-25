@@ -103,8 +103,7 @@ class ImportBatch(db.Model):
 
     __table_args__ = (
         CheckConstraint("status IN ('PREVIEW','APPLIED','UNDONE','CANCELLED')", name="ck_import_status"),
-        CheckConstraint("kind IN ('members','contributions','loans','repayments')", name="ck_import_kind"),
-    )
+    )   # `kind` is validated by the importer (services/importer.SPECS); a CHECK here blocked every new kind of sheet
 
 
 class ImportItem(db.Model):
