@@ -116,8 +116,12 @@ def send(endpoint: str, p256dh: str, auth: str, message: dict, *, subject: str, 
 
 
 # ------------------------------------------------------------------------- sending for the app
-def payload_for(n) -> dict:
-    return {"title": n.title, "body": n.body or "", "url": f"/notifications/{n.id}/open", "tag": f"n{n.id}", "id": n.id}
+def payload_for(n, unread=None) -> dict:
+    """What the device receives. `badge` is the person's unread count, shown as the red number on the app icon."""
+    d = {"title": n.title, "body": n.body or "", "url": f"/notifications/{n.id}/open", "tag": f"n{n.id}", "id": n.id}
+    if unread is not None:
+        d["badge"] = int(unread)
+    return d
 
 
 def deliver_async(app, targets: list, message: dict) -> None:
