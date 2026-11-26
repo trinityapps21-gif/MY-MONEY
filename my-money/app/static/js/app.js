@@ -126,7 +126,7 @@
       setBell(data.unread);
     } catch (e) { list.innerHTML = '<div class="empty small">Could not load notifications.</div>'; }
   };
-  function setBell(n) { const b = document.getElementById("bell-count"); if (!b) return; b.textContent = n > 99 ? "99+" : n; b.classList.toggle("hide", !n); }
+  function setBell(n) { if (MM.badge) MM.badge(n); const b = document.getElementById("bell-count"); if (!b) return; b.textContent = n > 99 ? "99+" : n; b.classList.toggle("hide", !n); }
   document.addEventListener("click", async function (e) {
     const b = e.target.closest("[data-read-all]"); if (!b) return;
     try { await MM.post(b.dataset.readAll); setBell(0); document.querySelectorAll(".nitem.unread").forEach((x) => x.classList.remove("unread")); } catch (err) { MM.toast(err.message, "error"); }
