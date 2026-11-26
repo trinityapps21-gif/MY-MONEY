@@ -40,9 +40,10 @@ def _queue_push(notifications):
             by_user.setdefault(sb.user_id, []).append((sb.id, sb.endpoint, sb.p256dh, sb.auth))
         queue = db.session.info.setdefault("push_queue", [])
         from app.services import webpush
+        unread = {uid: Notification.query.filter_by(user_id=uid, is_read=False).count() for uid in by_user}
         for n in notifications:
             if n.user_id in by_user:
-                queue.append((by_user[n.user_id], webpush.payload_for(n)))
+                queue.append((by_user[n.user_id], webpush.payload_for(n, unread[n.user_id])))
     except Exception:                                             # noqa: BLE001 - pop-ups are a bonus; never block the real action
         db.session.info.pop("push_queue", None)
 
