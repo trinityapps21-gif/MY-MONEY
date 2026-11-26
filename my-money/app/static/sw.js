@@ -2,7 +2,7 @@
    Privacy first: pages (HTML), group data, uploaded files and every POST always go straight to the network and are NEVER stored.
    Only the app's own CSS/JS/images and the icon/font libraries are cached, so the app opens fast and shows a friendly page offline.
    Bump VERSION whenever this file changes. */
-const VERSION = "mm-v4";
+const VERSION = "mm-v5";
 const STATIC_CACHE = "mm-static-" + VERSION;
 const OFFLINE_URL = "/static/offline.html";
 const PRECACHE = [
@@ -88,14 +88,17 @@ self.addEventListener("fetch", (event) => {
 self.addEventListener("push", (event) => {
   let d = {};
   try { d = event.data ? event.data.json() : {}; } catch (e) { d = { title: "MY MONEY", body: event.data ? event.data.text() : "" }; }
-  event.waitUntil(self.registration.showNotification(d.title || "MY MONEY", {
+  // red number on the app icon (iPhone / iPad home screen app, installed Chrome and Edge, many Android launchers)
+  const badge = (typeof d.badge === "number" && self.navigator && "setAppBadge" in self.navigator)
+    ? (d.badge > 0 ? self.navigator.setAppBadge(d.badge) : self.navigator.clearAppBadge()).catch(() => {}) : null;
+  event.waitUntil(Promise.all([badge, self.registration.showNotification(d.title || "MY MONEY", {
     body: d.body || "",
     icon: "/static/img/icon-192.png",
     badge: "/static/img/favicon.png",
     tag: d.tag || undefined,
     renotify: !!d.tag,
     data: { url: d.url || "/notifications/" }
-  }));
+  })]));
 });
 
 self.addEventListener("notificationclick", (event) => {
