@@ -94,3 +94,10 @@ def test_send_posts_encrypted_signed_request(monkeypatch):
     assert seen["headers"]["Authorization"].startswith("vapid t=")
     assert json.loads(_decrypt(key, auth, seen["data"])) == {"title": "Hi"}
     assert wp.send("https://evil.example.com/x", p256dh, auth_b64, {}, subject="mailto:a@b.co") == 400
+
+
+def test_payload_carries_the_unread_count_for_the_app_icon_badge():
+    from types import SimpleNamespace as NS
+    n = NS(id=7, title="Repayment received", body="UGX 220,000", user_id=1)
+    assert wp.payload_for(n, 20)["badge"] == 20
+    assert "badge" not in wp.payload_for(n)
